@@ -80,7 +80,7 @@ impl RuntimeContext {
             MoveArg(idx) => {
                 let idx = usize::from(idx);
                 let mut arg = LvValue::Unit;
-                let frame = self.frames.last_mut().unwrap();
+                let frame = self.frames.last_mut().expect("No stack frame from which to move argument");
                 let top = if idx < stack::LOCAL_SIZE {
                     &mut frame.locals[idx]
                 } else {
@@ -91,7 +91,7 @@ impl RuntimeContext {
             }
             CopyArg(idx) => {
                 let idx = usize::from(idx);
-                let frame = self.frames.last().unwrap();
+                let frame = self.frames.last().expect("No stack frame from which to copy argument");
                 let arg = if idx < stack::LOCAL_SIZE {
                     frame.locals[idx].clone()
                 } else {
@@ -101,8 +101,8 @@ impl RuntimeContext {
             }
             AddInt => {
                 use LvValue::Integer;
-                let b = self.values.pop().unwrap();
-                let a = self.values.pop().unwrap();
+                let b = self.values.pop().expect("No stack value for AddInt");
+                let a = self.values.pop().expect("No stack value for AddInt");
                 if let (Integer(a), Integer(b)) = (a, b) {
                     let c = a + b;
                     self.values.push(LvValue::from(c));
@@ -112,11 +112,11 @@ impl RuntimeContext {
             }
             Apply => {
                 use LvValue::Function;
-                let func = self.values.pop().unwrap();
+                let func = self.values.pop().expect("No stack value for Apply");
                 if let Function(mut func) = func {
                     if func.arity != 0 {
                         // apply argument to function
-                        func.apply(self.values.pop().unwrap());
+                        func.apply(self.values.pop().expect("No stack value for Apply"));
                         self.values.push(LvValue::from(func));
                     } else {
                         // necessary to evaluate function first. Automatically added here
@@ -130,8 +130,8 @@ impl RuntimeContext {
                 }
             }
             Return => {
-                let frame = self.frames.pop().unwrap();
-                let ret_val = self.values.pop().unwrap();
+                let frame = self.frames.pop().expect("No stack frame to pop");
+                let ret_val = self.values.pop().expect("Missing return value");
                 self.pc = frame.ret;
                 while self.values.len() > frame.fp {
                     self.values.pop();
@@ -140,7 +140,7 @@ impl RuntimeContext {
             }
             Eval => {
                 use LvValue::Function;
-                let top = self.values.pop().expect("Top value not present");
+                let top = self.values.pop().expect("No stack value for Eval");
                 if let Function(func) = top {
                     if func.arity == 0 {
                         // evaluate function, apply when it returns (to the same instruction)
