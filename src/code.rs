@@ -1,4 +1,4 @@
-use crate::runtime::DataReference;
+use crate::runtime::SymbolicReference;
 
 /// An instruction that represents a fundamental operation in Lavender.
 #[allow(dead_code)]
@@ -7,7 +7,7 @@ pub enum Opcode {
     /// Load the unit value.
     Unit,
     /// Load a literal value.
-    Value(DataReference),
+    Value(SymbolicReference),
     /// A move of the given argument (or function local) to the stack.
     MoveArg(u8),
     /// A copy of the given argument (or function local) to the stack.

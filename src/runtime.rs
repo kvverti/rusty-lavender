@@ -11,8 +11,8 @@ mod stack;
 /// Contains the symbol table.
 mod symbol;
 
-pub type DataReference = symbol::reference::DataReference;
-pub type TextReference = symbol::reference::TextReference;
+pub type SymbolicReference = symbol::reference::SymbolicReference;
+pub type TextLabel = symbol::reference::TextLabel;
 
 /// A complete runtime context for Lavender.
 pub struct RuntimeContext {
@@ -23,7 +23,7 @@ pub struct RuntimeContext {
     /// A stack where intermediate values are stored.
     values: Vec<LvValue>,
     /// The program counter.
-    pc: TextReference,
+    pc: usize,
 }
 
 impl RuntimeContext {
@@ -33,7 +33,7 @@ impl RuntimeContext {
             symbols: SymbolTable::new(),
             frames: Vec::new(),
             values: Vec::new(),
-            pc: Default::default(),
+            pc: 0,
         }
     }
 
@@ -67,19 +67,19 @@ impl RuntimeContext {
             self.values.extend_from_slice(rest);
         }
         self.frames.push(frame);
-        self.pc = f.text;
+        self.pc = self.symbols.resolve_label(f.text);
     }
 
     /// Executes the given operation and updates state as appropriate.
     fn step(&mut self) {
         use Opcode::*;
-        let op = self.symbols.get_text(&self.pc);
+        let op = self.symbols.opcode_at(self.pc);
         self.pc += 1;
         match op {
             Unit => self.values.push(LvValue::Unit),
-            Value(d) => self.values.push(self.symbols.get_data(d).clone()),
+            Value(d) => self.values.push(self.symbols.resolve_symbol(d).clone()),
             MoveArg(idx) => {
-                let idx = usize::from(*idx);
+                let idx = usize::from(idx);
                 let mut arg = LvValue::Unit;
                 let frame = self.frames.last_mut().unwrap();
                 let top = if idx < stack::LOCAL_SIZE {
@@ -91,7 +91,7 @@ impl RuntimeContext {
                 self.values.push(arg);
             }
             CopyArg(idx) => {
-                let idx = usize::from(*idx);
+                let idx = usize::from(idx);
                 let frame = self.frames.last().unwrap();
                 let arg = if idx < stack::LOCAL_SIZE {
                     frame.locals[idx].clone()

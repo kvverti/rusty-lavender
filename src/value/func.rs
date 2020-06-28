@@ -1,11 +1,11 @@
-use crate::runtime::TextReference;
+use crate::runtime::TextLabel;
 use crate::value::LvValue;
 
 /// A function with some number of bound and free variables.
 #[derive(Clone, Debug)]
 pub struct LvFunc {
     /// The text that defines this function.
-    pub text: TextReference,
+    pub text: TextLabel,
     /// The arity of this function, i.e. the number of bound variables.
     pub arity: u8,
     /// The applied arguments to this function, i.e. the free variables.
@@ -15,7 +15,7 @@ pub struct LvFunc {
 impl LvFunc {
     /// Constructs a function defined from the given text and that takes the given number
     /// of parameters. The returned function has no applied parameters.
-    pub fn new(text: TextReference, arity: u8) -> Self {
+    pub fn new(text: TextLabel, arity: u8) -> Self {
         Self {
             text,
             arity,
