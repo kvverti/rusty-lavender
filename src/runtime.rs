@@ -105,11 +105,11 @@ impl RuntimeContext {
         let op = self.pc.as_ref(&self.symbols);
         self.pc += 1;
         match op {
-            Unit => (),
+            Unit => self.values.push(LvValue::Unit),
             Value(d) => self.values.push(d.as_ref(&self.symbols).clone()),
             MoveArg(idx) => {
                 let idx = usize::from(*idx);
-                let mut arg = LvValue::from(());
+                let mut arg = LvValue::Unit;
                 let frame = self.frames.last_mut().unwrap();
                 let top = if idx < stack::LOCAL_SIZE {
                     &mut frame.locals[idx]
