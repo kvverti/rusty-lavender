@@ -1,11 +1,9 @@
 use crate::code::Opcode;
 use crate::runtime::stack::StackFrame;
+use crate::runtime::symbol::SymbolTable;
 use crate::value::func::LvFunc;
 use crate::value::LvValue;
-use crate::runtime::symbol::SymbolTable;
 
-/// Contains implementations of the opcodes.
-mod intrinsic;
 /// Contains the stack frame implementation.
 mod stack;
 /// Contains the symbol table.
@@ -105,7 +103,7 @@ impl RuntimeContext {
                 let b = self.values.pop().unwrap();
                 let a = self.values.pop().unwrap();
                 if let (Integer(a), Integer(b)) = (a, b) {
-                    let c = intrinsic::addi(a, b);
+                    let c = a + b;
                     self.values.push(LvValue::from(c));
                 } else {
                     panic!("Expected integers");
@@ -120,7 +118,9 @@ impl RuntimeContext {
                         func.apply(self.values.pop().unwrap());
                         self.values.push(LvValue::from(func));
                     } else {
-                        // evaluate function, apply when it returns (to the same instruction)
+                        // necessary to evaluate function first. Automatically added here
+                        // because Apply always needs the function to be evaluated and it's
+                        // a simple case.
                         self.pc -= 1;
                         self.step_into(func);
                     }
@@ -136,6 +136,23 @@ impl RuntimeContext {
                     self.values.pop();
                 }
                 self.values.push(ret_val);
+            }
+            Eval => {
+                use LvValue::Function;
+                let top = self.values.pop().expect("Top value not present");
+                if let Function(func) = top {
+                    if func.arity == 0 {
+                        // evaluate function, apply when it returns (to the same instruction)
+                        self.pc -= 1;
+                        self.step_into(func);
+                    } else {
+                        // already evaluated
+                        self.values.push(LvValue::from(func));
+                    }
+                } else {
+                    // already evaluated
+                    self.values.push(top);
+                }
             }
             DebugTop => println!("Stack {:#}, Frame {:#}, Pc {:?} \n{:?}",
                                  self.values.len(),

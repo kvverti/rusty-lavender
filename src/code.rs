@@ -16,6 +16,8 @@ pub enum Opcode {
     AddInt,
     /// Function application.
     Apply,
+    /// Fully evaluate the top expression. Used sparingly.
+    Eval,
     /// A return from a function to the caller.
     Return,
     /// A debug instruction to print out the current stack top value.

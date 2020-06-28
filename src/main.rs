@@ -10,27 +10,39 @@ mod value;
 fn main() {
     println!("Hello, world!");
     let mut runtime = RuntimeContext::new();
-    // an infinite loop
-    // def f a = f a
-    // def main = f Unit
+    // addition
+    // def f a b = <intrinsic>
+    // def main = f (f 1 2) 3   (evaluates to 6)
+    let one = runtime.symbols.create_symbol("1");
+    let two = runtime.symbols.create_symbol("2");
+    let three = runtime.symbols.create_symbol("3");
+    runtime.symbols.define_symbol(one, LvValue::from(1));
+    runtime.symbols.define_symbol(two, LvValue::from(2));
+    runtime.symbols.define_symbol(three, LvValue::from(3));
     let f = runtime.symbols.create_symbol("f");
     let f_text = runtime.symbols.create_label("f");
     let main_text = runtime.symbols.create_label("main");
     runtime.symbols.define_label(f_text,&[
         Opcode::MoveArg(0),
-        Opcode::Value(f),
-        Opcode::Apply,
-        Opcode::DebugTop,
+        Opcode::Eval,
+        Opcode::MoveArg(1),
+        Opcode::Eval,
+        Opcode::AddInt,
         Opcode::Return,
     ]);
-    // let f = runtime.symbols.push_data(LvFunc::new(f, 1));
     runtime.symbols.define_label(main_text, &[
-        Opcode::Unit,
+        Opcode::Value(three),
+        Opcode::Value(two),
+        Opcode::Value(one),
         Opcode::Value(f),
+        Opcode::Apply,
+        Opcode::Apply,
+        Opcode::Value(f),
+        Opcode::Apply,
         Opcode::Apply,
         Opcode::Return,
     ]);
-    runtime.symbols.define_symbol(f, LvValue::from(LvFunc::new(f_text, 1)));
+    runtime.symbols.define_symbol(f, LvValue::from(LvFunc::new(f_text, 2)));
     let main = LvFunc::new(main_text, 0);
     // evaluating main returns a thunk, because lazy eval
     let mut r = runtime.exec(main);
