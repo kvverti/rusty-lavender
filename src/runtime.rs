@@ -74,8 +74,9 @@ impl RuntimeContext {
         let op = self.symbols.opcode_at(self.pc);
         self.pc += 1;
         match op {
-            Unit => self.values.push(LvValue::Unit),
+            UnitValue => self.values.push(LvValue::Unit),
             Value(d) => self.values.push(self.symbols.resolve_symbol(d).clone()),
+            IntValue(n) => self.values.push(LvValue::from(i64::from(n))),
             MoveArg(idx) => {
                 let idx = usize::from(idx);
                 let mut arg = LvValue::Unit;

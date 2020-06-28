@@ -5,9 +5,11 @@ use crate::runtime::SymbolicReference;
 #[derive(Copy, Clone)]
 pub enum Opcode {
     /// Load the unit value.
-    Unit,
+    UnitValue,
     /// Load a literal value.
     Value(SymbolicReference),
+    /// Load an integer value in a single-byte range. Useful not to overload the symbol table.
+    IntValue(i8),
     /// A move of the given argument (or function local) to the stack.
     MoveArg(u8),
     /// A copy of the given argument (or function local) to the stack.

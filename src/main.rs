@@ -13,12 +13,6 @@ fn main() {
     // addition
     // def f a b = <intrinsic>
     // def main = f (f 1 2) 3   (evaluates to 6)
-    let one = runtime.symbols.create_symbol("1");
-    let two = runtime.symbols.create_symbol("2");
-    let three = runtime.symbols.create_symbol("3");
-    runtime.symbols.define_symbol(one, LvValue::from(1));
-    runtime.symbols.define_symbol(two, LvValue::from(2));
-    runtime.symbols.define_symbol(three, LvValue::from(3));
     let f = runtime.symbols.create_symbol("f");
     let f_text = runtime.symbols.create_label("f");
     let main_text = runtime.symbols.create_label("main");
@@ -31,9 +25,9 @@ fn main() {
         Opcode::Return,
     ]);
     runtime.symbols.define_label(main_text, &[
-        Opcode::Value(three),
-        Opcode::Value(two),
-        Opcode::Value(one),
+        Opcode::IntValue(3),
+        Opcode::IntValue(2),
+        Opcode::IntValue(1),
         Opcode::Value(f),
         Opcode::Apply,
         Opcode::Apply,
