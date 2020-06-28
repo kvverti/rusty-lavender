@@ -1,13 +1,9 @@
 use std::ops::{AddAssign, Sub, Add, SubAssign};
 
-use crate::code::Opcode;
-use crate::runtime::SymbolTable;
-use crate::value::LvValue;
-
 /// Reference to a data symbol.
 #[derive(Copy, Clone)]
 pub struct DataReference {
-    idx: usize,
+    pub(super) idx: usize,
 }
 
 impl DataReference {
@@ -16,18 +12,12 @@ impl DataReference {
     pub unsafe fn from_raw(idx: usize) -> Self {
         Self { idx }
     }
-
-    /// Returns the value this reference refers to.
-    #[inline]
-    pub fn as_ref<'b>(&self, tbl: &'b SymbolTable) -> &'b LvValue {
-        &tbl.data[self.idx]
-    }
 }
 
 /// Reference to a text subset.
 #[derive(Copy, Clone, Debug)]
 pub struct TextReference {
-    idx: usize,
+    pub(super) idx: usize,
 }
 
 impl TextReference {
@@ -35,12 +25,6 @@ impl TextReference {
     #[inline]
     pub unsafe fn from_raw(idx: usize) -> Self {
         Self { idx }
-    }
-
-    /// Returns the sequence of opcodes this reference refers to.
-    #[inline]
-    pub fn as_ref<'b>(&self, tbl: &'b SymbolTable) -> &'b Opcode {
-        &tbl.text[self.idx]
     }
 }
 
