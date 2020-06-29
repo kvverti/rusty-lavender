@@ -1,4 +1,5 @@
 use crate::runtime::SymbolicReference;
+use crate::value::LvValue;
 
 /// An instruction that represents a fundamental operation in Lavender.
 #[allow(dead_code)]
@@ -14,34 +15,15 @@ pub enum Opcode {
     MoveArg(u8),
     /// A copy of the given argument (or function local) to the stack.
     CopyArg(u8),
-    /// Integer addition.
-    AddInt,
-    /// Integer subtraction.
-    SubInt,
-    /// Integer multiplication.
-    MulInt,
-    /// Integer division.
-    DivInt,
-    /// Integer remainder.
-    RemInt,
-    /// Bitwise and.
-    AndInt,
-    /// Bitwise xor.
-    XorInt,
-    /// Bitwise or.
-    OrInt,
-    /// Left shift.
-    SllInt,
-    /// Logical right shift.
-    SrlInt,
-    /// Arithmetic right shift.
-    SraInt,
     /// Function application.
     Apply,
     /// Fully evaluate the top expression. Used sparingly.
     Eval,
     /// A return from a function to the caller.
     Return,
+    /// An "escape hatch" into the native environment. Used to implement intrinsic operations
+    /// such as integer addition. This opcode shall never appear in serialized forms.
+    Intrinsic(u8, fn(&mut [LvValue]) -> LvValue),
     /// A debug instruction to print out the current stack top value.
     DebugTop,
 }

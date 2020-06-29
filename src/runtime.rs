@@ -102,61 +102,6 @@ impl RuntimeContext {
                 };
                 self.values.push(arg);
             }
-            AddInt => {
-                let b = intrinsic::extract_int(&self.values.pop().expect("No stack value for AddInt"));
-                let a = intrinsic::extract_int(&self.values.pop().expect("No stack value for AddInt"));
-                self.values.push(LvValue::from(a.wrapping_add(b)));
-            }
-            SubInt => {
-                let b = intrinsic::extract_int(&self.values.pop().expect("No stack value for SubInt"));
-                let a = intrinsic::extract_int(&self.values.pop().expect("No stack value for SubInt"));
-                self.values.push(LvValue::from(a.wrapping_sub(b)));
-            }
-            MulInt => {
-                let b = intrinsic::extract_int(&self.values.pop().expect("No stack value for MulInt"));
-                let a = intrinsic::extract_int(&self.values.pop().expect("No stack value for MulInt"));
-                self.values.push(LvValue::from(a.wrapping_mul(b)));
-            }
-            DivInt => {
-                let b = intrinsic::extract_int(&self.values.pop().expect("No stack value for DivInt"));
-                let a = intrinsic::extract_int(&self.values.pop().expect("No stack value for DivInt"));
-                self.values.push(LvValue::from(a.wrapping_div(b)));
-            }
-            RemInt => {
-                let b = intrinsic::extract_int(&self.values.pop().expect("No stack value for RemInt"));
-                let a = intrinsic::extract_int(&self.values.pop().expect("No stack value for RemInt"));
-                self.values.push(LvValue::from(a.wrapping_rem(b)));
-            }
-            AndInt => {
-                let b = intrinsic::extract_int(&self.values.pop().expect("No stack value for AndInt"));
-                let a = intrinsic::extract_int(&self.values.pop().expect("No stack value for AndInt"));
-                self.values.push(LvValue::from(a & b));
-            }
-            XorInt => {
-                let b = intrinsic::extract_int(&self.values.pop().expect("No stack value for XorInt"));
-                let a = intrinsic::extract_int(&self.values.pop().expect("No stack value for XorInt"));
-                self.values.push(LvValue::from(a ^ b));
-            }
-            OrInt => {
-                let b = intrinsic::extract_int(&self.values.pop().expect("No stack value for OrInt"));
-                let a = intrinsic::extract_int(&self.values.pop().expect("No stack value for OrInt"));
-                self.values.push(LvValue::from(a | b));
-            }
-            SllInt => {
-                let b = intrinsic::extract_int(&self.values.pop().expect("No stack value for SllInt"));
-                let a = intrinsic::extract_int(&self.values.pop().expect("No stack value for SllInt"));
-                self.values.push(LvValue::from(a << (b & 63)));
-            }
-            SrlInt => {
-                let b = intrinsic::extract_int(&self.values.pop().expect("No stack value for SrlInt"));
-                let a = intrinsic::extract_int(&self.values.pop().expect("No stack value for SrlInt"));
-                self.values.push(LvValue::from(((a as u64) >> (b & 63) as u64) as i64));
-            }
-            SraInt => {
-                let b = intrinsic::extract_int(&self.values.pop().expect("No stack value for SraInt"));
-                let a = intrinsic::extract_int(&self.values.pop().expect("No stack value for SraInt"));
-                self.values.push(LvValue::from(a >> (b & 63)));
-            }
             Apply => {
                 use LvValue::Function;
                 let func = self.values.pop().expect("No stack value for Apply");
@@ -180,9 +125,7 @@ impl RuntimeContext {
                 let frame = self.frames.pop().expect("No stack frame to pop");
                 let ret_val = self.values.pop().expect("Missing return value");
                 self.pc = frame.ret;
-                while self.values.len() > frame.fp {
-                    self.values.pop();
-                }
+                self.values.truncate(frame.fp);
                 self.values.push(ret_val);
             }
             Eval => {
@@ -201,6 +144,13 @@ impl RuntimeContext {
                     // already evaluated
                     self.values.push(top);
                 }
+            }
+            Intrinsic(arity, func) => {
+                let arg_idx = self.values.len() - arity as usize;
+                let args = &mut self.values[arg_idx..];
+                let ret = func(args);
+                self.values.truncate(arg_idx);
+                self.values.push(ret);
             }
             DebugTop => println!("Stack {:#}, Frame {:#}, Pc {:?} \n{:?}",
                                  self.values.len(),
