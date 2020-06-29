@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::code::Opcode;
 use crate::runtime::symbol::reference::{SymbolicReference, TextLabel};
 use crate::value::LvValue;
@@ -9,12 +11,19 @@ pub mod reference;
 struct Symbol {
     /// The declared name of the symbol.
     name: String,
-    /// The half-open range of indices of the value this symbol is associated with.
+    /// The index of the value this symbol is associated with.
     address: Option<usize>,
+}
+
+#[derive(Eq, PartialEq, Hash)]
+enum SymbolNamespace {
+    Value,
+    Label,
 }
 
 /// Symbol table for runtime. Stores constant values and code.
 pub struct SymbolTable {
+    symbol_map: HashMap<(SymbolNamespace, String), usize>,
     symbols: Vec<Symbol>,
     data: Vec<LvValue>,
     text: Vec<Opcode>,
@@ -24,45 +33,72 @@ impl SymbolTable {
     /// Creates a new, empty symbol table.
     pub fn new() -> Self {
         Self {
+            symbol_map: HashMap::new(),
             symbols: Vec::new(),
             data: Vec::new(),
             text: Vec::new(),
         }
     }
 
-    /// Creates a new symbolic reference for some as yet undefined value.
-    pub fn create_symbol(&mut self, name: &str) -> SymbolicReference {
-        let sym = Symbol {
-            name: name.to_owned(),
-            address: None,
-        };
-        let idx = self.symbols.len();
-        self.symbols.push(sym);
+    /// Creates or retrieves a symbolic reference to some value.
+    pub fn symbol(&mut self, name: &str) -> SymbolicReference {
+        let symbol_map = &mut self.symbol_map;
+        let symbols = &mut self.symbols;
+        let idx = *symbol_map.entry((SymbolNamespace::Value, name.to_owned())).or_insert_with(|| {
+            let sym = Symbol {
+                name: name.to_owned(),
+                address: None,
+            };
+            let idx = symbols.len();
+            symbols.push(sym);
+            idx
+        });
         unsafe { SymbolicReference::from_raw(idx) }
+    }
+
+    /// Returns whether the given symbol is defined.
+    pub fn is_symbol_defined(&self, sym_ref: SymbolicReference) -> bool {
+        self.symbols[sym_ref.idx].address.is_some()
     }
 
     /// Associates a symbolic reference with the given value.
     pub fn define_symbol(&mut self, sym_ref: SymbolicReference, v: LvValue) {
         let sym = &mut self.symbols[sym_ref.idx];
+        if sym.address.is_some() {
+            panic!("Symbol already defined");
+        }
         let address = self.data.len();
         self.data.push(v);
         sym.address = Some(address);
     }
 
     /// Creates a new label for some as yet undefined location in code.
-    pub fn create_label(&mut self, name: &str) -> TextLabel {
-        let sym = Symbol {
-            name: name.to_owned(),
-            address: None,
-        };
-        let idx = self.symbols.len();
-        self.symbols.push(sym);
+    pub fn label(&mut self, name: &str) -> TextLabel {
+        let symbol_map = &mut self.symbol_map;
+        let symbols = &mut self.symbols;
+        let idx = *symbol_map.entry((SymbolNamespace::Label, name.to_owned())).or_insert_with(|| {
+            let sym = Symbol {
+                name: name.to_owned(),
+                address: None,
+            };
+            let idx = symbols.len();
+            symbols.push(sym);
+            idx
+        });
         unsafe { TextLabel::from_raw(idx) }
+    }
+
+    /// Returns whether the given symbol is defined.
+    pub fn is_label_defined(&self, sym_ref: TextLabel) -> bool {
+        self.symbols[sym_ref.idx].address.is_some()
     }
 
     /// Associates the given label with the given code block.
     pub fn define_label(&mut self, label: TextLabel, code: &[Opcode]) {
         let sym = &mut self.symbols[label.idx];
+        if sym.address.is_some() {
+            panic!("Label already defined");
+        }
         let address = self.text.len();
         self.text.extend_from_slice(code);
         sym.address = Some(address);

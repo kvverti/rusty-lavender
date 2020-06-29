@@ -2,6 +2,7 @@ use crate::code::Opcode;
 use crate::runtime::RuntimeContext;
 use crate::value::func::LvFunc;
 use crate::value::LvValue;
+use crate::runtime::intrinsic;
 
 mod code;
 mod runtime;
@@ -13,17 +14,10 @@ fn main() {
     // addition
     // def f a b = <intrinsic>
     // def main = f (f 1 2) 3   (evaluates to 6)
-    let f = runtime.symbols.create_symbol("f");
-    let f_text = runtime.symbols.create_label("f");
-    let main_text = runtime.symbols.create_label("main");
-    runtime.symbols.define_label(f_text,&[
-        Opcode::MoveArg(0),
-        Opcode::Eval,
-        Opcode::MoveArg(1),
-        Opcode::Eval,
-        Opcode::AddInt,
-        Opcode::Return,
-    ]);
+    let f = runtime.symbols.symbol("f");
+    let f_text = runtime.symbols.label("f");
+    let main_text = runtime.symbols.label("main");
+    runtime.symbols.define_label(f_text,&intrinsic::TEXT_ADD_INT);
     runtime.symbols.define_label(main_text, &[
         Opcode::IntValue(3),
         Opcode::IntValue(2),

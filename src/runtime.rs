@@ -5,7 +5,8 @@ use crate::value::func::LvFunc;
 use crate::value::LvValue;
 
 /// Contains intrinsic function implementations and helpers.
-mod intrinsic;
+#[allow(dead_code)]
+pub mod intrinsic;
 /// Contains the stack frame implementation.
 mod stack;
 /// Contains the symbol table.
