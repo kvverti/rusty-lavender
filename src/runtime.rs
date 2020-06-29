@@ -4,6 +4,8 @@ use crate::runtime::symbol::SymbolTable;
 use crate::value::func::LvFunc;
 use crate::value::LvValue;
 
+/// Contains intrinsic function implementations and helpers.
+mod intrinsic;
 /// Contains the stack frame implementation.
 mod stack;
 /// Contains the symbol table.
@@ -100,15 +102,59 @@ impl RuntimeContext {
                 self.values.push(arg);
             }
             AddInt => {
-                use LvValue::Integer;
-                let b = self.values.pop().expect("No stack value for AddInt");
-                let a = self.values.pop().expect("No stack value for AddInt");
-                if let (Integer(a), Integer(b)) = (a, b) {
-                    let c = a + b;
-                    self.values.push(LvValue::from(c));
-                } else {
-                    panic!("Expected integers");
-                }
+                let b = intrinsic::extract_int(&self.values.pop().expect("No stack value for AddInt"));
+                let a = intrinsic::extract_int(&self.values.pop().expect("No stack value for AddInt"));
+                self.values.push(LvValue::from(a.wrapping_add(b)));
+            }
+            SubInt => {
+                let b = intrinsic::extract_int(&self.values.pop().expect("No stack value for SubInt"));
+                let a = intrinsic::extract_int(&self.values.pop().expect("No stack value for SubInt"));
+                self.values.push(LvValue::from(a.wrapping_sub(b)));
+            }
+            MulInt => {
+                let b = intrinsic::extract_int(&self.values.pop().expect("No stack value for MulInt"));
+                let a = intrinsic::extract_int(&self.values.pop().expect("No stack value for MulInt"));
+                self.values.push(LvValue::from(a.wrapping_mul(b)));
+            }
+            DivInt => {
+                let b = intrinsic::extract_int(&self.values.pop().expect("No stack value for DivInt"));
+                let a = intrinsic::extract_int(&self.values.pop().expect("No stack value for DivInt"));
+                self.values.push(LvValue::from(a.wrapping_div(b)));
+            }
+            RemInt => {
+                let b = intrinsic::extract_int(&self.values.pop().expect("No stack value for RemInt"));
+                let a = intrinsic::extract_int(&self.values.pop().expect("No stack value for RemInt"));
+                self.values.push(LvValue::from(a.wrapping_rem(b)));
+            }
+            AndInt => {
+                let b = intrinsic::extract_int(&self.values.pop().expect("No stack value for AndInt"));
+                let a = intrinsic::extract_int(&self.values.pop().expect("No stack value for AndInt"));
+                self.values.push(LvValue::from(a & b));
+            }
+            XorInt => {
+                let b = intrinsic::extract_int(&self.values.pop().expect("No stack value for XorInt"));
+                let a = intrinsic::extract_int(&self.values.pop().expect("No stack value for XorInt"));
+                self.values.push(LvValue::from(a ^ b));
+            }
+            OrInt => {
+                let b = intrinsic::extract_int(&self.values.pop().expect("No stack value for OrInt"));
+                let a = intrinsic::extract_int(&self.values.pop().expect("No stack value for OrInt"));
+                self.values.push(LvValue::from(a | b));
+            }
+            SllInt => {
+                let b = intrinsic::extract_int(&self.values.pop().expect("No stack value for SllInt"));
+                let a = intrinsic::extract_int(&self.values.pop().expect("No stack value for SllInt"));
+                self.values.push(LvValue::from(a << (b & 63)));
+            }
+            SrlInt => {
+                let b = intrinsic::extract_int(&self.values.pop().expect("No stack value for SrlInt"));
+                let a = intrinsic::extract_int(&self.values.pop().expect("No stack value for SrlInt"));
+                self.values.push(LvValue::from(((a as u64) >> (b & 63) as u64) as i64));
+            }
+            SraInt => {
+                let b = intrinsic::extract_int(&self.values.pop().expect("No stack value for SraInt"));
+                let a = intrinsic::extract_int(&self.values.pop().expect("No stack value for SraInt"));
+                self.values.push(LvValue::from(a >> (b & 63)));
             }
             Apply => {
                 use LvValue::Function;

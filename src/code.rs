@@ -16,6 +16,26 @@ pub enum Opcode {
     CopyArg(u8),
     /// Integer addition.
     AddInt,
+    /// Integer subtraction.
+    SubInt,
+    /// Integer multiplication.
+    MulInt,
+    /// Integer division.
+    DivInt,
+    /// Integer remainder.
+    RemInt,
+    /// Bitwise and.
+    AndInt,
+    /// Bitwise xor.
+    XorInt,
+    /// Bitwise or.
+    OrInt,
+    /// Left shift.
+    SllInt,
+    /// Logical right shift.
+    SrlInt,
+    /// Arithmetic right shift.
+    SraInt,
     /// Function application.
     Apply,
     /// Fully evaluate the top expression. Used sparingly.
