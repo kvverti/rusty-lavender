@@ -1,5 +1,5 @@
 /// Reference to a symbol.
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Eq, PartialEq)]
 pub struct SymbolicReference {
     /// The index in the symbol table the symbol is stored at.
     pub(super) idx: usize,
@@ -14,7 +14,7 @@ impl SymbolicReference {
 }
 
 /// Reference to a text subset.
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct TextLabel {
     /// The index in the symbol table the symbol representing the text block is stored at.
     pub(super) idx: usize,

@@ -4,7 +4,7 @@ use crate::value::func::LvFunc;
 pub mod func;
 
 /// A Lavender value.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum LvValue {
     /// The Unit, or singleton, value.
     Unit,

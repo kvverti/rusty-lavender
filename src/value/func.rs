@@ -2,7 +2,7 @@ use crate::runtime::TextLabel;
 use crate::value::LvValue;
 
 /// A function with some number of bound and free variables.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct LvFunc {
     /// The text that defines this function.
     pub text: TextLabel,

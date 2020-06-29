@@ -160,3 +160,42 @@ impl RuntimeContext {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::mem::discriminant;
+
+    use crate::code::Opcode;
+    use crate::value::func::LvFunc;
+    use crate::value::LvValue;
+
+    use super::{intrinsic, RuntimeContext};
+
+    #[test]
+    fn summation() {
+        // def f a b = <addition>
+        // def main = f (f 1 2) 3   (evaluates to 6)
+        let mut runtime = RuntimeContext::new();
+        let f = runtime.symbols.symbol("f");
+        let f_text = runtime.symbols.label("f");
+        let main_text = runtime.symbols.label("main");
+        runtime.symbols.define_symbol(f, LvValue::from(LvFunc::new(f_text, 2)));
+        runtime.symbols.define_label(f_text, &intrinsic::TEXT_ADD_INT);
+        runtime.symbols.define_label(main_text, &[
+            Opcode::IntValue(3),
+            Opcode::IntValue(2),
+            Opcode::IntValue(1),
+            Opcode::Value(f),
+            Opcode::Apply,
+            Opcode::Apply,
+            Opcode::Value(f),
+            Opcode::Apply,
+            Opcode::Apply,
+            Opcode::Eval,
+            Opcode::Return,
+        ]);
+        let main = LvFunc::new(main_text, 0);
+        let r = runtime.exec(main);
+        assert_eq!(LvValue::Integer(6), r);
+    }
+}
