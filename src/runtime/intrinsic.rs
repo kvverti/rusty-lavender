@@ -1,6 +1,8 @@
 use crate::code::Opcode;
 use crate::value::LvValue;
 
+// integer operations
+
 fn extract_int(v: &LvValue) -> i64 {
     use LvValue::Integer;
     if let Integer(v) = *v {
@@ -172,5 +174,43 @@ pub const TEXT_SRA: [Opcode; 6] = [
     Opcode::MoveArg(1),
     Opcode::Eval,
     Opcode::Intrinsic(2, sra),
+    Opcode::Return,
+];
+
+// string operations
+
+fn extract_str(v: &LvValue) -> &str {
+    use LvValue::String;
+    if let String(v) = v {
+        v
+    } else {
+        panic!("Expected string");
+    }
+}
+
+fn lens(args: &mut [LvValue]) -> LvValue {
+    let a = extract_str(&args[0]);
+    LvValue::from(a.len() as i64)
+}
+
+pub const TEXT_LENS: [Opcode; 4] = [
+    Opcode::MoveArg(0),
+    Opcode::Eval,
+    Opcode::Intrinsic(1, lens),
+    Opcode::Return,
+];
+
+fn cats(args: &mut [LvValue]) -> LvValue {
+    let a = extract_str(&args[0]);
+    let b = extract_str(&args[1]);
+    LvValue::from(a.to_owned() + b)
+}
+
+pub const TEXT_CATS: [Opcode; 6] = [
+    Opcode::MoveArg(0),
+    Opcode::Eval,
+    Opcode::MoveArg(1),
+    Opcode::Eval,
+    Opcode::Intrinsic(2, cats),
     Opcode::Return,
 ];
