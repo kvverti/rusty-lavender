@@ -163,8 +163,6 @@ impl RuntimeContext {
 
 #[cfg(test)]
 mod tests {
-    use std::mem::discriminant;
-
     use crate::code::Opcode;
     use crate::value::func::LvFunc;
     use crate::value::LvValue;

@@ -53,7 +53,7 @@ impl SymbolTable {
             symbols.push(sym);
             idx
         });
-        unsafe { SymbolicReference::from_raw(idx) }
+        SymbolicReference::from_raw(idx)
     }
 
     /// Returns whether the given symbol is defined.
@@ -85,7 +85,7 @@ impl SymbolTable {
             symbols.push(sym);
             idx
         });
-        unsafe { TextLabel::from_raw(idx) }
+        TextLabel::from_raw(idx)
     }
 
     /// Returns whether the given symbol is defined.

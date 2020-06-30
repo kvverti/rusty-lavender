@@ -1,8 +1,4 @@
-use crate::code::Opcode;
-use crate::runtime::RuntimeContext;
-use crate::value::func::LvFunc;
-use crate::value::LvValue;
-use crate::runtime::intrinsic;
+#![allow(dead_code)]
 
 mod code;
 mod runtime;

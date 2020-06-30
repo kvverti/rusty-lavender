@@ -8,7 +8,7 @@ pub struct SymbolicReference {
 impl SymbolicReference {
     /// Creates a data reference from a raw index.
     #[inline]
-    pub unsafe fn from_raw(idx: usize) -> Self {
+    pub(super) fn from_raw(idx: usize) -> Self {
         Self { idx }
     }
 }
@@ -23,7 +23,7 @@ pub struct TextLabel {
 impl TextLabel {
     /// Creates a text reference from a raw index.
     #[inline]
-    pub unsafe fn from_raw(idx: usize) -> Self {
+    pub(super) fn from_raw(idx: usize) -> Self {
         Self { idx }
     }
 }
