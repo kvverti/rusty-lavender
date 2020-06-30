@@ -78,6 +78,8 @@ impl RuntimeContext {
         self.pc += 1;
         match op {
             UnitValue => self.values.push(LvValue::Unit),
+            TrueValue => self.values.push(LvValue::from(true)),
+            FalseValue => self.values.push(LvValue::from(false)),
             Value(d) => self.values.push(self.symbols.resolve_symbol(d).clone()),
             IntValue(n) => self.values.push(LvValue::from(i64::from(n))),
             MoveArg(idx) => {
@@ -178,7 +180,7 @@ mod tests {
         let f_text = runtime.symbols.label("f");
         let main_text = runtime.symbols.label("main");
         runtime.symbols.define_symbol(f, LvValue::from(LvFunc::new(f_text, 2)));
-        runtime.symbols.define_label(f_text, &intrinsic::TEXT_ADD_INT);
+        runtime.symbols.define_label(f_text, &intrinsic::TEXT_ADDI);
         runtime.symbols.define_label(main_text, &[
             Opcode::IntValue(3),
             Opcode::IntValue(2),

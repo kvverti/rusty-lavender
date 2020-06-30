@@ -7,6 +7,10 @@ use crate::value::LvValue;
 pub enum Opcode {
     /// Load the unit value.
     UnitValue,
+    /// Load the value `True`.
+    TrueValue,
+    /// Load the value `False`.
+    FalseValue,
     /// Load a literal value.
     Value(SymbolicReference),
     /// Load an integer value in a single-byte range. Useful not to overload the symbol table.

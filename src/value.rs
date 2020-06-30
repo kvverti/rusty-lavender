@@ -4,12 +4,16 @@ use crate::value::func::LvFunc;
 pub mod func;
 
 /// A Lavender value.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum LvValue {
     /// The Unit, or singleton, value.
     Unit,
+    /// A boolean value.
+    Bool(bool),
     /// A 64-bit integer value.
     Integer(i64),
+    /// A 64-bit floating point value.
+    Float(f64),
     /// A string value.
     String(String),
     /// A function, i.e. callable value.
@@ -28,9 +32,21 @@ impl From<()> for LvValue {
     }
 }
 
+impl From<bool> for LvValue {
+    fn from(v: bool) -> Self {
+        LvValue::Bool(v)
+    }
+}
+
 impl From<i64> for LvValue {
     fn from(v: i64) -> Self {
         LvValue::Integer(v)
+    }
+}
+
+impl From<f64> for LvValue {
+    fn from(v: f64) -> Self {
+        LvValue::Float(v)
     }
 }
 
