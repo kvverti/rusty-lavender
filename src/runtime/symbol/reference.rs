@@ -1,5 +1,5 @@
 /// Reference to a symbol.
-#[derive(Copy, Clone, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct SymbolicReference {
     /// The index in the symbol table the symbol is stored at.
     pub(super) idx: usize,

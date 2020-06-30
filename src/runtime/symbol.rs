@@ -122,3 +122,53 @@ impl SymbolTable {
         self.text[i]
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::code::Opcode;
+    use crate::runtime::symbol::SymbolTable;
+    use crate::value::LvValue;
+
+    #[test]
+    fn symbolic_reference() {
+        let mut symbols = SymbolTable::new();
+        let reference = symbols.symbol("test");
+        let reference2 = symbols.symbol("test2");
+        assert_ne!(reference, reference2, "distinct symbols are unequal");
+        assert!(!symbols.is_symbol_defined(reference), "reference is not defined");
+        assert!(!symbols.is_symbol_defined(reference2), "reference2 is not defined");
+        symbols.define_symbol(reference, LvValue::from(42));
+        assert!(symbols.is_symbol_defined(reference), "reference is defined");
+        assert!(!symbols.is_symbol_defined(reference2), "reference2 is not defined");
+        let forty_two = symbols.resolve_symbol(reference).clone();
+        assert_eq!(LvValue::Integer(42), forty_two, "resolved symbols are equal");
+        symbols.define_symbol(reference2, LvValue::from("hello".to_owned()));
+        assert!(symbols.is_symbol_defined(reference2), "reference2 is defined");
+        let hello = symbols.resolve_symbol(reference2).clone();
+        assert_eq!(LvValue::String("hello".to_owned()), hello, "resolved symbols are equal");
+        let reference3 = symbols.symbol("test");
+        assert_eq!(reference, reference3, "duplicate symbols are equal");
+        let forty_two = symbols.resolve_symbol(reference3).clone();
+        assert_eq!(LvValue::Integer(42), forty_two, "resolved value for symbol test is still the same");
+    }
+
+    #[test]
+    fn text_label() {
+        let mut symbols = SymbolTable::new();
+        let label = symbols.label("test");
+        let label2 = symbols.label("test2");
+        assert_ne!(label, label2, "distinct labels are unequal");
+        assert!(!symbols.is_label_defined(label), "label is not defined");
+        assert!(!symbols.is_label_defined(label2), "label2 is not defined");
+        let code = [Opcode::DebugTop; 30];
+        symbols.define_label(label, &code);
+        assert!(symbols.is_label_defined(label), "label is defined");
+        assert!(!symbols.is_label_defined(label2), "label2 is not defined");
+        let add = symbols.resolve_label(label);
+        for i in 0..code.len() {
+            if let (Opcode::DebugTop, Opcode::DebugTop) = (code[i], symbols.opcode_at(add + i)) {} else {
+                panic!("Unequal opcodes");
+            }
+        }
+    }
+}
