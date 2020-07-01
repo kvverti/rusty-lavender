@@ -1,5 +1,7 @@
 use nom::{IResult, Offset};
 
+/// Parsers for names and operators.
+mod identifier;
 /// Parsers for separators and keywords.
 mod fixed;
 /// Token delimiters: whitespace, comments, and new lines.
