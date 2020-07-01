@@ -1,12 +1,12 @@
 use std::str::FromStr;
 
 use nom::branch::alt;
-use nom::bytes::streaming::tag;
-use nom::character::streaming::digit1;
+use nom::bytes::complete::tag;
+use nom::character::complete::digit1;
 use nom::combinator::{map, map_res, value};
 use nom::error::context;
 use nom::IResult;
-use nom::number::streaming::double;
+use nom::number::complete::double;
 
 use crate::parser::{Source, with_input};
 
@@ -92,9 +92,8 @@ impl<'a> Literal<'a> {
 
 #[cfg(test)]
 mod tests {
-    use nom::Err::{Error, Incomplete};
+    use nom::Err::Error;
     use nom::error::ErrorKind;
-    use nom::Needed::{Size, Unknown};
 
     use super::*;
 
@@ -106,7 +105,7 @@ mod tests {
             ("True;", Ok((";", BoolLiteral { src: "True", val: true }))),
             ("False \n", Ok((" \n", BoolLiteral { src: "False", val: false }))),
             ("true", Err(Error(("true", ErrorKind::Tag)))),
-            ("Fals", Err(Incomplete(Size(5)))),
+            ("Fals", Err(Error(("Fals", ErrorKind::Tag)))),
         ];
         for c in &cases {
             assert_eq!(BoolLiteral::parse(c.0), c.1);
@@ -117,7 +116,7 @@ mod tests {
     fn ints() {
         let cases = [
             ("0;", Ok((";", IntLiteral { src: "0", val: 0 }))),
-            ("47", Err(Incomplete(Size(1)))),
+            ("47", Ok(("", IntLiteral { src: "47", val: 47 }))),
             ("10000000000 +", Ok((" +", IntLiteral { src: "10000000000", val: 10000000000 }))),
             (
                 "999999999999999999999999999999999999999;",
@@ -134,11 +133,10 @@ mod tests {
     #[test]
     fn floats() {
         let cases = [
-            ("0.0;", Ok((";", FloatLiteral { src: "0.0", val: 0.0 }))),
+            ("0.0", Ok(("", FloatLiteral { src: "0.0", val: 0.0 }))),
             ("12;", Ok((";", FloatLiteral { src: "12", val: 12.0 }))),
-            ("0.47;", Ok((";", FloatLiteral { src: "0.47", val: 0.47 }))),
-            ("1e-30;", Ok((";", FloatLiteral { src: "1e-30", val: 1e-30 }))),
-            ("1", Err(Incomplete(Unknown))),
+            ("0.47", Ok(("", FloatLiteral { src: "0.47", val: 0.47 }))),
+            ("1e-30", Ok(("", FloatLiteral { src: "1e-30", val: 1e-30 }))),
             ("e", Err(Error(("e", ErrorKind::Float)))),
         ];
         for c in &cases {
