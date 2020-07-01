@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 
 mod code;
+mod parser;
 mod runtime;
 mod value;
 
