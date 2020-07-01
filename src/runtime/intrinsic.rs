@@ -396,7 +396,7 @@ pub const TEXT_ORZ: [Opcode; 6] = [
 
 // string operations
 
-fn extract_str(v: &LvValue) -> &str {
+fn extract_str(v: &LvValue) -> &String {
     use LvValue::String;
     if let String(v) = v {
         v
@@ -418,9 +418,14 @@ pub const TEXT_LENS: [Opcode; 4] = [
 ];
 
 fn cats(args: &mut [LvValue]) -> LvValue {
-    let a = extract_str(&args[0]);
-    let b = extract_str(&args[1]);
-    LvValue::from(a.to_owned() + b)
+    let mut a = LvValue::Unit;
+    std::mem::swap(&mut a, &mut args[0]);
+    if let LvValue::String(a) = a {
+        let b = extract_str(&args[1]);
+        LvValue::from(a + b)
+    } else {
+        panic!("Expected string")
+    }
 }
 
 pub const TEXT_CATS: [Opcode; 6] = [
