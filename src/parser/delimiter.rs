@@ -1,6 +1,6 @@
 use nom::branch::alt;
 use nom::bytes::complete::tag;
-use nom::character::complete::{line_ending, not_line_ending, space0, space1};
+use nom::character::streaming::{line_ending, not_line_ending, space0, space1};
 use nom::combinator::{map, opt, value};
 use nom::IResult;
 use nom::multi::{many0_count, many1_count};
@@ -51,6 +51,7 @@ pub fn token_delimiter(input: Source) -> IResult<Source, ()> {
 
 #[cfg(test)]
 mod tests {
+    use nom::Err::Incomplete;
     use nom::sequence::delimited;
 
     use super::*;
@@ -71,6 +72,23 @@ mod tests {
         ];
         for c in &cases {
             assert_eq!(parser(c.0), c.1);
+        }
+    }
+
+    #[test]
+    fn incomplete() {
+        let cases = [
+            "\n",
+            "\n\n",
+            "# comment",
+            "\n #comment",
+            "#comment \n\n# comment\n #comment\n ",
+        ];
+        for c in &cases {
+            let result = LineEnd::parse(c);
+            if let Err(Incomplete(_)) = result {} else {
+                panic!(format!("Expected incomplete parsing, got {:?}", result));
+            }
         }
     }
 }
