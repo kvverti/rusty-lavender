@@ -1,6 +1,6 @@
 use nom::branch::alt;
 use nom::bytes::complete::tag;
-use nom::character::streaming::{line_ending, not_line_ending, space0, space1};
+use nom::character::complete::{line_ending, not_line_ending, space0, space1};
 use nom::combinator::{map, opt, value};
 use nom::IResult;
 use nom::multi::{many0_count, many1_count};
@@ -51,10 +51,19 @@ pub fn token_delimiter(input: Source) -> IResult<Source, ()> {
 
 #[cfg(test)]
 mod tests {
-    use nom::Err::Incomplete;
     use nom::sequence::delimited;
 
     use super::*;
+
+    #[test]
+    fn delimiter() {
+        let parser = delimited(tag("a"), token_delimiter, tag("a"));
+        let successes = ["a a", "aa", "a\t \ta"];
+        for c in &successes {
+            let result = parser(c);
+            assert!(result.is_ok(), format!("Case {:?}", result));
+        }
+    }
 
     #[test]
     fn line_wrap() {
@@ -68,27 +77,10 @@ mod tests {
             ("a\n# comment\na6", Ok(("6", LineEnd::Soft))),
             ("a\n\n# comment\na7", Ok(("7", LineEnd::Hard))),
             ("a # comment\n\na8", Ok(("8", LineEnd::Hard))),
-            ("a # comment\n# comment\n\na9", Ok(("9", LineEnd::Hard))),
+            ("a# comment\n# comment\n\na9", Ok(("9", LineEnd::Hard))),
         ];
         for c in &cases {
             assert_eq!(parser(c.0), c.1);
-        }
-    }
-
-    #[test]
-    fn incomplete() {
-        let cases = [
-            "\n",
-            "\n\n",
-            "# comment",
-            "\n #comment",
-            "#comment \n\n# comment\n #comment\n ",
-        ];
-        for c in &cases {
-            let result = LineEnd::parse(c);
-            if let Err(Incomplete(_)) = result {} else {
-                panic!(format!("Expected incomplete parsing, got {:?}", result));
-            }
         }
     }
 }

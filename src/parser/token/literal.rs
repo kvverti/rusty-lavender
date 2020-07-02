@@ -3,27 +3,24 @@ use std::str::FromStr;
 use nom::branch::alt;
 use nom::bytes::complete::tag;
 use nom::character::complete::digit1;
-use nom::combinator::{map, map_res, value};
+use nom::combinator::{map, map_res, value, verify};
 use nom::error::context;
 use nom::IResult;
-use nom::number::complete::double;
+use nom::number::complete::recognize_float;
 
-use crate::parser::{Source, with_input};
+use crate::parser::Source;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub struct IntLiteral<'a> {
-    pub src: Source<'a>,
-    pub val: i64,
-}
+pub struct IntLiteral(pub i64);
 
-impl<'a> IntLiteral<'a> {
-    pub fn parse(input: Source<'a>) -> IResult<Source<'a>, Self> {
+impl IntLiteral {
+    pub fn parse(input: Source) -> IResult<Source, Self> {
         context(
             "Tokenizing integer",
             map_res(
-                with_input(digit1),
-                |(src, digits)| {
-                    i64::from_str(digits).map(|val| Self { src, val })
+                digit1,
+                |digits| {
+                    i64::from_str(digits).map(Self)
                 },
             ),
         )(input)
@@ -31,61 +28,51 @@ impl<'a> IntLiteral<'a> {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub struct FloatLiteral<'a> {
-    pub src: Source<'a>,
-    pub val: f64,
-}
+pub struct FloatLiteral(pub f64);
 
-impl<'a> FloatLiteral<'a> {
-    pub fn parse(input: Source<'a>) -> IResult<Source<'a>, Self> {
-        context(
-            "Tokenizing float",
-            map(
-                with_input(double),
-                |(src, val)| {
-                    Self { src, val }
-                },
-            ),
-        )(input)
+impl FloatLiteral {
+    pub fn parse(input: Source) -> IResult<Source, Self> {
+        context("Tokenizing float", map_res(
+            verify(
+                recognize_float,
+                // ensure that we don't match the integer pattern
+                |s: &str| s.contains(|c: char| !c.is_ascii_digit())),
+            |s| f64::from_str(s).map(Self),
+        ))(input)
     }
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub struct BoolLiteral<'a> {
-    pub src: Source<'a>,
-    pub val: bool,
-}
+pub struct BoolLiteral(pub bool);
 
-impl<'a> BoolLiteral<'a> {
-    pub fn parse(input: Source<'a>) -> IResult<Source<'a>, Self> {
+impl BoolLiteral {
+    pub fn parse(input: Source) -> IResult<Source, Self> {
         context(
             "Tokenizing bool",
             map(
-                with_input(alt((
+                alt((
                     value(true, tag("True")),
                     value(false, tag("False")),
-                ))),
-                |(src, val)| {
-                    Self { src, val }
-                },
+                )),
+                Self,
             ),
         )(input)
     }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub enum Literal<'a> {
-    Bool(BoolLiteral<'a>),
-    Int(IntLiteral<'a>),
-    Float(FloatLiteral<'a>),
+pub enum Literal {
+    Bool(BoolLiteral),
+    Int(IntLiteral),
+    Float(FloatLiteral),
 }
 
-impl<'a> Literal<'a> {
-    pub fn parse(input: Source<'a>) -> IResult<Source<'a>, Literal<'a>> {
+impl Literal {
+    pub fn parse(input: Source) -> IResult<Source, Literal> {
         alt((
             map(BoolLiteral::parse, Literal::Bool),
-            map(IntLiteral::parse, Literal::Int),
             map(FloatLiteral::parse, Literal::Float),
+            map(IntLiteral::parse, Literal::Int),
         ))(input)
     }
 }
@@ -100,10 +87,10 @@ mod tests {
     #[test]
     fn booleans() {
         let cases = [
-            ("True", Ok(("", BoolLiteral { src: "True", val: true }))),
-            ("False", Ok(("", BoolLiteral { src: "False", val: false }))),
-            ("True;", Ok((";", BoolLiteral { src: "True", val: true }))),
-            ("False \n", Ok((" \n", BoolLiteral { src: "False", val: false }))),
+            ("True", Ok(("", BoolLiteral(true)))),
+            ("False", Ok(("", BoolLiteral(false)))),
+            ("True;", Ok((";", BoolLiteral(true)))),
+            ("False \n", Ok((" \n", BoolLiteral(false)))),
             ("true", Err(Error(("true", ErrorKind::Tag)))),
             ("Fals", Err(Error(("Fals", ErrorKind::Tag)))),
         ];
@@ -115,14 +102,14 @@ mod tests {
     #[test]
     fn ints() {
         let cases = [
-            ("0;", Ok((";", IntLiteral { src: "0", val: 0 }))),
-            ("47", Ok(("", IntLiteral { src: "47", val: 47 }))),
-            ("10000000000 +", Ok((" +", IntLiteral { src: "10000000000", val: 10000000000 }))),
+            ("0;", Ok((";", IntLiteral(0)))),
+            ("47", Ok(("", IntLiteral(47)))),
+            ("10000000000 +", Ok((" +", IntLiteral(10000000000)))),
             (
                 "999999999999999999999999999999999999999;",
                 Err(Error(("999999999999999999999999999999999999999;", ErrorKind::MapRes)))
             ),
-            ("1hhh", Ok(("hhh", IntLiteral { src: "1", val: 1 }))),
+            ("1hhh", Ok(("hhh", IntLiteral(1)))),
             ("three", Err(Error(("three", ErrorKind::Digit)))),
         ];
         for c in &cases {
@@ -133,11 +120,12 @@ mod tests {
     #[test]
     fn floats() {
         let cases = [
-            ("0.0", Ok(("", FloatLiteral { src: "0.0", val: 0.0 }))),
-            ("12;", Ok((";", FloatLiteral { src: "12", val: 12.0 }))),
-            ("0.47", Ok(("", FloatLiteral { src: "0.47", val: 0.47 }))),
-            ("1e-30", Ok(("", FloatLiteral { src: "1e-30", val: 1e-30 }))),
-            ("e", Err(Error(("e", ErrorKind::Float)))),
+            ("0.0", Ok(("", FloatLiteral(0.0)))),
+            ("12.0;", Ok((";", FloatLiteral(12.0)))),
+            ("12;", Err(Error(("12;", ErrorKind::Verify)))),
+            ("0.47", Ok(("", FloatLiteral(0.47)))),
+            ("1e-30", Ok(("", FloatLiteral(1e-30)))),
+            ("e", Err(Error(("e", ErrorKind::Char)))),
         ];
         for c in &cases {
             assert_eq!(FloatLiteral::parse(c.0), c.1);
