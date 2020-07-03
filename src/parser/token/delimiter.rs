@@ -1,37 +1,30 @@
 use nom::branch::alt;
 use nom::bytes::complete::tag;
-use nom::character::complete::{line_ending, not_line_ending, space0, space1};
-use nom::combinator::{map, opt, value};
+use nom::character::complete::{line_ending, not_line_ending, space1};
+use nom::combinator::value;
 use nom::IResult;
-use nom::multi::{many0_count, many1_count};
-use nom::sequence::{pair, preceded, tuple};
+use nom::multi::{many0, many0_count, many1, many1_count};
+use nom::sequence::{pair, preceded, terminated};
 
 use crate::parser::Source;
 
-/// Lavender uses line endings as item terminators. The `Soft` variant is composed of a single
-/// line terminator, and may be present within expressions. The `Hard` variant is composed
-/// of multiple line terminators, and always terminates an item.
+/// Lavender uses line endings as item terminators. A line ending is included in the token stream
+/// if it is not followed by indentation. Further parsing may discard or act on line endings
+/// depending on the item being parsed (clearly internal line endings would be dropped).
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub enum LineEnd {
-    /// A soft line terminator, which only terminates an expression if subsequent tokens would
-    /// be malformed.
-    Soft,
-    /// A hard line terminator, which always terminates an expression.
-    Hard,
-}
+pub struct LineEnd();
 
 impl LineEnd {
-    /// Parses a line ending with optional interleaved token delimiters.
+    /// Parses a line ending with optional interleaved delimiters.
     pub fn parse(input: Source) -> IResult<Source, Self> {
-        map(
-            many1_count(preceded(token_delimiter, line_ending)),
-            |n| if n > 1 { Self::Hard } else { Self::Soft },
+        value(
+            LineEnd(),
+            many1_count(terminated(line_ending, token_delimiter)),
         )(input)
     }
 }
 
-/// Parses optional internal whitespace. Used during tokenization to discard
-/// insignificant whitespace.
+/// Parses a sequence of one or more spaces.
 pub fn spaces(input: Source) -> IResult<Source, ()> {
     value((), space1)(input)
 }
@@ -41,12 +34,20 @@ pub fn spaces(input: Source) -> IResult<Source, ()> {
 /// Comments accept an optional line ending before the familiar `# comment` syntax. This is so
 /// comments do not contribute to the line terminator structure of the source code.
 pub fn comment(input: Source) -> IResult<Source, ()> {
-    value((), tuple((opt(pair(line_ending, space0)), tag("#"), not_line_ending)))(input)
+    value((), pair(tag("#"), not_line_ending))(input)
 }
 
 /// Parses a token delimiter. These are discarded after tokenization.
+///
+/// Token delimiters are composed of a sequence of a (possibly empty) comments, spaces,
+/// and new lines, terminated by a non-line-ending.
 pub fn token_delimiter(input: Source) -> IResult<Source, ()> {
-    value((), many0_count(alt((comment, spaces))))(input)
+    value((), many0_count(
+        preceded(
+            many0(line_ending),
+            many1(alt((comment, spaces))),
+        ),
+    ))(input)
 }
 
 #[cfg(test)]
@@ -58,10 +59,25 @@ mod tests {
     #[test]
     fn delimiter() {
         let parser = delimited(tag("a"), token_delimiter, tag("a"));
-        let successes = ["a a", "aa", "a\t \ta"];
+        let successes = [
+            "a a",
+            "aa",
+            "a\t \ta",
+            "a # comment\n\ta",
+            "a\n\n\n  a",
+        ];
+        let failures = [
+            "a\na",
+            "a # comment\na",
+            "a \n # comment\na",
+        ];
         for c in &successes {
             let result = parser(c);
-            assert!(result.is_ok(), format!("Case {:?}", result));
+            assert!(result.is_ok(), format!("Ok case {:?}, result {:?}", c, result));
+        }
+        for c in &failures {
+            let result = parser(c);
+            assert!(result.is_err(), format!("Error case {:?}, result {:?}", c, result));
         }
     }
 
@@ -69,18 +85,14 @@ mod tests {
     fn line_wrap() {
         let parser = delimited(tag("a"), LineEnd::parse, tag("a"));
         let cases = [
-            ("a\na1", Ok(("1", LineEnd::Soft))),
-            ("a\n\na2", Ok(("2", LineEnd::Hard))),
-            ("a \n \na3", Ok(("3", LineEnd::Hard))),
-            ("a # comment\na4", Ok(("4", LineEnd::Soft))),
-            ("a # comment  \n  # comment\na5", Ok(("5", LineEnd::Soft))),
-            ("a\n# comment\na6", Ok(("6", LineEnd::Soft))),
-            ("a\n\n# comment\na7", Ok(("7", LineEnd::Hard))),
-            ("a # comment\n\na8", Ok(("8", LineEnd::Hard))),
-            ("a# comment\n# comment\n\na9", Ok(("9", LineEnd::Hard))),
+            "a\na",
+            "a\n\na",
+            "a\n# comment\na",
+            "a\n    \na",
         ];
         for c in &cases {
-            assert_eq!(parser(c.0), c.1);
+            let result = parser(c);
+            assert!(result.is_ok(), format!("Ok case {:?}, result {:?}", c, result));
         }
     }
 }

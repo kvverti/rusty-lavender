@@ -3,7 +3,7 @@ use nom::combinator::map;
 use nom::IResult;
 
 use crate::parser::{Source, with_len};
-use crate::parser::token::delimiter::LineEnd;
+use crate::parser::token::delimiter::{LineEnd, token_delimiter};
 use crate::parser::token::fixed::{Keyword, Separator};
 use crate::parser::token::identifier::Identifier;
 use crate::parser::token::literal::Literal;
@@ -19,7 +19,7 @@ mod literal;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum TokenValue {
-    Delimiter(LineEnd),
+    LineEnd,
     Literal(Literal),
     Keyword(Keyword),
     Separator(Separator),
@@ -34,10 +34,11 @@ pub struct Token {
 }
 
 impl Token {
+    /// Parses a single token.
     pub fn parse(input: Source) -> IResult<Source, Self> {
         map(
             with_len(alt((
-                map(LineEnd::parse, TokenValue::Delimiter),
+                map(LineEnd::parse, |_| TokenValue::LineEnd),
                 map(Literal::parse, TokenValue::Literal),
                 map(Keyword::parse, TokenValue::Keyword),
                 map(Separator::parse, TokenValue::Separator),
@@ -50,14 +51,28 @@ impl Token {
             },
         )(input)
     }
+
+    /// Parses a sequence of tokens, optionally delimited by token delimiters.
+    pub fn parse_sequence(mut input: Source) -> IResult<Source, Vec<Self>> {
+        let mut col = 0;
+        let mut vec = Vec::new();
+        // parse a token and set its column
+        while let Ok((rest, mut token)) = Self::parse(input) {
+            input = rest;
+            token.col = col;
+            col += token.len;
+            vec.push(token);
+            if let Ok((rest, (len, _))) = with_len(token_delimiter)(input) {
+                input = rest;
+                col += len;
+            }
+        }
+        Ok((input, vec))
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use nom::multi::many0;
-    use nom::sequence::terminated;
-
-    use crate::parser::token::delimiter::token_delimiter;
     use crate::parser::token::identifier::{Name, Operator};
     use crate::parser::token::literal::{BoolLiteral, FloatLiteral, IntLiteral};
 
@@ -76,15 +91,31 @@ mod tests {
             TokenValue::Separator(Separator::RightRound),
             TokenValue::Identifier(Identifier::Operator(Operator("@".to_owned()))),
             TokenValue::Literal(Literal::Float(FloatLiteral(22.0))),
-            TokenValue::Delimiter(LineEnd::Soft),
+            TokenValue::LineEnd,
             TokenValue::Separator(Separator::Semicolon),
         ];
-        let parser = many0(terminated(Token::parse, token_delimiter));
-        let result = parser(test_case);
+        let f = |s: &str| (test_case.rfind(s).unwrap(), s.len());
+        let expected_columns = [
+            f("hello"),
+            f("&&"),
+            f("class"),
+            f("("),
+            f("False"),
+            f("23"),
+            f(")"),
+            f("@"),
+            f("22.0"),
+            f("\n"),
+            f(";"),
+        ];
+        // let parser = many0(terminated(Token::parse, token_delimiter));
+        let result = Token::parse_sequence(test_case);
         if let Ok((rest, tokens)) = result {
-            let tokens = tokens.into_iter().map(|t| t.value).collect::<Vec<_>>();
+            let columns = tokens.iter().map(|t| (t.col, t.len)).collect::<Vec<_>>();
+            let values = tokens.into_iter().map(|t| t.value).collect::<Vec<_>>();
             assert_eq!(rest, "");
-            assert_eq!(tokens.as_slice(), expected);
+            assert_eq!(values.as_slice(), expected);
+            assert_eq!(columns, expected_columns);
         } else {
             panic!(format!("Parsing failed, got {:?}", result));
         }
