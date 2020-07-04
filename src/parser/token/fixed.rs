@@ -49,6 +49,8 @@ pub enum Keyword {
     Type,
     Class,
     Impl,
+    Underscore,
+    Ellipsis,
 }
 
 impl Keyword {
@@ -58,6 +60,8 @@ impl Keyword {
             value(Self::Type, tag("type")),
             value(Self::Class, tag("class")),
             value(Self::Impl, tag("impl")),
+            value(Self::Underscore, tag("_")),
+            value(Self::Ellipsis, tag("...")),
         ))(input)
     }
 }
