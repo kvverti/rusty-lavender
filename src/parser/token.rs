@@ -9,13 +9,20 @@ use crate::parser::token::identifier::Identifier;
 use crate::parser::token::literal::Literal;
 
 /// Parsers for names and operators.
-mod identifier;
+pub mod identifier;
 /// Parsers for separators and keywords.
-mod fixed;
+pub mod fixed;
 /// Token delimiters: whitespace, comments, and new lines.
-mod delimiter;
+pub mod delimiter;
 /// Literals: bool, int, float.
-mod literal;
+pub mod literal;
+/// Token stream trait implementations.
+mod stream;
+/// Token value trait implementations.
+mod value;
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct TokenStream<'a>(pub &'a [Token]);
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum TokenValue {
@@ -34,6 +41,10 @@ pub struct Token {
 }
 
 impl Token {
+    pub fn new(value: TokenValue) -> Self {
+        Self { value, col: 0, len: 0 }
+    }
+
     /// Parses a single token.
     pub fn parse(input: Source) -> IResult<Source, Self> {
         map(
