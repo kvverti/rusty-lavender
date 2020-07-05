@@ -20,7 +20,7 @@ pub enum Primary {
     /// A name `a` (such as `map` or `(.)`)
     Identifier(Identifier),
     /// A parenthesized expression `( a )`
-    SubExpression(ExpressionNode),
+    SubExpression(Box<ExpressionNode>),
 }
 
 impl Primary {
@@ -28,7 +28,7 @@ impl Primary {
         alt((
             map(Self::parse_literal, Self::Literal),
             map(Self::parse_identifier, Self::Identifier),
-            map(Self::parse_subexpr, Self::SubExpression),
+            map(Self::parse_subexpr, |e| Self::SubExpression(Box::new(e))),
         ))(input)
     }
 

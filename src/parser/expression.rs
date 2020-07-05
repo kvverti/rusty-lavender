@@ -11,11 +11,11 @@ pub mod primary;
 /// The types of Lavender expressions.
 #[derive(Clone, Debug, PartialEq)]
 pub enum ExpressionNode {
-    Primary(Box<Primary>),
+    Primary(Primary),
     /// Function application `a b`
-    Application(Box<PrefixApply>),
+    Application(PrefixApply),
     /// Infix function application `a @ b`
-    InfixApplication(Box<InfixApply>),
+    InfixApplication(InfixApply),
 }
 
 impl ExpressionNode {
@@ -26,18 +26,18 @@ impl ExpressionNode {
 
 impl From<Primary> for ExpressionNode {
     fn from(v: Primary) -> Self {
-        ExpressionNode::Primary(Box::new(v))
+        ExpressionNode::Primary(v)
     }
 }
 
 impl From<PrefixApply> for ExpressionNode {
     fn from(v: PrefixApply) -> Self {
-        ExpressionNode::Application(Box::new(v))
+        ExpressionNode::Application(v)
     }
 }
 
 impl From<InfixApply> for ExpressionNode {
     fn from(v: InfixApply) -> Self {
-        ExpressionNode::InfixApplication(Box::new(v))
+        ExpressionNode::InfixApplication(v)
     }
 }
