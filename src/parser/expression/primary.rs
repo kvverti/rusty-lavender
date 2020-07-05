@@ -84,7 +84,8 @@ impl Primary {
     }
 
     /// Parses a parenthesized subexpression.
-    /// TODO: remove line terminators inside subexpressions
+    /// TODO: remove line terminators inside subexpressions - another option is to force
+    ///     indentation.
     fn parse_subexpr(input: TokenStream) -> ParseResult<TokenStream, ExpressionNode> {
         delimited(
             tag(TokenValue::from(Separator::LeftRound)),
@@ -112,11 +113,14 @@ mod tests {
             .map(|t| Token::new(t.clone()))
             .collect::<Vec<_>>();
         let mut tokens = TokenStream(token_vec.as_slice());
+        let mut token_len = token_vec.len();
         for value in expected {
             let result = parser(tokens);
             if let Ok((tokens1, output)) = result {
                 tokens = tokens1;
+                token_len -= 1;
                 assert_eq!(output.into(), *value);
+                assert_eq!(tokens1.0.len(), token_len);
             } else {
                 panic!(format!("Literal parse failed {:?}", result));
             }
