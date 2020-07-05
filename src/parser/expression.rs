@@ -23,3 +23,21 @@ impl ExpressionNode {
         unimplemented!()
     }
 }
+
+impl From<Primary> for ExpressionNode {
+    fn from(v: Primary) -> Self {
+        ExpressionNode::Primary(Box::new(v))
+    }
+}
+
+impl From<PrefixApply> for ExpressionNode {
+    fn from(v: PrefixApply) -> Self {
+        ExpressionNode::Application(Box::new(v))
+    }
+}
+
+impl From<InfixApply> for ExpressionNode {
+    fn from(v: InfixApply) -> Self {
+        ExpressionNode::InfixApplication(Box::new(v))
+    }
+}
