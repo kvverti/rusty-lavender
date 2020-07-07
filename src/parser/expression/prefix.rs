@@ -1,8 +1,7 @@
 use nom::combinator::map;
-use nom::multi::many1;
-use nom::sequence::pair;
 
 use crate::parser::expression::primary::Primary;
+use crate::parser::fixity::prefix_apply;
 use crate::parser::ParseResult;
 use crate::parser::token::TokenStream;
 
@@ -18,7 +17,7 @@ pub struct PrefixApply {
 impl PrefixApply {
     pub fn parse(input: TokenStream) -> ParseResult<TokenStream, Self> {
         map(
-            pair(Primary::parse, many1(Primary::parse)),
+            prefix_apply(Primary::parse),
             |(func, args)| Self { func, args },
         )(input)
     }

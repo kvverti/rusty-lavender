@@ -3,8 +3,14 @@ use nom::error::{ParseError, VerboseError};
 
 /// Expression parsers.
 mod expression;
+/// Generic parsers for prefix and infix juxtaposition.
+mod fixity;
+/// Generic parsers for primary nodes.
+mod primary;
 /// The tokenizer.
 mod token;
+/// Explicit type declarations.
+mod typedecl;
 
 type Source<'a> = &'a str;
 type ParseResult<I, O> = IResult<I, O, VerboseError<I>>;
