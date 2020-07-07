@@ -1,8 +1,6 @@
 use nom::{IResult, Offset};
 use nom::error::{ParseError, VerboseError};
 
-/// Expression parsers.
-mod expression;
 /// Generic parsers for prefix and infix juxtaposition.
 mod fixity;
 /// Generic parsers for primary nodes.
@@ -11,6 +9,8 @@ mod primary;
 mod token;
 /// Explicit type declarations.
 mod typedecl;
+/// Value expression parsers.
+mod value;
 
 type Source<'a> = &'a str;
 type ParseResult<I, O> = IResult<I, O, VerboseError<I>>;

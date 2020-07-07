@@ -6,6 +6,13 @@ use crate::parser::token::{TokenStream, TokenValue};
 use crate::parser::token::identifier::{Identifier, Name, Operator};
 use crate::parser::token::literal::Literal;
 
+/// A trait for parsable primary expressions.
+pub trait Primary
+    where Self: Sized
+{
+    fn parse(input: TokenStream) -> ParseResult<TokenStream, Self>;
+}
+
 /// Accepts an alphanumeric identifier.
 pub fn name(input: TokenStream) -> ParseResult<TokenStream, Name> {
     if let Some(t) = input.0.get(0).map(|t| &t.value) {
