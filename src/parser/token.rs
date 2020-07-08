@@ -3,7 +3,7 @@ use nom::combinator::map;
 use nom::IResult;
 
 use crate::parser::{Source, with_len};
-use crate::parser::token::delimiter::{LineEnd, token_delimiter};
+use crate::parser::token::delimiter::token_delimiter;
 use crate::parser::token::fixed::{Keyword, Separator};
 use crate::parser::token::identifier::Identifier;
 use crate::parser::token::literal::Literal;
@@ -26,7 +26,7 @@ pub struct TokenStream<'a>(pub &'a [Token]);
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum TokenValue {
-    LineEnd,
+    Indent(i32),
     Literal(Literal),
     Keyword(Keyword),
     Separator(Separator),
@@ -49,7 +49,7 @@ impl Token {
     pub fn parse(input: Source) -> IResult<Source, Self> {
         map(
             with_len(alt((
-                map(LineEnd::parse, |_| TokenValue::LineEnd),
+                map(delimiter::indent, TokenValue::Indent),
                 map(Literal::parse, TokenValue::Literal),
                 map(Keyword::parse, TokenValue::Keyword),
                 map(Separator::parse, TokenValue::Separator),
@@ -91,7 +91,7 @@ mod tests {
 
     #[test]
     fn parses() {
-        let test_case = "hello&& \t \t class (False 23)  @ 22.0\n# above is madness\n;";
+        let test_case = "hello&& \t \t class (False 23)  @ 22.0\n# above is madness\n  ;";
         let expected = [
             TokenValue::Identifier(Identifier::Name(Name("hello".to_owned()))),
             TokenValue::Identifier(Identifier::Operator(Operator("&&".to_owned()))),
@@ -102,7 +102,7 @@ mod tests {
             TokenValue::Separator(Separator::RightRound),
             TokenValue::Identifier(Identifier::Operator(Operator("@".to_owned()))),
             TokenValue::Literal(Literal::Float(FloatLiteral(22.0))),
-            TokenValue::LineEnd,
+            TokenValue::Indent(2),
             TokenValue::Separator(Separator::Semicolon),
         ];
         let f = |s: &str| (test_case.rfind(s).unwrap(), s.len());
@@ -116,10 +116,9 @@ mod tests {
             f(")"),
             f("@"),
             f("22.0"),
-            f("\n"),
+            f("\n# above is madness\n  "),
             f(";"),
         ];
-        // let parser = many0(terminated(Token::parse, token_delimiter));
         let result = Token::parse_sequence(test_case);
         if let Ok((rest, tokens)) = result {
             let columns = tokens.iter().map(|t| (t.col, t.len)).collect::<Vec<_>>();
