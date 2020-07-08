@@ -19,6 +19,7 @@ pub enum Separator {
     Semicolon,
     FatArrow,
     BackTick,
+    Check,
 }
 
 impl Separator {
@@ -33,6 +34,7 @@ impl Separator {
             value(Self::Semicolon, tag(";")),
             value(Self::FatArrow, tag("=>")),
             value(Self::BackTick, tag("`")),
+            value(Self::Check, tag("'")),
         ))(input)
     }
 }
