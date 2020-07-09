@@ -1,27 +1,12 @@
+use nom::branch::alt;
 use nom::bytes::complete::tag;
-use nom::character::complete::{line_ending, not_line_ending, space0};
-use nom::combinator::{map, opt, value};
+use nom::character::complete::{line_ending, not_line_ending, space1};
+use nom::combinator::value;
 use nom::IResult;
-use nom::multi::many0;
-use nom::sequence::{pair, preceded};
+use nom::multi::fold_many0;
+use nom::sequence::pair;
 
 use crate::parser::Source;
-
-/// Parses an absolute indent. An indent is a line terminator, followed by zero or more
-/// empty lines, followed by a sequence of whitespace. The returned value is the number
-/// of whitespace columns in the indent.
-pub fn indent(input: Source) -> IResult<Source, i32> {
-    preceded(
-        pair(line_ending, many0(empty_line)),
-        map(space0, |s: &str| s.len() as i32),
-    )(input)
-}
-
-/// Parses a completely empty line, containing only spaces and comments.
-/// These lines are ignored.
-fn empty_line(input: Source) -> IResult<Source, ()> {
-    value((), preceded(pair(space0, opt(comment)), line_ending))(input)
-}
 
 /// Parses a comment. Used during tokenization to discard insignificant whitespace.
 ///
@@ -33,10 +18,18 @@ pub fn comment(input: Source) -> IResult<Source, ()> {
 
 /// Parses a token delimiter. These are discarded after tokenization.
 ///
-/// Token delimiters are composed of a sequence of a (possibly empty) comments and spaces,
-/// terminated by a non-line-ending.
+/// Token delimiters are composed of a sequence of a (possibly empty) comments and spaces, and
+/// line endings.
 pub fn token_delimiter(input: Source) -> IResult<Source, ()> {
-    value((), pair(space0, opt(comment)))(input)
+    fold_many0(
+        alt((
+            value((), space1),
+            value((), line_ending),
+            comment,
+        )),
+        (),
+        |_, _| (),
+    )(input)
 }
 
 #[cfg(test)]
@@ -47,34 +40,17 @@ mod tests {
 
     #[test]
     fn delimiter() {
-        let parser = delimited(tag("a"), token_delimiter, tag("\n"));
+        let parser = delimited(tag("a"), token_delimiter, tag("a"));
         let successes = [
-            "a \n",
-            "a\n",
-            "a\t \t\n",
-            "a # comment\n",
+            "a a",
+            "aa",
+            "a\t \ta",
+            "a # comment\na",
+            "a\n\n   \n # comment \n\n \t\t a",
         ];
         for c in &successes {
             let result = parser(c);
             assert!(result.is_ok(), format!("Ok case {:?}, result {:?}", c, result));
-        }
-    }
-
-    #[test]
-    fn line_wrap() {
-        let parser = delimited(tag("a"), indent, tag("a"));
-        let cases = [
-            ("a\na", 0),
-            ("a\n\n  a", 2),
-            ("a\n# comment\n   a", 3),
-            ("a\n    \n a", 1),
-        ];
-        for &(c, v) in &cases {
-            let result = parser(c);
-            assert!(result.is_ok(), format!("Ok case {:?}, result {:?}", c, result));
-            let (rest, result) = result.unwrap();
-            assert_eq!(rest, "");
-            assert_eq!(result, v);
         }
     }
 }

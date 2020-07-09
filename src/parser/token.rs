@@ -26,7 +26,6 @@ pub struct TokenStream<'a>(pub &'a [Token]);
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum TokenValue {
-    Indent(i32),
     Literal(Literal),
     Keyword(Keyword),
     Separator(Separator),
@@ -49,7 +48,6 @@ impl Token {
     pub fn parse(input: Source) -> IResult<Source, Self> {
         map(
             with_len(alt((
-                map(delimiter::indent, TokenValue::Indent),
                 map(Literal::parse, TokenValue::Literal),
                 map(Keyword::parse, TokenValue::Keyword),
                 map(Separator::parse, TokenValue::Separator),
@@ -102,7 +100,6 @@ mod tests {
             TokenValue::Separator(Separator::RightRound),
             TokenValue::Identifier(Identifier::Operator(Operator("@".to_owned()))),
             TokenValue::Literal(Literal::Float(FloatLiteral(22.0))),
-            TokenValue::Indent(2),
             TokenValue::Separator(Separator::Semicolon),
         ];
         let f = |s: &str| (test_case.rfind(s).unwrap(), s.len());
@@ -116,7 +113,6 @@ mod tests {
             f(")"),
             f("@"),
             f("22.0"),
-            f("\n# above is madness\n  "),
             f(";"),
         ];
         let result = Token::parse_sequence(test_case);
