@@ -48,10 +48,10 @@ impl Token {
     pub fn parse(input: Source) -> IResult<Source, Self> {
         map(
             with_len(alt((
+                map(Identifier::parse, TokenValue::Identifier),
                 map(Literal::parse, TokenValue::Literal),
                 map(Keyword::parse, TokenValue::Keyword),
                 map(Separator::parse, TokenValue::Separator),
-                map(Identifier::parse, TokenValue::Identifier),
             ))),
             |(len, res)| Self {
                 value: res,
@@ -125,5 +125,29 @@ mod tests {
         } else {
             panic!(format!("Parsing failed, got {:?}", result));
         }
+    }
+
+    #[test]
+    fn keywords() {
+        let expected = [
+            TokenValue::Keyword(Keyword::Def),
+            TokenValue::Keyword(Keyword::Type),
+            TokenValue::Identifier(Identifier::Name(Name("types".to_owned()))),
+            TokenValue::Identifier(Identifier::Operator(Operator("<=>".to_owned()))),
+            TokenValue::Separator(Separator::FatArrow),
+            TokenValue::Identifier(Identifier::Operator(Operator("=>>".to_owned()))),
+            TokenValue::Identifier(Identifier::Name(Name("simple".to_owned()))),
+            TokenValue::Keyword(Keyword::Impl),
+            TokenValue::Literal(Literal::Bool(BoolLiteral(true))),
+            TokenValue::Identifier(Identifier::Name(Name("unTrue".to_owned()))),
+            TokenValue::Identifier(Identifier::Name(Name("Trues".to_owned()))),
+        ];
+        let case = "def type types <=> => =>> simple impl True unTrue Trues";
+        let result = Token::parse_sequence(case);
+        assert!(result.is_ok(), format!("Expected ok parse, got {:?}", result));
+        let (rest, result) = result.unwrap();
+        let result = result.into_iter().map(|t| t.value).collect::<Vec<_>>();
+        assert_eq!(rest, "");
+        assert_eq!(result.as_slice(), &expected);
     }
 }

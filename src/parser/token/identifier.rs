@@ -7,6 +7,8 @@ use nom::IResult;
 use nom::multi::{fold_many1, many1};
 
 use crate::parser::Source;
+use crate::parser::token::fixed::is_keyword_or_separator;
+use crate::parser::token::literal::is_bool_literal;
 
 /// An alphanumeric identifier.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -52,10 +54,21 @@ pub enum Identifier {
 
 impl Identifier {
     pub fn parse(input: Source) -> IResult<Source, Self> {
-        alt((
-            map(Name::parse, Self::Name),
-            map(Operator::parse, Self::Operator),
-        ))(input)
+        verify(
+            alt((
+                map(Name::parse, Self::Name),
+                map(Operator::parse, Self::Operator),
+            )),
+            Self::is_not_reserved,
+        )(input)
+    }
+
+    fn is_not_reserved(input: &Identifier) -> bool {
+        let s = match input {
+            Self::Name(Name(s)) => s,
+            Self::Operator(Operator(s)) => s,
+        };
+        !is_keyword_or_separator(s) && !is_bool_literal(s)
     }
 }
 

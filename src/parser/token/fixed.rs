@@ -20,6 +20,8 @@ pub enum Separator {
     FatArrow,
     BackTick,
     Check,
+    Colon,
+    DoubleColon,
 }
 
 impl Separator {
@@ -35,6 +37,8 @@ impl Separator {
             value(Self::FatArrow, tag("=>")),
             value(Self::BackTick, tag("`")),
             value(Self::Check, tag("'")),
+            value(Self::DoubleColon, tag("::")),
+            value(Self::Colon, tag(":")),
         ))(input)
     }
 }
@@ -47,12 +51,22 @@ impl Separator {
 /// are also not keywords; they are literals.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Keyword {
+    /// Value definition `def x y => z`.
     Def,
+    /// Type alias `type A => B`.
     Type,
+    /// Type class definition `class F a { }`.
     Class,
+    /// Type class implementation `impl F A { }`.
     Impl,
+    /// Data definition `data A => A1 B | A2 C`.
+    Data,
+    /// Lambda expression `lam x y. z`.
+    Lam,
+    /// Type universal expression `for a b. c`.
+    For,
+    /// Unbound value `f _`.
     Underscore,
-    Ellipsis,
 }
 
 impl Keyword {
@@ -62,8 +76,36 @@ impl Keyword {
             value(Self::Type, tag("type")),
             value(Self::Class, tag("class")),
             value(Self::Impl, tag("impl")),
+            value(Self::Data, tag("data")),
+            value(Self::Lam, tag("lam")),
+            value(Self::For, tag("for")),
             value(Self::Underscore, tag("_")),
-            value(Self::Ellipsis, tag("...")),
         ))(input)
+    }
+}
+
+/// Tests whether a string represents either a keyword or a separator.
+/// This function returns true if and only if the entire input represents a keyword or
+/// separator; for example
+///
+/// ```
+/// assert!(is_keyword_or_separator("=>"));
+/// assert!(is_keyword_or_separator("impl"));
+///
+/// assert!(!is_keyword_or_separator("=>>"));
+/// assert!(!is_keyword_or_separator("impls"));
+/// assert!(!is_keyword_or_separator("simple"));
+/// ```
+pub fn is_keyword_or_separator(input: Source) -> bool {
+    let result = alt((
+        value((), Separator::parse),
+        value((), Keyword::parse),
+    ))(input);
+    if let Ok((rest, _)) = result {
+        // the entire input is a keyword if and only if the remainder is empty
+        rest.is_empty()
+    } else {
+        // error -> not a keyword
+        false
     }
 }

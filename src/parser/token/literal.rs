@@ -60,6 +60,23 @@ impl BoolLiteral {
     }
 }
 
+/// Whether the entire input represents a bool literal.
+///
+/// ```
+/// assert!(is_bool_literal("True"));
+/// assert!(!is_bool_literal("Trues"));
+/// ```
+pub fn is_bool_literal(input: Source) -> bool {
+    let result = BoolLiteral::parse(input);
+    if let Ok((rest, _)) = result {
+        // entire input is a bool literal iff there is no remainder
+        rest.is_empty()
+    } else {
+        // error -> not a literal
+        false
+    }
+}
+
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Literal {
     Bool(BoolLiteral),
