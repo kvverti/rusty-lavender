@@ -1,5 +1,8 @@
+use std::mem;
+
 use crate::code::Opcode;
 use crate::value::LvValue;
+use crate::value::vector::LvVect;
 
 // integer operations
 
@@ -418,8 +421,7 @@ pub const TEXT_LENS: [Opcode; 4] = [
 ];
 
 fn cats(args: &mut [LvValue]) -> LvValue {
-    let mut a = LvValue::Unit;
-    std::mem::swap(&mut a, &mut args[0]);
+    let a = mem::replace(&mut args[0], LvValue::Unit);
     if let LvValue::String(a) = a {
         let b = extract_str(&args[1]);
         LvValue::from(a + b)
@@ -490,5 +492,54 @@ pub const TEXT_F2I: [Opcode; 4] = [
     Opcode::MoveArg(0),
     Opcode::Eval,
     Opcode::Intrinsic(1, f2i),
+    Opcode::Return,
+];
+
+// vector operations
+// note: vectors may store lazy values, including a lazy tail. Therefore, the length of the
+// internal vector may not correspond to the actual, logical length.
+
+fn extract_vect(v: &mut LvValue) -> &mut LvVect {
+    use LvValue::Vect;
+    if let Vect(v) = v {
+        v
+    } else {
+        panic!("Expected vector");
+    }
+}
+
+// vector cons: may create a lazy tail
+// the cases are as follows:
+//  head : Unit = [head], false
+//  head : applied-tail = [head, tail...], ...
+//  x : lazy-tail = [head, tail], true
+fn consv(args: &mut [LvValue]) -> LvValue {
+    let head = mem::replace(&mut args[0], LvValue::Unit);
+    let tail = mem::replace(&mut args[1], LvValue::Unit);
+    match tail {
+        // cons with empty
+        LvValue::Unit => LvValue::from(LvVect {
+            values: vec![head],
+            append_tail: false,
+        }),
+        // applied tail
+        LvValue::Vect(mut vect) => {
+            vect.values.push(head);
+            LvValue::from(vect)
+        }
+        // lazy tail
+        tail => LvValue::from(LvVect {
+            values: vec![tail, head],
+            append_tail: true,
+        })
+    }
+}
+
+// note that this intrinsic does not evaluate its arguments, making
+// the expression `cons a (cons b (cons c ...))` easily inlinable
+const TEXT_CONSV: [Opcode; 4] = [
+    Opcode::MoveArg(0),
+    Opcode::MoveArg(1),
+    Opcode::Intrinsic(2, consv),
     Opcode::Return,
 ];

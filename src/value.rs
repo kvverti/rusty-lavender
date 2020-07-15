@@ -1,7 +1,10 @@
 use crate::value::func::LvFunc;
+use crate::value::vector::LvVect;
 
 /// Contains Lavender's function values.
 pub mod func;
+/// Contains Lavender's vector values.
+pub mod vector;
 
 /// A Lavender value.
 #[derive(Clone, Debug, PartialEq)]
@@ -18,6 +21,8 @@ pub enum LvValue {
     String(String),
     /// A function, i.e. callable value.
     Function(LvFunc),
+    /// A vector or tuple.
+    Vect(LvVect),
 }
 
 impl Default for LvValue {
@@ -59,5 +64,11 @@ impl From<String> for LvValue {
 impl From<LvFunc> for LvValue {
     fn from(v: LvFunc) -> Self {
         LvValue::Function(v)
+    }
+}
+
+impl From<LvVect> for LvValue {
+    fn from(v: LvVect) -> Self {
+        LvValue::Vect(v)
     }
 }
