@@ -3,18 +3,19 @@ use nom::bytes::complete::tag;
 use nom::combinator::map;
 use nom::sequence::{delimited, preceded};
 
-use crate::parser::fixity::{InfixApply, prefix_operator, PrefixApply};
+use crate::parser::fixity::{InfixApply, PrefixApply};
 use crate::parser::ParseResult;
 use crate::parser::primary::{name, Primary};
+use crate::parser::scoped::ScopedIdentifier;
 use crate::parser::token::{TokenStream, TokenValue};
 use crate::parser::token::fixed::Separator;
-use crate::parser::token::identifier::{Identifier, Name};
+use crate::parser::token::identifier::Name;
 
 /// A type expression, used wherever a type may be placed.
 #[derive(Clone, Debug, PartialEq)]
 pub enum TypePrimary {
     /// A type name `A`.
-    TypeIdentifier(Identifier),
+    TypeIdentifier(ScopedIdentifier),
     /// A type variable name `'a`.
     TypeVariable(Name),
     /// A parenthesized type expression `( a )`.
@@ -24,7 +25,7 @@ pub enum TypePrimary {
 impl Primary for TypePrimary {
     fn parse(input: TokenStream) -> ParseResult<TokenStream, Self> {
         alt((
-            map(prefix_operator, Self::TypeIdentifier),
+            map(ScopedIdentifier::parse, Self::TypeIdentifier),
             map(
                 preceded(tag(TokenValue::from(Separator::Check)), name),
                 Self::TypeVariable,
@@ -64,7 +65,7 @@ impl TypeExpression {
 #[cfg(test)]
 mod tests {
     use crate::parser::fixity::InfixPrimary;
-    use crate::parser::token::identifier::Operator;
+    use crate::parser::token::identifier::{Identifier, Operator};
     use crate::parser::token::Token;
 
     use super::*;
@@ -72,7 +73,7 @@ mod tests {
     #[test]
     fn parses() {
         let expected = TypeExpression::TypeApplication(PrefixApply {
-            func: TypePrimary::TypeIdentifier(Identifier::Name(Name("Type".to_owned()))),
+            func: TypePrimary::TypeIdentifier(ScopedIdentifier::from(Identifier::Name(Name("Type".to_owned())))),
             args: vec![
                 TypePrimary::TypeVariable(Name("a".to_owned())),
                 TypePrimary::TypeSubExpression(Box::new(

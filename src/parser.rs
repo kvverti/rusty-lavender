@@ -5,6 +5,8 @@ use nom::error::{ParseError, VerboseError};
 mod fixity;
 /// Generic parsers for primary nodes.
 mod primary;
+/// Scoped identifier parser.
+mod scoped;
 /// The tokenizer.
 mod token;
 /// Explicit type declarations.

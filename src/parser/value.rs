@@ -3,12 +3,12 @@ use nom::bytes::complete::tag;
 use nom::combinator::map;
 use nom::sequence::delimited;
 
-use crate::parser::fixity::{InfixApply, prefix_operator, PrefixApply};
+use crate::parser::fixity::{InfixApply, PrefixApply};
 use crate::parser::ParseResult;
 use crate::parser::primary::{literal, Primary};
+use crate::parser::scoped::ScopedIdentifier;
 use crate::parser::token::{TokenStream, TokenValue};
 use crate::parser::token::fixed::Separator;
-use crate::parser::token::identifier::Identifier;
 use crate::parser::token::literal::Literal;
 
 /// A fundamental, "atomic" value expression.
@@ -17,7 +17,7 @@ pub enum ValuePrimary {
     /// A literal token `a` (such a `True` or `3`)
     Literal(Literal),
     /// A name `a` (such as `map` or `(.)`)
-    Identifier(Identifier),
+    Identifier(ScopedIdentifier),
     /// A parenthesized expression `( a )`
     SubExpression(Box<ValueExpression>),
 }
@@ -39,7 +39,7 @@ impl Primary for ValuePrimary {
     fn parse(input: TokenStream) -> ParseResult<TokenStream, Self> {
         alt((
             map(literal, Self::Literal),
-            map(prefix_operator, Self::Identifier),
+            map(ScopedIdentifier::parse, Self::Identifier),
             map(Self::parse_subexpr, |e| Self::SubExpression(Box::new(e))),
         ))(input)
     }
@@ -100,14 +100,14 @@ mod tests {
             args: vec![
                 InfixPrimary::Primary(ValuePrimary::Literal(Literal::Int(IntLiteral(1)))),
                 InfixPrimary::Application(PrefixApply {
-                    func: ValuePrimary::Identifier(Identifier::Name(Name("f".to_owned()))),
+                    func: ValuePrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("f".to_owned())))),
                     args: vec![ValuePrimary::Literal(Literal::Int(IntLiteral(2)))],
                 }),
                 InfixPrimary::Primary(ValuePrimary::SubExpression(Box::new(
                     ValueExpression::InfixApplication(InfixApply {
                         func: Identifier::Operator(Operator("*".to_owned())),
                         args: vec![
-                            InfixPrimary::Primary(ValuePrimary::Identifier(Identifier::Name(Name("a".to_owned())))),
+                            InfixPrimary::Primary(ValuePrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("a".to_owned()))))),
                             InfixPrimary::Primary(ValuePrimary::Literal(Literal::Int(IntLiteral(3)))),
                         ],
                     })

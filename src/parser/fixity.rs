@@ -104,6 +104,7 @@ mod tests {
     use crate::parser::value::ValuePrimary;
 
     use super::*;
+    use crate::parser::scoped::ScopedIdentifier;
 
     #[test]
     fn name() {
@@ -184,9 +185,9 @@ mod tests {
     #[test]
     fn prefix_parses() {
         let expected = PrefixApply {
-            func: ValuePrimary::Identifier(Identifier::Operator(Operator("+".to_owned()))),
+            func: ValuePrimary::Identifier(ScopedIdentifier::from(Identifier::Operator(Operator("+".to_owned())))),
             args: vec![
-                ValuePrimary::Identifier(Identifier::Name(Name("f".to_owned()))),
+                ValuePrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("f".to_owned())))),
                 ValuePrimary::Literal(Literal::Int(IntLiteral(1))),
             ],
         };
@@ -217,11 +218,11 @@ mod tests {
             args: vec![
                 InfixPrimary::Primary(ValuePrimary::Literal(Literal::Int(IntLiteral(7)))),
                 InfixPrimary::Application(PrefixApply {
-                    func: ValuePrimary::Identifier(Identifier::Name(Name("f".to_owned()))),
+                    func: ValuePrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("f".to_owned())))),
                     args: vec![ValuePrimary::Literal(Literal::Int(IntLiteral(8)))],
                 }),
                 InfixPrimary::Application(PrefixApply {
-                    func: ValuePrimary::Identifier(Identifier::Name(Name("g".to_owned()))),
+                    func: ValuePrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("g".to_owned())))),
                     args: vec![ValuePrimary::Literal(Literal::Int(IntLiteral(9)))],
                 }),
                 InfixPrimary::Primary(ValuePrimary::Literal(Literal::Int(IntLiteral(10)))),
@@ -252,7 +253,7 @@ mod tests {
             args: vec![
                 InfixPrimary::Primary(ValuePrimary::Literal(Literal::Int(IntLiteral(7)))),
                 InfixPrimary::Application(PrefixApply {
-                    func: ValuePrimary::Identifier(Identifier::Name(Name("f".to_owned()))),
+                    func: ValuePrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("f".to_owned())))),
                     args: vec![ValuePrimary::Literal(Literal::Int(IntLiteral(8)))],
                 }),
             ],
