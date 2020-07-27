@@ -499,7 +499,7 @@ pub const TEXT_F2I: [Opcode; 4] = [
 // note: vectors may store lazy values, including a lazy tail. Therefore, the length of the
 // internal vector may not correspond to the actual, logical length.
 
-fn extract_vect(v: &mut LvValue) -> &mut LvVect {
+fn extract_vect(v: &LvValue) -> &LvVect {
     use LvValue::Vect;
     if let Vect(v) = v {
         v
@@ -537,9 +537,59 @@ fn consv(args: &mut [LvValue]) -> LvValue {
 
 // note that this intrinsic does not evaluate its arguments, making
 // the expression `cons a (cons b (cons c ...))` easily inlinable
-const TEXT_CONSV: [Opcode; 4] = [
+pub const TEXT_CONSV: [Opcode; 4] = [
     Opcode::MoveArg(0),
     Opcode::MoveArg(1),
     Opcode::Intrinsic(2, consv),
+    Opcode::Return,
+];
+
+fn partial_lenv(args: &[LvValue]) -> LvValue {
+    let vect = &args[0];
+    if let LvValue::Unit = vect {
+        LvValue::from(0)
+    } else {
+        let vect = extract_vect(&vect);
+        LvValue::from(vect.values.len() as i64)
+    }
+}
+
+fn partial_last(args: &mut [LvValue]) -> LvValue {
+    let vect = mem::replace(&mut args[0], LvValue::Unit);
+    if let LvValue::Vect(vect) = vect {
+        vect.values.into_iter().nth(0).expect("Vect with no tail");
+        unimplemented!()
+    } else {
+        panic!("Expected vect");
+    }
+}
+
+fn should_terminate(args: &[LvValue]) -> LvValue {
+    let vect = extract_vect(&args[0]);
+    LvValue::from(!vect.append_tail)
+}
+
+// todo: test, this is probably buggy and wrong
+pub const TEXT_LENV: [Opcode; 14] = [
+    // initial move to stack
+    Opcode::MoveArg(0),
+    Opcode::IntValue(0),
+    Opcode::MoveArgTo(0),
+    // jump past the increment on first run
+    Opcode::Jump(1),
+    Opcode::Intrinsic(1, partial_last),
+    Opcode::Eval,
+    // get the partial length
+    Opcode::IntrinsicNoModify(1, partial_lenv),
+    // add the length to the temporary storage
+    Opcode::MoveArg(0),
+    Opcode::Intrinsic(2, addi),
+    Opcode::MoveArgTo(0),
+    // determine whether to recurse on the tail
+    Opcode::IntrinsicNoModify(1, should_terminate),
+    Opcode::BranchFalse(-8),
+    // done determining the length
+    // (popping the vect is handled via return)
+    Opcode::MoveArg(0),
     Opcode::Return,
 ];

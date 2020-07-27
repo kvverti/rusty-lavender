@@ -19,15 +19,27 @@ pub enum Opcode {
     MoveArg(u8),
     /// A copy of the given argument (or function local) to the stack.
     CopyArg(u8),
+    /// A move from the stack to the given argument (or function local).
+    MoveArgTo(u8),
     /// Function application.
     Apply,
     /// Fully evaluate the top expression. Used sparingly.
     Eval,
     /// A return from a function to the caller.
     Return,
+    /// Destructures a vect or tuple.
+    MatchTuple,
+    /// Relative jump to the given offset.
+    Jump(i32),
+    /// Branch if false.
+    BranchFalse(i32),
     /// An "escape hatch" into the native environment. Used to implement intrinsic operations
     /// such as integer addition. This opcode shall never appear in serialized forms.
     Intrinsic(u8, fn(&mut [LvValue]) -> LvValue),
+    /// An "escape hatch" into the native environment. Used to implement intrinsic operations
+    /// that should not pop their arguments from the stack. This can prevent needless copying.
+    // note: determine whether this opcode is necessary for more things than vector length
+    IntrinsicNoModify(u8, fn(&[LvValue]) -> LvValue),
     /// A debug instruction to print out the current stack top value.
     DebugTop,
 }

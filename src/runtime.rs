@@ -73,6 +73,15 @@ impl RuntimeContext {
 
     /// Executes the given operation and updates state as appropriate.
     fn step(&mut self) {
+        /// Offsets an index by the given signed offset. Not expected to overflow.
+        #[inline]
+        fn offset_index(idx: &mut usize, offset: i32) {
+            if offset >= 0 {
+                *idx += offset as usize;
+            } else {
+                *idx -= -offset as usize;
+            }
+        }
         use Opcode::*;
         let op = self.symbols.opcode_at(self.pc);
         self.pc += 1;
@@ -103,6 +112,17 @@ impl RuntimeContext {
                     self.values[frame.fp + (idx - stack::LOCAL_SIZE)].clone()
                 };
                 self.values.push(arg);
+            }
+            MoveArgTo(idx) => {
+                let idx = usize::from(idx);
+                let value = self.values.pop().expect("No argument to place");
+                let frame = self.frames.last_mut().expect("No stack from to copy argument to");
+                let arg = if idx < stack::LOCAL_SIZE {
+                    &mut frame.locals[idx]
+                } else {
+                    &mut self.values[frame.fp + (idx - stack::LOCAL_SIZE)]
+                };
+                *arg = value;
             }
             Apply => {
                 use LvValue::Function;
@@ -147,11 +167,36 @@ impl RuntimeContext {
                     self.values.push(top);
                 }
             }
+            MatchTuple => {
+                let top = self.values.pop().expect("No stack value for MatchTuple");
+                if let LvValue::Vect(mut vect) = top {
+                    let head = vect.values.pop().expect("Vect value is empty");
+                    self.values.push(head);
+                    self.values.push(LvValue::from(vect));
+                } else {
+                    panic!("Expected vect but instead was: {:?}", top);
+                }
+            }
+            BranchFalse(offset) => {
+                let top = self.values.pop().expect("No stack value for BranchZero");
+                if let LvValue::Bool(value) = top {
+                    if !value {
+                        offset_index(&mut self.pc, offset);
+                    }
+                }
+            }
+            Jump(offset) => offset_index(&mut self.pc, offset),
             Intrinsic(arity, func) => {
                 let arg_idx = self.values.len() - arity as usize;
                 let args = &mut self.values[arg_idx..];
                 let ret = func(args);
                 self.values.truncate(arg_idx);
+                self.values.push(ret);
+            }
+            IntrinsicNoModify(arity, func) => {
+                let arg_idx = self.values.len() - arity as usize;
+                let args = &self.values[arg_idx..];
+                let ret = func(args);
                 self.values.push(ret);
             }
             DebugTop => println!("Stack {:#}, Frame {:#}, Pc {:?} \n{:?}",
