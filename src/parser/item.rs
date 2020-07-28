@@ -1,7 +1,8 @@
+use nom::branch::alt;
 use nom::bytes::complete::tag;
 use nom::combinator::map;
-use nom::multi::many1;
-use nom::sequence::{preceded, tuple};
+use nom::multi::{count, many1};
+use nom::sequence::{pair, preceded, tuple};
 
 use crate::parser::fixity::prefix_operator;
 use crate::parser::ParseResult;
@@ -13,12 +14,14 @@ use crate::parser::token::identifier::Identifier;
 use crate::parser::value::ValueExpression;
 
 /// A function definition `def f a => b`.
-/// todo: allow multi-body functions
 #[derive(Clone, Debug, PartialEq)]
 pub struct FunctionDefinition {
+    /// The name of the function.
     pub name: Identifier,
+    /// The initial parameter patterns (may be empty).
     pub params: Vec<PatternPrimary>,
-    pub body: ValueExpression,
+    /// The one or more function bodies for this function.
+    pub bodies: Vec<FunctionBody>,
 }
 
 impl FunctionDefinition {
@@ -27,13 +30,46 @@ impl FunctionDefinition {
             tuple((
                 preceded(tag(TokenValue::from(Keyword::Def)), prefix_operator),
                 many1(PatternPrimary::parse),
-                preceded(tag(TokenValue::from(Separator::FatArrow)), ValueExpression::parse),
+                alt((
+                    count(FunctionBody::single, 1),
+                    many1(FunctionBody::multiple),
+                ))
             )),
-            |(name, params, body)| Self {
+            |(name, params, bodies)| Self {
                 name,
                 params,
-                body,
+                bodies,
             },
+        )(input)
+    }
+}
+
+/// A function body. Functions may have multiple bodies.
+#[derive(Clone, Debug, PartialEq)]
+pub struct FunctionBody {
+    /// Any additional parameter patterns (may be empty).
+    pub params: Vec<PatternPrimary>,
+    /// The function body.
+    pub body: ValueExpression,
+}
+
+impl FunctionBody {
+    /// Parses a multiple function body `; a => b`.
+    pub fn multiple(input: TokenStream) -> ParseResult<TokenStream, Self> {
+        map(
+            pair(
+                preceded(tag(TokenValue::from(Separator::Semicolon)), many1(PatternPrimary::parse)),
+                preceded(tag(TokenValue::from(Separator::FatArrow)), ValueExpression::parse),
+            ),
+            |(params, body)| Self { params, body },
+        )(input)
+    }
+
+    /// Parses a single function body `=> b`.
+    pub fn single(input: TokenStream) -> ParseResult<TokenStream, Self> {
+        map(
+            preceded(tag(TokenValue::from(Separator::FatArrow)), ValueExpression::parse),
+            |body| Self { params: vec![], body },
         )(input)
     }
 }
@@ -50,7 +86,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn parses() {
+    fn single() {
         let expected = FunctionDefinition {
             name: Identifier::Operator(Operator("@".to_owned())),
             params: vec![
@@ -60,16 +96,58 @@ mod tests {
                     args: vec![PatternPrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("b".to_owned()))))],
                 })))
             ],
-            body: ValueExpression::InfixApplication(InfixApply {
-                func: Identifier::Operator(Operator("+".to_owned())),
-                args: vec![
-                    InfixPrimary::Primary(ValuePrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("a".to_owned()))))),
-                    InfixPrimary::Primary(ValuePrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("b".to_owned()))))),
-                    InfixPrimary::Primary(ValuePrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("a".to_owned()))))),
-                ],
-            }),
+            bodies: vec![
+                FunctionBody {
+                    params: vec![],
+                    body: ValueExpression::InfixApplication(InfixApply {
+                        func: Identifier::Operator(Operator("+".to_owned())),
+                        args: vec![
+                            InfixPrimary::Primary(ValuePrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("a".to_owned()))))),
+                            InfixPrimary::Primary(ValuePrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("b".to_owned()))))),
+                            InfixPrimary::Primary(ValuePrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("a".to_owned()))))),
+                        ],
+                    }),
+                }
+            ],
         };
         let input = "def (@) a (Id b) => a + b + a";
+        let (_, result) = Token::parse_sequence(input).expect("Unable to parse tokens");
+        let result = FunctionDefinition::parse(TokenStream(result.as_slice()));
+        assert!(result.is_ok(), "Expected ok result, got {:?}", result);
+        let (rest, result) = result.unwrap();
+        assert_eq!(rest.0, &[]);
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn multiple() {
+        let expected = FunctionDefinition {
+            name: Identifier::Name(Name("bind".to_owned())),
+            params: vec![PatternPrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("f".to_owned()))))],
+            bodies: vec![
+                FunctionBody {
+                    params: vec![
+                        PatternPrimary::SubPattern(Box::new(Pattern::Application(PrefixApply {
+                            func: PatternPrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("Some".to_owned())))),
+                            args: vec![PatternPrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("a".to_owned()))))],
+                        })))
+                    ],
+                    body: ValueExpression::Application(PrefixApply {
+                        func: ValuePrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("f".to_owned())))),
+                        args: vec![ValuePrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("a".to_owned()))))],
+                    }),
+                },
+                FunctionBody {
+                    params: vec![PatternPrimary::Blank],
+                    body: ValueExpression::Primary(ValuePrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("None".to_owned()))))),
+                }
+            ],
+        };
+        let input = "
+            def bind f
+                ; (Some a) => f a
+                ; _ => None
+        ";
         let (_, result) = Token::parse_sequence(input).expect("Unable to parse tokens");
         let result = FunctionDefinition::parse(TokenStream(result.as_slice()));
         assert!(result.is_ok(), "Expected ok result, got {:?}", result);

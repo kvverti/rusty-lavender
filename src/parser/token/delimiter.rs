@@ -43,6 +43,7 @@ mod tests {
         let parser = delimited(tag("a"), token_delimiter, tag("a"));
         let successes = [
             "a a",
+            "a\na",
             "aa",
             "a\t \ta",
             "a # comment\na",

@@ -65,6 +65,11 @@ impl Token {
     pub fn parse_sequence(mut input: Source) -> IResult<Source, Vec<Self>> {
         let mut col = 0;
         let mut vec = Vec::new();
+        // parse any leading token delimiter
+        if let Ok((rest, (len, _))) = with_len(token_delimiter)(input) {
+            input = rest;
+            col += len;
+        }
         // parse a token and set its column
         while let Ok((rest, mut token)) = Self::parse(input) {
             input = rest;
