@@ -3,6 +3,8 @@ use nom::error::{ParseError, VerboseError};
 
 /// Generic parsers for prefix and infix juxtaposition.
 mod fixity;
+/// Item parsers.
+mod item;
 /// Pattern parsers.
 mod pattern;
 /// Generic parsers for primary nodes.
