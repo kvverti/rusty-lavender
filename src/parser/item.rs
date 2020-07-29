@@ -90,6 +90,7 @@ mod tests {
     use crate::parser::scoped::ScopedIdentifier;
     use crate::parser::token::identifier::{Name, Operator};
     use crate::parser::token::Token;
+    use crate::parser::typedecl::typelambda::TypeLambda;
     use crate::parser::typedecl::TypePrimary;
     use crate::parser::value::ValuePrimary;
 
@@ -177,12 +178,15 @@ mod tests {
                 args: vec![
                     InfixPrimary::Primary(TypePrimary::TypeVariable(Name("a".to_owned()))),
                     InfixPrimary::Primary(TypePrimary::TypeSubExpression(Box::new(
-                        TypeExpression::InfixTypeApplication(InfixApply {
-                            func: Identifier::Operator(Operator("->".to_owned())),
-                            args: vec![
-                                InfixPrimary::Primary(TypePrimary::TypeVariable(Name("b".to_owned()))),
-                                InfixPrimary::Primary(TypePrimary::TypeVariable(Name("a".to_owned()))),
-                            ],
+                        TypeExpression::TypeLambda(TypeLambda {
+                            params: vec![Name("b".to_owned())],
+                            body: Box::new(TypeExpression::InfixTypeApplication(InfixApply {
+                                func: Identifier::Operator(Operator("->".to_owned())),
+                                args: vec![
+                                    InfixPrimary::Primary(TypePrimary::TypeIdentifier(ScopedIdentifier::from(Identifier::Name(Name("b".to_owned()))))),
+                                    InfixPrimary::Primary(TypePrimary::TypeVariable(Name("a".to_owned()))),
+                                ],
+                            })),
                         })
                     )))
                 ],
@@ -199,7 +203,7 @@ mod tests {
             ],
         };
         let input = "
-            def const: 'a -> ('b -> 'a);
+            def const: 'a -> (for b. b -> 'a);
                 a _ => a
         ";
         let (_, result) = Token::parse_sequence(input).expect("Unable to parse tokens");

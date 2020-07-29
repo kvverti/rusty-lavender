@@ -10,6 +10,10 @@ use crate::parser::scoped::ScopedIdentifier;
 use crate::parser::token::{TokenStream, TokenValue};
 use crate::parser::token::fixed::{Keyword, Separator};
 use crate::parser::token::identifier::Name;
+use crate::parser::typedecl::typelambda::TypeLambda;
+
+/// Type lambda expression.
+pub mod typelambda;
 
 /// A type expression, used wherever a type may be placed.
 #[derive(Clone, Debug, PartialEq)]
@@ -53,11 +57,14 @@ pub enum TypeExpression {
     TypeApplication(PrefixApply<TypePrimary>),
     /// Infix type applications `A @ B @ ...`.
     InfixTypeApplication(InfixApply<TypePrimary>),
+    /// A universal quantifier, or type lambda expression.
+    TypeLambda(TypeLambda),
 }
 
 impl TypeExpression {
     pub fn parse(input: TokenStream) -> ParseResult<TokenStream, Self> {
         alt((
+            map(TypeLambda::parse, Self::TypeLambda),
             map(InfixApply::parse, Self::InfixTypeApplication),
             map(PrefixApply::parse, Self::TypeApplication),
             map(TypePrimary::parse, Self::TypePrimary),
