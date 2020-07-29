@@ -146,8 +146,10 @@ mod tests {
             TokenValue::Literal(Literal::Bool(BoolLiteral(true))),
             TokenValue::Identifier(Identifier::Name(Name("unTrue".to_owned()))),
             TokenValue::Identifier(Identifier::Name(Name("Trues".to_owned()))),
+            TokenValue::Identifier(Identifier::Name(Name("_a".to_owned()))),
+            TokenValue::Keyword(Keyword::Underscore),
         ];
-        let case = "def type types <=> => =>> simple impl True unTrue Trues";
+        let case = "def type types <=> => =>> simple impl True unTrue Trues _a _";
         let result = Token::parse_sequence(case);
         assert!(result.is_ok(), format!("Expected ok parse, got {:?}", result));
         let (rest, result) = result.unwrap();

@@ -1,6 +1,6 @@
 use nom::branch::alt;
 use nom::bytes::complete::tag;
-use nom::combinator::map;
+use nom::combinator::{map, value};
 use nom::sequence::{delimited, preceded};
 
 use crate::parser::fixity::{InfixApply, PrefixApply};
@@ -8,7 +8,7 @@ use crate::parser::ParseResult;
 use crate::parser::primary::{name, Primary};
 use crate::parser::scoped::ScopedIdentifier;
 use crate::parser::token::{TokenStream, TokenValue};
-use crate::parser::token::fixed::Separator;
+use crate::parser::token::fixed::{Keyword, Separator};
 use crate::parser::token::identifier::Name;
 
 /// A type expression, used wherever a type may be placed.
@@ -18,6 +18,8 @@ pub enum TypePrimary {
     TypeIdentifier(ScopedIdentifier),
     /// A type variable name `'a`.
     TypeVariable(Name),
+    /// A type hole `_` (triggers explicit type inference).
+    TypeHole,
     /// A parenthesized type expression `( a )`.
     TypeSubExpression(Box<TypeExpression>),
 }
@@ -30,6 +32,7 @@ impl Primary for TypePrimary {
                 preceded(tag(TokenValue::from(Separator::Check)), name),
                 Self::TypeVariable,
             ),
+            value(Self::TypeHole, tag(TokenValue::from(Keyword::Underscore))),
             map(
                 delimited(
                     tag(TokenValue::from(Separator::LeftRound)),
@@ -81,7 +84,7 @@ mod tests {
                         func: Identifier::Operator(Operator("->".to_owned())),
                         args: vec![
                             InfixPrimary::Primary(TypePrimary::TypeVariable(Name("a".to_owned()))),
-                            InfixPrimary::Primary(TypePrimary::TypeVariable(Name("a".to_owned()))),
+                            InfixPrimary::Primary(TypePrimary::TypeHole),
                         ],
                     })
                 )),
@@ -95,8 +98,7 @@ mod tests {
             Token::new(TokenValue::from(Separator::Check)),
             Token::new(TokenValue::from(Identifier::Name(Name("a".to_owned())))),
             Token::new(TokenValue::from(Identifier::Operator(Operator("->".to_string())))),
-            Token::new(TokenValue::from(Separator::Check)),
-            Token::new(TokenValue::from(Identifier::Name(Name("a".to_owned())))),
+            Token::new(TokenValue::from(Keyword::Underscore)),
             Token::new(TokenValue::from(Separator::RightRound)),
         ];
         let result = TypeExpression::parse(TokenStream(&input));
