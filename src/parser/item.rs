@@ -1,13 +1,13 @@
 use nom::branch::alt;
 use nom::bytes::complete::tag;
 use nom::combinator::{map, map_res, opt};
-use nom::multi::{count, many1};
-use nom::sequence::{delimited, pair, preceded, tuple};
+use nom::multi::{count, many0, many1};
+use nom::sequence::{delimited, pair, preceded, separated_pair, tuple};
 
 use crate::parser::fixity::prefix_operator;
 use crate::parser::ParseResult;
 use crate::parser::pattern::PatternPrimary;
-use crate::parser::primary::Primary;
+use crate::parser::primary::{name, Primary};
 use crate::parser::token::{TokenStream, TokenValue};
 use crate::parser::token::fixed::{Keyword, Separator};
 use crate::parser::token::identifier::Identifier;
@@ -34,7 +34,8 @@ pub struct Definition {
 }
 
 impl Definition {
-    pub fn parse(input: TokenStream) -> ParseResult<TokenStream, Self> {
+    /// Parses a regulat definition.
+    pub fn regular(input: TokenStream) -> ParseResult<TokenStream, Self> {
         map(
             tuple((
                 preceded(tag(TokenValue::from(Keyword::Def)), Self::definition_name),
@@ -43,7 +44,7 @@ impl Definition {
                     TypeExpression::parse,
                     tag(TokenValue::from(Separator::Semicolon)),
                 )),
-                many1(PatternPrimary::parse),
+                many0(PatternPrimary::parse),
                 alt((
                     many1(DefinitionBody::multiple),
                     count(DefinitionBody::single, 1),
@@ -55,6 +56,25 @@ impl Definition {
                 typ: typ.unwrap_or_else(|| TypeExpression::TypePrimary(TypePrimary::TypeHole)),
                 params,
                 bodies,
+            },
+        )(input)
+    }
+
+    /// Parses an intrinsic definition. An intrinsic definition must use an alphanumeric name,
+    /// and consists of only a name and explicit type.
+    pub fn intrinsic(input: TokenStream) -> ParseResult<TokenStream, Self> {
+        map(
+            separated_pair(
+                preceded(tag(TokenValue::from(Keyword::Def)), name),
+                tag(TokenValue::from(Separator::Colon)),
+                TypeExpression::parse,
+            ),
+            |(name, typ)| Self {
+                name: Identifier::Name(name),
+                fixity: Fixity::None,
+                typ,
+                params: vec![],
+                bodies: vec![],
             },
         )(input)
     }
@@ -151,7 +171,7 @@ mod tests {
         };
         let input = "def '(@) a (Id b) => a + b + a";
         let (_, result) = Token::parse_sequence(input).expect("Unable to parse tokens");
-        let result = Definition::parse(TokenStream(result.as_slice()));
+        let result = Definition::regular(TokenStream(result.as_slice()));
         assert!(result.is_ok(), "Expected ok result, got {:?}", result);
         let (rest, result) = result.unwrap();
         assert_eq!(rest.0, &[]);
@@ -190,7 +210,7 @@ mod tests {
                 ; _ => None
         ";
         let (_, result) = Token::parse_sequence(input).expect("Unable to parse tokens");
-        let result = Definition::parse(TokenStream(result.as_slice()));
+        let result = Definition::regular(TokenStream(result.as_slice()));
         assert!(result.is_ok(), "Expected ok result, got {:?}", result);
         let (rest, result) = result.unwrap();
         assert_eq!(rest.0, &[]);
@@ -236,7 +256,32 @@ mod tests {
                 a _ => a
         ";
         let (_, result) = Token::parse_sequence(input).expect("Unable to parse tokens");
-        let result = Definition::parse(TokenStream(result.as_slice()));
+        let result = Definition::regular(TokenStream(result.as_slice()));
+        assert!(result.is_ok(), "Expected ok result, got {:?}", result);
+        let (rest, result) = result.unwrap();
+        assert_eq!(rest.0, &[]);
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn intrinsic() {
+        let expected = Definition {
+            name: Identifier::Name(Name("addi".to_owned())),
+            fixity: Fixity::None,
+            typ: TypeExpression::InfixTypeApplication(InfixApply {
+                func: Identifier::Operator(Operator("->".to_owned())),
+                args: vec![
+                    InfixPrimary::Primary(TypePrimary::TypeIdentifier(ScopedIdentifier::from(Identifier::Name(Name("Int".to_owned()))))),
+                    InfixPrimary::Primary(TypePrimary::TypeIdentifier(ScopedIdentifier::from(Identifier::Name(Name("Int".to_owned()))))),
+                    InfixPrimary::Primary(TypePrimary::TypeIdentifier(ScopedIdentifier::from(Identifier::Name(Name("Int".to_owned()))))),
+                ],
+            }),
+            params: vec![],
+            bodies: vec![],
+        };
+        let input = "def addi: Int -> Int -> Int";
+        let (_, result) = Token::parse_sequence(input).expect("Unable to parse tokens");
+        let result = Definition::intrinsic(TokenStream(result.as_slice()));
         assert!(result.is_ok(), "Expected ok result, got {:?}", result);
         let (rest, result) = result.unwrap();
         assert_eq!(rest.0, &[]);
