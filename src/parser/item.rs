@@ -11,7 +11,7 @@ use crate::parser::primary::Primary;
 use crate::parser::token::{TokenStream, TokenValue};
 use crate::parser::token::fixed::{Keyword, Separator};
 use crate::parser::token::identifier::Identifier;
-use crate::parser::typedecl::TypeExpression;
+use crate::parser::typedecl::{TypeExpression, TypePrimary};
 use crate::parser::value::ValueExpression;
 
 /// Fixity of a binary operator.
@@ -26,7 +26,7 @@ pub struct Definition {
     /// The fixity of the definition (only relevant for symbolic definitions).
     pub fixity: Fixity,
     /// The declared type of the defined value (optional).
-    pub typ: Option<TypeExpression>,
+    pub typ: TypeExpression,
     /// The initial parameter patterns (may be empty).
     pub params: Vec<PatternPrimary>,
     /// The one or more expression bodies for this value.
@@ -52,7 +52,7 @@ impl Definition {
             |((fixity, name), typ, params, bodies)| Self {
                 name,
                 fixity,
-                typ,
+                typ: typ.unwrap_or_else(|| TypeExpression::TypePrimary(TypePrimary::TypeHole)),
                 params,
                 bodies,
             },
@@ -127,7 +127,7 @@ mod tests {
         let expected = Definition {
             name: Identifier::Operator(Operator("@".to_owned())),
             fixity: Fixity::Left,
-            typ: None,
+            typ: TypeExpression::TypePrimary(TypePrimary::TypeHole),
             params: vec![
                 PatternPrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("a".to_owned())))),
                 PatternPrimary::SubPattern(Box::new(Pattern::Application(PrefixApply {
@@ -163,7 +163,7 @@ mod tests {
         let expected = Definition {
             name: Identifier::Name(Name("bind".to_owned())),
             fixity: Fixity::None,
-            typ: None,
+            typ: TypeExpression::TypePrimary(TypePrimary::TypeHole),
             params: vec![PatternPrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("f".to_owned()))))],
             bodies: vec![
                 DefinitionBody {
@@ -202,7 +202,7 @@ mod tests {
         let expected = Definition {
             name: Identifier::Name(Name("const".to_owned())),
             fixity: Fixity::None,
-            typ: Some(TypeExpression::InfixTypeApplication(InfixApply {
+            typ: TypeExpression::InfixTypeApplication(InfixApply {
                 func: Identifier::Operator(Operator("->".to_owned())),
                 args: vec![
                     InfixPrimary::Primary(TypePrimary::TypeVariable(Name("a".to_owned()))),
@@ -219,7 +219,7 @@ mod tests {
                         })
                     )))
                 ],
-            })),
+            }),
             params: vec![
                 PatternPrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("a".to_owned())))),
                 PatternPrimary::Blank,
