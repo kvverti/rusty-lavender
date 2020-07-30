@@ -1,6 +1,6 @@
 use nom::branch::alt;
 use nom::bytes::complete::tag;
-use nom::combinator::{map, opt};
+use nom::combinator::{map, map_res, opt};
 use nom::multi::{count, many1};
 use nom::sequence::{delimited, pair, preceded, tuple};
 
@@ -14,11 +14,17 @@ use crate::parser::token::identifier::Identifier;
 use crate::parser::typedecl::TypeExpression;
 use crate::parser::value::ValueExpression;
 
+/// Fixity of a binary operator.
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum Fixity { Left, Right, None }
+
 /// A definition `def f a => b`.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Definition {
     /// The name of the defined value.
     pub name: Identifier,
+    /// The fixity of the definition (only relevant for symbolic definitions).
+    pub fixity: Fixity,
     /// The declared type of the defined value (optional).
     pub typ: Option<TypeExpression>,
     /// The initial parameter patterns (may be empty).
@@ -31,7 +37,7 @@ impl Definition {
     pub fn parse(input: TokenStream) -> ParseResult<TokenStream, Self> {
         map(
             tuple((
-                preceded(tag(TokenValue::from(Keyword::Def)), prefix_operator),
+                preceded(tag(TokenValue::from(Keyword::Def)), Self::definition_name),
                 opt(delimited(
                     tag(TokenValue::from(Separator::Colon)),
                     TypeExpression::parse,
@@ -43,11 +49,31 @@ impl Definition {
                     count(DefinitionBody::single, 1),
                 ))
             )),
-            |(name, typ, params, bodies)| Self {
+            |((fixity, name), typ, params, bodies)| Self {
                 name,
+                fixity,
                 typ,
                 params,
                 bodies,
+            },
+        )(input)
+    }
+
+    fn definition_name(input: TokenStream) -> ParseResult<TokenStream, (Fixity, Identifier)> {
+        use Identifier::Operator;
+        map_res(
+            tuple((
+                opt(tag(TokenValue::from(Separator::Check))),
+                prefix_operator,
+                opt(tag(TokenValue::from(Separator::Check))),
+            )),
+            |tup| {
+                match tup {
+                    (Some(_), op @ Operator(_), None) => Ok((Fixity::Left, op)),
+                    (None, op @ Operator(_), Some(_)) => Ok((Fixity::Right, op)),
+                    (None, op, None) => Ok((Fixity::None, op)),
+                    _ => Err("Invalid fixity"),
+                }
             },
         )(input)
     }
@@ -100,6 +126,7 @@ mod tests {
     fn single() {
         let expected = Definition {
             name: Identifier::Operator(Operator("@".to_owned())),
+            fixity: Fixity::Left,
             typ: None,
             params: vec![
                 PatternPrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("a".to_owned())))),
@@ -122,7 +149,7 @@ mod tests {
                 }
             ],
         };
-        let input = "def (@) a (Id b) => a + b + a";
+        let input = "def '(@) a (Id b) => a + b + a";
         let (_, result) = Token::parse_sequence(input).expect("Unable to parse tokens");
         let result = Definition::parse(TokenStream(result.as_slice()));
         assert!(result.is_ok(), "Expected ok result, got {:?}", result);
@@ -135,6 +162,7 @@ mod tests {
     fn multiple() {
         let expected = Definition {
             name: Identifier::Name(Name("bind".to_owned())),
+            fixity: Fixity::None,
             typ: None,
             params: vec![PatternPrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("f".to_owned()))))],
             bodies: vec![
@@ -173,6 +201,7 @@ mod tests {
     fn with_type() {
         let expected = Definition {
             name: Identifier::Name(Name("const".to_owned())),
+            fixity: Fixity::None,
             typ: Some(TypeExpression::InfixTypeApplication(InfixApply {
                 func: Identifier::Operator(Operator("->".to_owned())),
                 args: vec![
@@ -212,5 +241,35 @@ mod tests {
         let (rest, result) = result.unwrap();
         assert_eq!(rest.0, &[]);
         assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn fixity() {
+        let input = [
+            ("'(@)", Fixity::Left),
+            ("(@)'", Fixity::Right),
+            ("(@)", Fixity::None),
+        ];
+        for &(i, f) in input.iter() {
+            let (_, result) = Token::parse_sequence(i).expect("Unable to parse tokens");
+            let result = Definition::definition_name(TokenStream(result.as_slice()));
+            assert!(result.is_ok(), "Expected ok result, got {:?}", result);
+            let (rest, (result, _)) = result.unwrap();
+            assert_eq!(rest.0, &[]);
+            assert_eq!(result, f);
+        }
+    }
+
+    #[test]
+    fn fixity_errs() {
+        let input = [
+            "'f",
+            "'(@)'",
+        ];
+        for &i in input.iter() {
+            let (_, result) = Token::parse_sequence(i).expect("Unable to parse tokens");
+            let result = Definition::definition_name(TokenStream(result.as_slice()));
+            assert!(result.is_err(), "Expected err result, got {:?}", result);
+        }
     }
 }
