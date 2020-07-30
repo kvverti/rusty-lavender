@@ -13,13 +13,45 @@ Lavender is a pure functional, lazy, (eventally) typed programming language. Its
 Lavender is written using a Haskell-like syntax and is compiled to a bytecode that is run using an interpreter.
 
 ```lavender
-def addOneInt(a: Int) = 1 + a
+# values
+def vec => { 1; 2; 3 }
 
-data Rectangle (width: Int) (height: Int)
+# functions
+def repeat a => { a; a }
 
-def ofWidthThree = Rectangle 3
+# infix operators
+def (.)' f g a => f (g a)
 
-def widthThreeHeightFive = ofWidthThree (addOneInt 4)
+# lambda expressions
+def id => lam a. a
 
-def five = widthThreeHeightFive::height
+# type annotations
+def const: 'a -> (for b. b -> 'a);
+  a _ => a
+
+# piecewise functions
+def optmap f
+  ; (Some a) => Some (f a)
+  ; _ => None
+  
+# type aliases
+type Binary a => a -> a -> a
+
+# type classes
+class Eq a {
+  def eq: a -> a -> Bool
+}
+
+def '(=) => Eq::eq
+```
+
+Infix operators have no precedence, therefore mixing infix operators is not allowed.
+```lavender
+def wrong => 1 + 2 * 3
+def right => 1 + (2 * 3)
+```
+
+Evaluation is lazy, making constructing infinite data structures simple.
+```lavender
+def repeat x => x +: repeat x
 ```
