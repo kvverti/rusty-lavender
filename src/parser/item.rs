@@ -34,7 +34,7 @@ pub struct Definition {
 }
 
 impl Definition {
-    /// Parses a regulat definition.
+    /// Parses a regular definition.
     pub fn regular(input: TokenStream) -> ParseResult<TokenStream, Self> {
         map(
             tuple((
@@ -170,7 +170,7 @@ mod tests {
             ],
         };
         let input = "def '(@) a (Id b) => a + b + a";
-        let (_, result) = Token::parse_sequence(input).expect("Unable to parse tokens");
+        let result = Token::parse_sequence(input);
         let result = Definition::regular(TokenStream(result.as_slice()));
         assert!(result.is_ok(), "Expected ok result, got {:?}", result);
         let (rest, result) = result.unwrap();
@@ -209,7 +209,7 @@ mod tests {
                 ; (Some a) => f a
                 ; _ => None
         ";
-        let (_, result) = Token::parse_sequence(input).expect("Unable to parse tokens");
+        let result = Token::parse_sequence(input);
         let result = Definition::regular(TokenStream(result.as_slice()));
         assert!(result.is_ok(), "Expected ok result, got {:?}", result);
         let (rest, result) = result.unwrap();
@@ -255,7 +255,7 @@ mod tests {
             def const: 'a -> (for b. b -> 'a);
                 a _ => a
         ";
-        let (_, result) = Token::parse_sequence(input).expect("Unable to parse tokens");
+        let result = Token::parse_sequence(input);
         let result = Definition::regular(TokenStream(result.as_slice()));
         assert!(result.is_ok(), "Expected ok result, got {:?}", result);
         let (rest, result) = result.unwrap();
@@ -280,7 +280,7 @@ mod tests {
             bodies: vec![],
         };
         let input = "def addi: Int -> Int -> Int";
-        let (_, result) = Token::parse_sequence(input).expect("Unable to parse tokens");
+        let result = Token::parse_sequence(input);
         let result = Definition::intrinsic(TokenStream(result.as_slice()));
         assert!(result.is_ok(), "Expected ok result, got {:?}", result);
         let (rest, result) = result.unwrap();
@@ -296,7 +296,7 @@ mod tests {
             ("(@)", Fixity::None),
         ];
         for &(i, f) in input.iter() {
-            let (_, result) = Token::parse_sequence(i).expect("Unable to parse tokens");
+            let result = Token::parse_sequence(i);
             let result = Definition::definition_name(TokenStream(result.as_slice()));
             assert!(result.is_ok(), "Expected ok result, got {:?}", result);
             let (rest, (result, _)) = result.unwrap();
@@ -312,7 +312,7 @@ mod tests {
             "'(@)'",
         ];
         for &i in input.iter() {
-            let (_, result) = Token::parse_sequence(i).expect("Unable to parse tokens");
+            let result = Token::parse_sequence(i);
             let result = Definition::definition_name(TokenStream(result.as_slice()));
             assert!(result.is_err(), "Expected err result, got {:?}", result);
         }

@@ -141,14 +141,11 @@ mod tests {
             Token::new(TokenValue::Separator(Separator::RightRound)),
         ];
         let input = "1 + f 2 + (a * 3)";
-        let tokens = Token::parse_sequence(input);
-        assert!(tokens.is_ok(), format!("Expected ok token parse, got {:?}", tokens));
-        let (rest, mut tokens) = tokens.unwrap();
+        let mut tokens = Token::parse_sequence(input);
         for t in &mut tokens {
             t.len = 0;
             t.col = 0;
         }
-        assert_eq!(rest, "");
         assert_eq!(&tokens, &expr);
         let result = ValueExpression::parse(TokenStream(&tokens));
         assert!(result.is_ok(), format!("Expected ok expression parse, got {:?}", result));
@@ -177,7 +174,7 @@ mod tests {
             ],
         });
         let input = "a + (lam f. f a)";
-        let (_, result) = Token::parse_sequence(input).expect("Unable to parse tokens");
+        let result = Token::parse_sequence(input);
         let result = ValueExpression::parse(TokenStream(result.as_slice()));
         assert!(result.is_ok(), "Expected ok result, got {:?}", result);
         let (rest, result) = result.unwrap();

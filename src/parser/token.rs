@@ -1,4 +1,5 @@
 use nom::branch::alt;
+use nom::character::complete::anychar;
 use nom::combinator::map;
 use nom::IResult;
 
@@ -30,6 +31,7 @@ pub enum TokenValue {
     Keyword(Keyword),
     Separator(Separator),
     Identifier(Identifier),
+    Unrecognized(char),
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -52,6 +54,7 @@ impl Token {
                 map(Literal::parse, TokenValue::Literal),
                 map(Keyword::parse, TokenValue::Keyword),
                 map(Separator::parse, TokenValue::Separator),
+                map(anychar, TokenValue::Unrecognized),
             ))),
             |(len, res)| Self {
                 value: res,
@@ -62,7 +65,7 @@ impl Token {
     }
 
     /// Parses a sequence of tokens, optionally delimited by token delimiters.
-    pub fn parse_sequence(mut input: Source) -> IResult<Source, Vec<Self>> {
+    pub fn parse_sequence(mut input: Source) -> Vec<Self> {
         let mut col = 0;
         let mut vec = Vec::new();
         // parse any leading token delimiter
@@ -81,7 +84,7 @@ impl Token {
                 col += len;
             }
         }
-        Ok((input, vec))
+        vec
     }
 }
 
@@ -120,16 +123,11 @@ mod tests {
             f("22.0"),
             f(";"),
         ];
-        let result = Token::parse_sequence(test_case);
-        if let Ok((rest, tokens)) = result {
-            let columns = tokens.iter().map(|t| (t.col, t.len)).collect::<Vec<_>>();
-            let values = tokens.into_iter().map(|t| t.value).collect::<Vec<_>>();
-            assert_eq!(rest, "");
-            assert_eq!(values.as_slice(), expected);
-            assert_eq!(columns, expected_columns);
-        } else {
-            panic!(format!("Parsing failed, got {:?}", result));
-        }
+        let tokens = Token::parse_sequence(test_case);
+        let columns = tokens.iter().map(|t| (t.col, t.len)).collect::<Vec<_>>();
+        let values = tokens.into_iter().map(|t| t.value).collect::<Vec<_>>();
+        assert_eq!(values.as_slice(), expected);
+        assert_eq!(columns, expected_columns);
     }
 
     #[test]
@@ -151,10 +149,7 @@ mod tests {
         ];
         let case = "def type types <=> => =>> simple impl True unTrue Trues _a _";
         let result = Token::parse_sequence(case);
-        assert!(result.is_ok(), format!("Expected ok parse, got {:?}", result));
-        let (rest, result) = result.unwrap();
         let result = result.into_iter().map(|t| t.value).collect::<Vec<_>>();
-        assert_eq!(rest, "");
         assert_eq!(result.as_slice(), &expected);
     }
 }
