@@ -1,4 +1,4 @@
-use nom::{Compare, CompareResult, InputTake};
+use nom::{Compare, CompareResult, InputTake, FindSubstring, Offset};
 
 use crate::parser::token::{TokenStream, TokenValue};
 
@@ -23,5 +23,22 @@ impl<'a> Compare<TokenValue> for TokenStream<'a> {
 
     fn compare_no_case(&self, t: TokenValue) -> CompareResult {
         self.compare(t)
+    }
+}
+
+impl<'a> Offset for TokenStream<'a> {
+    fn offset(&self, second: &Self) -> usize {
+        second.0.as_ptr() as usize - self.0.as_ptr() as usize
+    }
+}
+
+impl<'a> FindSubstring<TokenValue> for TokenStream<'a> {
+    fn find_substring(&self, substr: TokenValue) -> Option<usize> {
+        for (idx, token) in self.0.iter().enumerate() {
+            if token.value == substr {
+                return Some(idx);
+            }
+        }
+        None
     }
 }

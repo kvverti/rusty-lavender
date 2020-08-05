@@ -13,6 +13,8 @@ mod primary;
 mod scoped;
 /// The tokenizer.
 pub mod token;
+/// Stores tag info like source location in the parse tree.
+pub mod tagged;
 /// Explicit type declarations.
 mod typedecl;
 /// Value expression parsers.
