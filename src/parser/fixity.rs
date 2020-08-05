@@ -6,6 +6,7 @@ use nom::sequence::{delimited, pair, preceded, tuple};
 
 use crate::parser::ParseResult;
 use crate::parser::primary::{name, operator, Primary};
+use crate::parser::tagged::{Tagged, tagged};
 use crate::parser::token::{TokenStream, TokenValue};
 use crate::parser::token::fixed::Separator;
 use crate::parser::token::identifier::Identifier;
@@ -58,15 +59,15 @@ impl<P: Primary> InfixPrimary<P> {
 #[derive(Clone, Debug, PartialEq)]
 pub struct InfixApply<P: Primary> {
     /// The name of the function.
-    pub func: Identifier,
+    pub func: Tagged<Identifier>,
     /// The arguments. At least two.
     pub args: Vec<InfixPrimary<P>>,
 }
 
 impl<P: Primary> InfixApply<P> {
     pub fn parse(input: TokenStream) -> ParseResult<TokenStream, Self> {
-        let (input, (first, func, second)) = tuple((InfixPrimary::parse, infix_operator, InfixPrimary::parse))(input)?;
-        let op = TokenValue::from(func.clone());
+        let (input, (first, func, second)) = tuple((InfixPrimary::parse, tagged(infix_operator), InfixPrimary::parse))(input)?;
+        let op = TokenValue::from(func.value.clone());
         let (input, rest) = many0(preceded(tag(op), InfixPrimary::parse))(input)?;
         let mut args = vec![first, second];
         args.extend(rest.into_iter());
@@ -220,7 +221,7 @@ mod tests {
     #[test]
     fn operator_expression() {
         let expected = InfixApply {
-            func: Identifier::Operator(Operator("@".to_owned())),
+            func: Tagged::new(Identifier::Operator(Operator("@".to_owned()))),
             args: vec![
                 InfixPrimary::Primary(ValuePrimary::Literal(Literal::Int(IntLiteral(7)))),
                 InfixPrimary::Application(PrefixApply {
@@ -255,7 +256,7 @@ mod tests {
     #[test]
     fn operator_expression_no_extra() {
         let expected = InfixApply {
-            func: Identifier::Operator(Operator("@".to_owned())),
+            func: Tagged::new(Identifier::Operator(Operator("@".to_owned()))),
             args: vec![
                 InfixPrimary::Primary(ValuePrimary::Literal(Literal::Int(IntLiteral(7)))),
                 InfixPrimary::Application(PrefixApply {

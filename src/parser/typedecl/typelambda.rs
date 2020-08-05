@@ -39,6 +39,7 @@ impl TypeLambda {
 mod tests {
     use crate::parser::fixity::{InfixApply, InfixPrimary};
     use crate::parser::scoped::ScopedIdentifier;
+    use crate::parser::tagged::Tagged;
     use crate::parser::token::Token;
     use crate::parser::typedecl::TypePrimary;
 
@@ -52,7 +53,7 @@ mod tests {
                 Name("y".to_owned()),
             ],
             body: Box::new(TypeExpression::InfixTypeApplication(InfixApply {
-                func: Identifier::Operator(Operator("->".to_owned())),
+                func: Tagged::new(Identifier::Operator(Operator("->".to_owned()))),
                 args: vec![
                     InfixPrimary::Primary(TypePrimary::TypeIdentifier(ScopedIdentifier::from(Identifier::Name(Name("x".to_owned()))))),
                     InfixPrimary::Primary(TypePrimary::TypeIdentifier(ScopedIdentifier::from(Identifier::Name(Name("y".to_owned()))))),

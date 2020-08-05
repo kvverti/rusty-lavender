@@ -75,6 +75,7 @@ impl TypeExpression {
 #[cfg(test)]
 mod tests {
     use crate::parser::fixity::InfixPrimary;
+    use crate::parser::tagged::Tagged;
     use crate::parser::token::identifier::{Identifier, Operator};
     use crate::parser::token::Token;
 
@@ -88,7 +89,7 @@ mod tests {
                 TypePrimary::TypeVariable(Name("a".to_owned())),
                 TypePrimary::TypeSubExpression(Box::new(
                     TypeExpression::InfixTypeApplication(InfixApply {
-                        func: Identifier::Operator(Operator("->".to_owned())),
+                        func: Tagged::new(Identifier::Operator(Operator("->".to_owned()))),
                         args: vec![
                             InfixPrimary::Primary(TypePrimary::TypeVariable(Name("a".to_owned()))),
                             InfixPrimary::Primary(TypePrimary::TypeHole),

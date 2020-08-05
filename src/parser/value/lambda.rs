@@ -47,6 +47,7 @@ mod tests {
     use crate::parser::value::ValuePrimary;
 
     use super::*;
+    use crate::parser::tagged::Tagged;
 
     #[test]
     fn parses() {
@@ -62,7 +63,7 @@ mod tests {
                 })))
             ],
             body: Box::new(ValueExpression::InfixApplication(InfixApply {
-                func: Identifier::Operator(Operator("+".to_owned())),
+                func: Tagged::new(Identifier::Operator(Operator("+".to_owned()))),
                 args: vec![
                     InfixPrimary::Primary(ValuePrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("x".to_owned()))))),
                     InfixPrimary::Primary(ValuePrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("z".to_owned()))))),

@@ -65,6 +65,7 @@ impl Pattern {
 #[cfg(test)]
 mod tests {
     use crate::parser::fixity::InfixPrimary;
+    use crate::parser::tagged::Tagged;
     use crate::parser::token::identifier::{Identifier, Name, Operator};
     use crate::parser::token::Token;
 
@@ -74,7 +75,7 @@ mod tests {
     fn parses() {
         let expected = PatternPrimary::SubPattern(Box::new(
             Pattern::InfixApplication(InfixApply {
-                func: Identifier::Operator(Operator("!".to_owned())),
+                func: Tagged::new(Identifier::Operator(Operator("!".to_owned()))),
                 args: vec![
                     InfixPrimary::Application(PrefixApply {
                         func: PatternPrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("Some".to_owned())))),

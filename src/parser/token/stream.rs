@@ -1,6 +1,6 @@
-use nom::{Compare, CompareResult, InputTake, FindSubstring, Offset};
+use nom::{Compare, CompareResult, FindSubstring, InputTake, Offset};
 
-use crate::parser::token::{TokenStream, TokenValue};
+use crate::parser::token::{Token, TokenStream, TokenValue};
 
 impl<'a> InputTake for TokenStream<'a> {
     fn take(&self, count: usize) -> Self {
@@ -28,7 +28,7 @@ impl<'a> Compare<TokenValue> for TokenStream<'a> {
 
 impl<'a> Offset for TokenStream<'a> {
     fn offset(&self, second: &Self) -> usize {
-        second.0.as_ptr() as usize - self.0.as_ptr() as usize
+        (second.0.as_ptr() as usize - self.0.as_ptr() as usize) / std::mem::size_of::<Token>()
     }
 }
 

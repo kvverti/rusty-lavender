@@ -28,8 +28,6 @@ pub enum ValuePrimary {
 
 impl ValuePrimary {
     /// Parses a parenthesized subexpression.
-    /// TODO: remove line terminators inside subexpressions - another option is to force
-    ///     indentation.
     fn parse_subexpr(input: TokenStream) -> ParseResult<TokenStream, ValueExpression> {
         delimited(
             tag(TokenValue::from(Separator::LeftRound)),
@@ -100,6 +98,7 @@ impl From<LambdaExpression> for ValueExpression {
 mod tests {
     use crate::parser::fixity::InfixPrimary;
     use crate::parser::pattern::PatternPrimary;
+    use crate::parser::tagged::Tagged;
     use crate::parser::token::{Token, TokenValue};
     use crate::parser::token::fixed::Separator;
     use crate::parser::token::identifier::{Identifier, Name, Operator};
@@ -110,7 +109,7 @@ mod tests {
     #[test]
     fn parses() {
         let expected = ValueExpression::InfixApplication(InfixApply {
-            func: Identifier::Operator(Operator("+".to_owned())),
+            func: Tagged::new(Identifier::Operator(Operator("+".to_owned()))),
             args: vec![
                 InfixPrimary::Primary(ValuePrimary::Literal(Literal::Int(IntLiteral(1)))),
                 InfixPrimary::Application(PrefixApply {
@@ -119,7 +118,7 @@ mod tests {
                 }),
                 InfixPrimary::Primary(ValuePrimary::SubExpression(Box::new(
                     ValueExpression::InfixApplication(InfixApply {
-                        func: Identifier::Operator(Operator("*".to_owned())),
+                        func: Tagged::new(Identifier::Operator(Operator("*".to_owned()))),
                         args: vec![
                             InfixPrimary::Primary(ValuePrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("a".to_owned()))))),
                             InfixPrimary::Primary(ValuePrimary::Literal(Literal::Int(IntLiteral(3)))),
@@ -156,8 +155,13 @@ mod tests {
 
     #[test]
     fn expr_with_lambda() {
+        let input = "a + (lam f. f a)";
         let expected = ValueExpression::InfixApplication(InfixApply {
-            func: Identifier::Operator(Operator("+".to_owned())),
+            func: Tagged {
+                value: Identifier::Operator(Operator("+".to_owned())),
+                idx: input.find("+").unwrap(),
+                len: 1,
+            },
             args: vec![
                 InfixPrimary::Primary(ValuePrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("a".to_owned()))))),
                 InfixPrimary::Primary(ValuePrimary::SubExpression(Box::new(ValueExpression::Lambda(LambdaExpression {
@@ -173,7 +177,6 @@ mod tests {
                 }))))
             ],
         });
-        let input = "a + (lam f. f a)";
         let result = Token::parse_sequence(input);
         let result = ValueExpression::parse(TokenStream(result.as_slice()));
         assert!(result.is_ok(), "Expected ok result, got {:?}", result);

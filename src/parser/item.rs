@@ -134,6 +134,7 @@ mod tests {
     use crate::parser::fixity::{InfixApply, InfixPrimary, PrefixApply};
     use crate::parser::pattern::Pattern;
     use crate::parser::scoped::ScopedIdentifier;
+    use crate::parser::tagged::Tagged;
     use crate::parser::token::identifier::{Name, Operator};
     use crate::parser::token::Token;
     use crate::parser::typedecl::typelambda::TypeLambda;
@@ -144,6 +145,7 @@ mod tests {
 
     #[test]
     fn single() {
+        let input = "def '(@) a (Id b) => a + b + a";
         let expected = Definition {
             name: Identifier::Operator(Operator("@".to_owned())),
             fixity: Fixity::Left,
@@ -159,7 +161,11 @@ mod tests {
                 DefinitionBody {
                     params: vec![],
                     body: ValueExpression::InfixApplication(InfixApply {
-                        func: Identifier::Operator(Operator("+".to_owned())),
+                        func: Tagged {
+                            value: Identifier::Operator(Operator("+".to_owned())),
+                            idx: input.find("+").unwrap(),
+                            len: 1,
+                        },
                         args: vec![
                             InfixPrimary::Primary(ValuePrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("a".to_owned()))))),
                             InfixPrimary::Primary(ValuePrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("b".to_owned()))))),
@@ -169,7 +175,6 @@ mod tests {
                 }
             ],
         };
-        let input = "def '(@) a (Id b) => a + b + a";
         let result = Token::parse_sequence(input);
         let result = Definition::regular(TokenStream(result.as_slice()));
         assert!(result.is_ok(), "Expected ok result, got {:?}", result);
@@ -219,18 +224,30 @@ mod tests {
 
     #[test]
     fn with_type() {
+        let input = "
+            def const: 'a -> (for b. b -> 'a);
+                a _ => a
+        ";
         let expected = Definition {
             name: Identifier::Name(Name("const".to_owned())),
             fixity: Fixity::None,
             typ: TypeExpression::InfixTypeApplication(InfixApply {
-                func: Identifier::Operator(Operator("->".to_owned())),
+                func: Tagged {
+                    value: Identifier::Operator(Operator("->".to_owned())),
+                    idx: input.find("->").unwrap(),
+                    len: 2,
+                },
                 args: vec![
                     InfixPrimary::Primary(TypePrimary::TypeVariable(Name("a".to_owned()))),
                     InfixPrimary::Primary(TypePrimary::TypeSubExpression(Box::new(
                         TypeExpression::TypeLambda(TypeLambda {
                             params: vec![Name("b".to_owned())],
                             body: Box::new(TypeExpression::InfixTypeApplication(InfixApply {
-                                func: Identifier::Operator(Operator("->".to_owned())),
+                                func: Tagged {
+                                    value: Identifier::Operator(Operator("->".to_owned())),
+                                    idx: input.match_indices("->").nth(1).unwrap().0,
+                                    len: 2,
+                                },
                                 args: vec![
                                     InfixPrimary::Primary(TypePrimary::TypeIdentifier(ScopedIdentifier::from(Identifier::Name(Name("b".to_owned()))))),
                                     InfixPrimary::Primary(TypePrimary::TypeVariable(Name("a".to_owned()))),
@@ -251,10 +268,6 @@ mod tests {
                 }
             ],
         };
-        let input = "
-            def const: 'a -> (for b. b -> 'a);
-                a _ => a
-        ";
         let result = Token::parse_sequence(input);
         let result = Definition::regular(TokenStream(result.as_slice()));
         assert!(result.is_ok(), "Expected ok result, got {:?}", result);
@@ -265,11 +278,16 @@ mod tests {
 
     #[test]
     fn intrinsic() {
+        let input = "def addi: Int -> Int -> Int";
         let expected = Definition {
             name: Identifier::Name(Name("addi".to_owned())),
             fixity: Fixity::None,
             typ: TypeExpression::InfixTypeApplication(InfixApply {
-                func: Identifier::Operator(Operator("->".to_owned())),
+                func: Tagged {
+                    value: Identifier::Operator(Operator("->".to_owned())),
+                    idx: input.find("->").unwrap(),
+                    len: 2,
+                },
                 args: vec![
                     InfixPrimary::Primary(TypePrimary::TypeIdentifier(ScopedIdentifier::from(Identifier::Name(Name("Int".to_owned()))))),
                     InfixPrimary::Primary(TypePrimary::TypeIdentifier(ScopedIdentifier::from(Identifier::Name(Name("Int".to_owned()))))),
@@ -279,7 +297,6 @@ mod tests {
             params: vec![],
             bodies: vec![],
         };
-        let input = "def addi: Int -> Int -> Int";
         let result = Token::parse_sequence(input);
         let result = Definition::intrinsic(TokenStream(result.as_slice()));
         assert!(result.is_ok(), "Expected ok result, got {:?}", result);
