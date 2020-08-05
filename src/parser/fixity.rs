@@ -1,7 +1,6 @@
 use nom::branch::alt;
 use nom::bytes::complete::tag;
-use nom::combinator::{map, not};
-use nom::error::context;
+use nom::combinator::map;
 use nom::multi::{many0, many1};
 use nom::sequence::{delimited, pair, preceded, tuple};
 
@@ -38,10 +37,18 @@ pub enum InfixPrimary<P: Primary> {
 
 impl<P: Primary> InfixPrimary<P> {
     pub fn parse(input: TokenStream) -> ParseResult<TokenStream, Self> {
-        alt((
-            map(PrefixApply::parse, Self::Application),
-            map(P::parse, Self::Primary),
-        ))(input)
+        let (input, mut primaries) = many1(P::parse)(input)?;
+        let rest = primaries.drain(1..).collect::<Vec<_>>();
+        let first = primaries.pop().unwrap();
+        let value = if rest.is_empty() {
+            Self::Primary(first)
+        } else {
+            Self::Application(PrefixApply {
+                func: first,
+                args: rest,
+            })
+        };
+        Ok((input, value))
     }
 }
 
@@ -61,7 +68,6 @@ impl<P: Primary> InfixApply<P> {
         let (input, (first, func, second)) = tuple((InfixPrimary::parse, infix_operator, InfixPrimary::parse))(input)?;
         let op = TokenValue::from(func.clone());
         let (input, rest) = many0(preceded(tag(op), InfixPrimary::parse))(input)?;
-        let (input, _) = context("Infix operators cannot be mixed", not(infix_operator))(input)?;
         let mut args = vec![first, second];
         args.extend(rest.into_iter());
         Ok((input, Self { func, args }))
@@ -97,6 +103,7 @@ pub fn infix_operator(input: TokenStream) -> ParseResult<TokenStream, Identifier
 
 #[cfg(test)]
 mod tests {
+    use crate::parser::scoped::ScopedIdentifier;
     use crate::parser::token::{Token, TokenStream, TokenValue};
     use crate::parser::token::fixed::Separator;
     use crate::parser::token::identifier::{Identifier, Name, Operator};
@@ -104,7 +111,6 @@ mod tests {
     use crate::parser::value::ValuePrimary;
 
     use super::*;
-    use crate::parser::scoped::ScopedIdentifier;
 
     #[test]
     fn name() {
@@ -285,7 +291,9 @@ mod tests {
             Token::new(TokenValue::Literal(Literal::Int(IntLiteral(10)))),
         ];
         let result = InfixApply::<ValuePrimary>::parse(TokenStream(&expr));
-        assert!(result.is_err(), format!("Expected error parse, got {:?}", result));
+        assert!(result.is_ok(), format!("Expected ok parse, got {:?}", result));
+        let (rest, _) = result.unwrap();
+        assert_eq!(rest.0, &expr[7..]);
     }
 
     #[test]
