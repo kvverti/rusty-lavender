@@ -1,6 +1,7 @@
 use nom::combinator::map;
 
 use crate::parser::{ParseResult, with_len};
+use crate::parser::primary::Primary;
 use crate::parser::token::TokenStream;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -13,6 +14,12 @@ pub struct Tagged<T> {
 impl<T> Tagged<T> {
     pub fn new(value: T) -> Self {
         Self { value, idx: 0, len: 0 }
+    }
+}
+
+impl<P: Primary> Primary for Tagged<P> {
+    fn parse(input: TokenStream) -> ParseResult<TokenStream, Self> {
+        tagged(P::parse)(input)
     }
 }
 
