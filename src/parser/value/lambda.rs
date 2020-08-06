@@ -1,11 +1,10 @@
 use nom::bytes::complete::tag;
-use nom::combinator::map;
 use nom::multi::many1;
-use nom::sequence::{delimited, pair};
 
-use crate::parser::ParseResult;
+use crate::parser::{ParseResult, until_next_sync_point};
 use crate::parser::pattern::PatternPrimary;
 use crate::parser::primary::Primary;
+use crate::parser::tagged::Tagged;
 use crate::parser::token::{TokenStream, TokenValue};
 use crate::parser::token::fixed::Keyword;
 use crate::parser::token::identifier::{Identifier, Operator};
@@ -13,26 +12,53 @@ use crate::parser::value::ValueExpression;
 
 /// A lambda expression (single case anonymous function) `lam a b. c`.
 #[derive(Clone, Debug, PartialEq)]
-pub struct LambdaExpression {
-    /// The parameter patterns of the lambda expression.
-    pub params: Vec<PatternPrimary>,
-    /// The lambda body.
-    pub body: Box<ValueExpression>,
+pub enum LambdaExpression {
+    /// A lambda expression.
+    Value {
+        /// The parameter patterns of the lambda expression.
+        params: Vec<PatternPrimary>,
+        /// The lambda body.
+        body: Box<ValueExpression>,
+    },
+    /// An error that occurred when parsing a lambda expression.
+    Error {
+        /// Error message.
+        context: &'static str,
+        /// The indices of tokens up to the next sync point.
+        tokens: Vec<Tagged<()>>,
+    },
+}
+
+/// Matches a parser, or returns an error lambda node if there is a parser error.
+macro_rules! next {
+    ($ctx:literal, $x:expr, $input:expr) => {
+        match $x($input) {
+            // parse success
+            Ok(v) => v,
+            // parse error
+            Err(nom::Err::Error(_)) => {
+                let (input, tokens) = until_next_sync_point($input);
+                return Ok((input, Self::Error {
+                    context: $ctx,
+                    tokens,
+                }));
+            }
+            // parse failure
+            Err(e) => return Err(e),
+        }
+    };
 }
 
 impl LambdaExpression {
     pub fn parse(input: TokenStream) -> ParseResult<TokenStream, Self> {
-        map(
-            pair(
-                delimited(
-                    tag(TokenValue::from(Keyword::Lam)),
-                    many1(PatternPrimary::parse),
-                    tag(TokenValue::from(Identifier::Operator(Operator(".".to_owned())))),
-                ),
-                ValueExpression::parse,
-            ),
-            |(params, body)| Self { params, body: Box::new(body) },
-        )(input)
+        let (input, _) = tag(TokenValue::from(Keyword::Lam))(input)?;
+        let (input, params) = next!("Expected pattern", many1(PatternPrimary::parse), input);
+        let (input, _) = next!("Expected '.'", tag(TokenValue::from(Identifier::Operator(Operator(".".to_owned())))), input);
+        let (input, body) = next!("Expected expression", ValueExpression::parse, input);
+        Ok((input, Self::Value {
+            params,
+            body: Box::new(body),
+        }))
     }
 }
 
@@ -51,7 +77,7 @@ mod tests {
 
     #[test]
     fn parses() {
-        let expected = LambdaExpression {
+        let expected = LambdaExpression::Value {
             params: vec![
                 PatternPrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("x".to_owned())))),
                 PatternPrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("y".to_owned())))),

@@ -34,6 +34,17 @@ pub enum TokenValue {
     Unrecognized(char),
 }
 
+impl TokenValue {
+    /// Whether this token represents a keyword or separator. Keywords and separators represent
+    /// expression boundaries and are used as sync points.
+    pub fn is_keyword_or_separator(&self) -> bool {
+        match self {
+            Self::Keyword(_) | Self::Separator(_) => true,
+            _ => false,
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct Token {
     pub value: TokenValue,
