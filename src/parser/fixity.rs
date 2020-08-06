@@ -2,7 +2,7 @@ use nom::branch::alt;
 use nom::bytes::complete::tag;
 use nom::combinator::map;
 use nom::multi::{many0, many1};
-use nom::sequence::{delimited, pair, preceded, terminated, tuple};
+use nom::sequence::{delimited, pair, preceded, tuple};
 
 use crate::parser::ParseResult;
 use crate::parser::primary::{name, operator, Primary};

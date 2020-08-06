@@ -131,7 +131,7 @@ impl DefinitionBody {
 
 #[cfg(test)]
 mod tests {
-    use crate::parser::fixity::{InfixApply, InfixPrimary, PrefixApply};
+    use crate::parser::fixity::{BasicFixity, InfixApply, InfixPrimary, PrefixApply};
     use crate::parser::pattern::Pattern;
     use crate::parser::scoped::ScopedIdentifier;
     use crate::parser::tagged::Tagged;
@@ -160,7 +160,7 @@ mod tests {
             bodies: vec![
                 DefinitionBody {
                     params: vec![],
-                    body: ValueExpression::InfixApplication(InfixApply {
+                    body: ValueExpression::Application(BasicFixity::Infix(InfixApply {
                         func: Tagged {
                             value: Identifier::Operator(Operator("+".to_owned())),
                             idx: input.find("+").unwrap(),
@@ -171,7 +171,7 @@ mod tests {
                             InfixPrimary::Primary(ValuePrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("b".to_owned()))))),
                             InfixPrimary::Primary(ValuePrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("a".to_owned()))))),
                         ],
-                    }),
+                    })),
                 }
             ],
         };
@@ -198,14 +198,14 @@ mod tests {
                             args: vec![PatternPrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("a".to_owned()))))],
                         })))
                     ],
-                    body: ValueExpression::Application(PrefixApply {
+                    body: ValueExpression::Application(BasicFixity::Prefix(PrefixApply {
                         func: ValuePrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("f".to_owned())))),
                         args: vec![ValuePrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("a".to_owned()))))],
-                    }),
+                    })),
                 },
                 DefinitionBody {
                     params: vec![PatternPrimary::Blank],
-                    body: ValueExpression::Primary(ValuePrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("None".to_owned()))))),
+                    body: ValueExpression::Application(BasicFixity::Primary(ValuePrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("None".to_owned())))))),
                 }
             ],
         };
@@ -264,7 +264,7 @@ mod tests {
             bodies: vec![
                 DefinitionBody {
                     params: vec![],
-                    body: ValueExpression::Primary(ValuePrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("a".to_owned()))))),
+                    body: ValueExpression::Application(BasicFixity::Primary(ValuePrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("a".to_owned())))))),
                 }
             ],
         };

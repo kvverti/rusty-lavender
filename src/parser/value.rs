@@ -3,7 +3,7 @@ use nom::bytes::complete::tag;
 use nom::combinator::map;
 use nom::sequence::delimited;
 
-use crate::parser::fixity::{InfixApply, PrefixApply};
+use crate::parser::fixity::BasicFixity;
 use crate::parser::ParseResult;
 use crate::parser::primary::{literal, Primary};
 use crate::parser::scoped::ScopedIdentifier;
@@ -50,11 +50,8 @@ impl Primary for ValuePrimary {
 /// The types of Lavender expressions.
 #[derive(Clone, Debug, PartialEq)]
 pub enum ValueExpression {
-    Primary(ValuePrimary),
-    /// Function application `a b`
-    Application(PrefixApply<ValuePrimary>),
-    /// Infix function application `a @ b`
-    InfixApplication(InfixApply<ValuePrimary>),
+    /// Primary, and prefix and infix function application.
+    Application(BasicFixity<ValuePrimary>),
     /// Lambda expression `lam a b. c`
     Lambda(LambdaExpression),
 }
@@ -63,40 +60,14 @@ impl ValueExpression {
     pub fn parse(input: TokenStream) -> ParseResult<TokenStream, Self> {
         alt((
             map(LambdaExpression::parse, Self::Lambda),
-            map(InfixApply::parse, Self::InfixApplication),
-            map(PrefixApply::parse, Self::Application),
-            map(ValuePrimary::parse, Self::Primary),
+            map(BasicFixity::parse, Self::Application),
         ))(input)
-    }
-}
-
-impl From<ValuePrimary> for ValueExpression {
-    fn from(v: ValuePrimary) -> Self {
-        ValueExpression::Primary(v)
-    }
-}
-
-impl From<PrefixApply<ValuePrimary>> for ValueExpression {
-    fn from(v: PrefixApply<ValuePrimary>) -> Self {
-        ValueExpression::Application(v)
-    }
-}
-
-impl From<InfixApply<ValuePrimary>> for ValueExpression {
-    fn from(v: InfixApply<ValuePrimary>) -> Self {
-        ValueExpression::InfixApplication(v)
-    }
-}
-
-impl From<LambdaExpression> for ValueExpression {
-    fn from(v: LambdaExpression) -> Self {
-        ValueExpression::Lambda(v)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::parser::fixity::InfixPrimary;
+    use crate::parser::fixity::{InfixApply, InfixPrimary, PrefixApply};
     use crate::parser::pattern::PatternPrimary;
     use crate::parser::tagged::Tagged;
     use crate::parser::token::{Token, TokenValue};
@@ -108,7 +79,7 @@ mod tests {
 
     #[test]
     fn parses() {
-        let expected = ValueExpression::InfixApplication(InfixApply {
+        let expected = ValueExpression::Application(BasicFixity::Infix(InfixApply {
             func: Tagged::new(Identifier::Operator(Operator("+".to_owned()))),
             args: vec![
                 InfixPrimary::Primary(ValuePrimary::Literal(Literal::Int(IntLiteral(1)))),
@@ -117,16 +88,16 @@ mod tests {
                     args: vec![ValuePrimary::Literal(Literal::Int(IntLiteral(2)))],
                 }),
                 InfixPrimary::Primary(ValuePrimary::SubExpression(Box::new(
-                    ValueExpression::InfixApplication(InfixApply {
+                    ValueExpression::Application(BasicFixity::Infix(InfixApply {
                         func: Tagged::new(Identifier::Operator(Operator("*".to_owned()))),
                         args: vec![
                             InfixPrimary::Primary(ValuePrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("a".to_owned()))))),
                             InfixPrimary::Primary(ValuePrimary::Literal(Literal::Int(IntLiteral(3)))),
                         ],
-                    })
+                    }))
                 ))),
             ],
-        });
+        }));
         let expr = [
             Token::new(TokenValue::Literal(Literal::Int(IntLiteral(1)))),
             Token::new(TokenValue::Identifier(Identifier::Operator(Operator("+".to_owned())))),
@@ -156,7 +127,7 @@ mod tests {
     #[test]
     fn expr_with_lambda() {
         let input = "a + (lam f. f a)";
-        let expected = ValueExpression::InfixApplication(InfixApply {
+        let expected = ValueExpression::Application(BasicFixity::Infix(InfixApply {
             func: Tagged {
                 value: Identifier::Operator(Operator("+".to_owned())),
                 idx: input.find("+").unwrap(),
@@ -168,15 +139,15 @@ mod tests {
                     params: vec![
                         PatternPrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("f".to_owned())))),
                     ],
-                    body: Box::new(ValueExpression::Application(PrefixApply {
+                    body: Box::new(ValueExpression::Application(BasicFixity::Prefix(PrefixApply {
                         func: ValuePrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("f".to_owned())))),
                         args: vec![
                             ValuePrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("a".to_owned())))),
                         ],
-                    })),
+                    }))),
                 }))))
             ],
-        });
+        }));
         let result = Token::parse_sequence(input);
         let result = ValueExpression::parse(TokenStream(result.as_slice()));
         assert!(result.is_ok(), "Expected ok result, got {:?}", result);

@@ -38,16 +38,16 @@ impl LambdaExpression {
 
 #[cfg(test)]
 mod tests {
-    use crate::parser::fixity::{InfixApply, InfixPrimary, PrefixApply};
+    use crate::parser::fixity::{BasicFixity, InfixApply, InfixPrimary, PrefixApply};
     use crate::parser::pattern::Pattern;
     use crate::parser::scoped::ScopedIdentifier;
+    use crate::parser::tagged::Tagged;
     use crate::parser::token::fixed::Separator;
     use crate::parser::token::identifier::Name;
     use crate::parser::token::Token;
     use crate::parser::value::ValuePrimary;
 
     use super::*;
-    use crate::parser::tagged::Tagged;
 
     #[test]
     fn parses() {
@@ -62,13 +62,13 @@ mod tests {
                     ],
                 })))
             ],
-            body: Box::new(ValueExpression::InfixApplication(InfixApply {
+            body: Box::new(ValueExpression::Application(BasicFixity::Infix(InfixApply {
                 func: Tagged::new(Identifier::Operator(Operator("+".to_owned()))),
                 args: vec![
                     InfixPrimary::Primary(ValuePrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("x".to_owned()))))),
                     InfixPrimary::Primary(ValuePrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("z".to_owned()))))),
                 ],
-            })),
+            }))),
         };
         // lam x y (Id z). x + z
         let tokens = [
