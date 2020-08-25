@@ -3,7 +3,7 @@ use nom::bytes::complete::tag;
 use nom::combinator::{map, value};
 use nom::sequence::delimited;
 
-use crate::parser::fixity::{InfixApply, PrefixApply};
+use crate::parser::fixity::BasicFixity;
 use crate::parser::ParseResult;
 use crate::parser::primary::{literal, Primary};
 use crate::parser::scoped::ScopedIdentifier;
@@ -44,27 +44,19 @@ impl Primary for PatternPrimary {
 /// application.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Pattern {
-    /// Primary pattern.
-    Primary(PatternPrimary),
-    /// Prefix destructuring `a b`.
-    Application(PrefixApply<PatternPrimary>),
-    /// Infix destructuring `a @ b`.
-    InfixApplication(InfixApply<PatternPrimary>),
+    /// Pattern application
+    Application(BasicFixity<PatternPrimary>),
 }
 
 impl Pattern {
     pub fn parse(input: TokenStream) -> ParseResult<TokenStream, Self> {
-        alt((
-            map(InfixApply::parse, Self::InfixApplication),
-            map(PrefixApply::parse, Self::Application),
-            map(PatternPrimary::parse, Self::Primary),
-        ))(input)
+        map(BasicFixity::parse, Self::Application)(input)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::parser::fixity::InfixPrimary;
+    use crate::parser::fixity::{InfixApply, InfixPrimary, PrefixApply};
     use crate::parser::tagged::Tagged;
     use crate::parser::token::identifier::{Identifier, Name, Operator};
     use crate::parser::token::Token;
@@ -74,7 +66,7 @@ mod tests {
     #[test]
     fn parses() {
         let expected = PatternPrimary::SubPattern(Box::new(
-            Pattern::InfixApplication(InfixApply {
+            Pattern::Application(BasicFixity::Infix(InfixApply {
                 func: Tagged::new(Identifier::Operator(Operator("!".to_owned()))),
                 args: vec![
                     InfixPrimary::Application(PrefixApply {
@@ -86,7 +78,7 @@ mod tests {
                     InfixPrimary::Primary(PatternPrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("a".to_owned()))))),
                 ],
             })
-        ));
+            )));
         let tokens = [
             Token::new(TokenValue::from(Separator::LeftRound)),
             Token::new(TokenValue::from(Identifier::Name(Name("Some".to_owned())))),

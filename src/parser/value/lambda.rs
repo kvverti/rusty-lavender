@@ -81,12 +81,12 @@ mod tests {
             params: vec![
                 PatternPrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("x".to_owned())))),
                 PatternPrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("y".to_owned())))),
-                PatternPrimary::SubPattern(Box::new(Pattern::Application(PrefixApply {
+                PatternPrimary::SubPattern(Box::new(Pattern::Application(BasicFixity::Prefix(PrefixApply {
                     func: PatternPrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("Id".to_owned())))),
                     args: vec![
                         PatternPrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("z".to_owned())))),
                     ],
-                })))
+                }))))
             ],
             body: Box::new(ValueExpression::Application(BasicFixity::Infix(InfixApply {
                 func: Tagged::new(Identifier::Operator(Operator("+".to_owned()))),

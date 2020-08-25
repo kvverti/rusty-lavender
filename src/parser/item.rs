@@ -152,10 +152,10 @@ mod tests {
             typ: TypeExpression::TypePrimary(TypePrimary::TypeHole),
             params: vec![
                 PatternPrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("a".to_owned())))),
-                PatternPrimary::SubPattern(Box::new(Pattern::Application(PrefixApply {
+                PatternPrimary::SubPattern(Box::new(Pattern::Application(BasicFixity::Prefix(PrefixApply {
                     func: PatternPrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("Id".to_owned())))),
                     args: vec![PatternPrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("b".to_owned()))))],
-                })))
+                }))))
             ],
             bodies: vec![
                 DefinitionBody {
@@ -193,10 +193,10 @@ mod tests {
             bodies: vec![
                 DefinitionBody {
                     params: vec![
-                        PatternPrimary::SubPattern(Box::new(Pattern::Application(PrefixApply {
+                        PatternPrimary::SubPattern(Box::new(Pattern::Application(BasicFixity::Prefix(PrefixApply {
                             func: PatternPrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("Some".to_owned())))),
                             args: vec![PatternPrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("a".to_owned()))))],
-                        })))
+                        }))))
                     ],
                     body: ValueExpression::Application(BasicFixity::Prefix(PrefixApply {
                         func: ValuePrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("f".to_owned())))),
