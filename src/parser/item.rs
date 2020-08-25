@@ -240,7 +240,7 @@ mod tests {
                 args: vec![
                     InfixPrimary::Primary(TypePrimary::TypeVariable(Name("a".to_owned()))),
                     InfixPrimary::Primary(TypePrimary::TypeSubExpression(Box::new(
-                        TypeExpression::TypeLambda(TypeLambda {
+                        TypeExpression::TypeLambda(TypeLambda::Value {
                             params: vec![Name("b".to_owned())],
                             body: Box::new(TypeExpression::InfixTypeApplication(InfixApply {
                                 func: Tagged {

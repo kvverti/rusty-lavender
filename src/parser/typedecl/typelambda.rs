@@ -1,10 +1,9 @@
 use nom::bytes::complete::tag;
-use nom::combinator::map;
 use nom::multi::many1;
-use nom::sequence::{delimited, pair};
 
-use crate::parser::ParseResult;
+use crate::parser::{ParseResult, until_next_sync_point};
 use crate::parser::primary::name;
+use crate::parser::tagged::Tagged;
 use crate::parser::token::{TokenStream, TokenValue};
 use crate::parser::token::fixed::Keyword;
 use crate::parser::token::identifier::{Identifier, Name, Operator};
@@ -12,26 +11,52 @@ use crate::parser::typedecl::TypeExpression;
 
 /// A universal quantifier `for a b. c`.
 #[derive(Clone, Debug, PartialEq)]
-pub struct TypeLambda {
-    /// The declared type parameters.
-    pub params: Vec<Name>,
-    /// The type body.
-    pub body: Box<TypeExpression>,
+pub enum TypeLambda {
+    Value {
+        /// The declared type parameters.
+        params: Vec<Name>,
+        /// The type body.
+        body: Box<TypeExpression>,
+    },
+    /// An error that occurred when parsing a type lambda expression.
+    Error {
+        /// Error message.
+        context: &'static str,
+        /// The indices of tokens up to the next sync point.
+        tokens: Vec<Tagged<()>>,
+    },
+}
+
+/// Matches a parser, or returns an error lambda node if there is a parser error.
+macro_rules! next {
+    ($ctx:literal, $x:expr, $input:expr) => {
+        match $x($input) {
+            // parse success
+            Ok(v) => v,
+            // parse error
+            Err(nom::Err::Error(_)) => {
+                let (input, tokens) = until_next_sync_point($input);
+                return Ok((input, Self::Error {
+                    context: $ctx,
+                    tokens,
+                }));
+            }
+            // parse failure
+            Err(e) => return Err(e),
+        }
+    };
 }
 
 impl TypeLambda {
     pub fn parse(input: TokenStream) -> ParseResult<TokenStream, Self> {
-        map(
-            pair(
-                delimited(
-                    tag(TokenValue::from(Keyword::For)),
-                    many1(name),
-                    tag(TokenValue::from(Identifier::Operator(Operator(".".to_owned())))),
-                ),
-                TypeExpression::parse,
-            ),
-            |(params, body)| Self { params, body: Box::new(body) },
-        )(input)
+        let (input, _) = tag(TokenValue::from(Keyword::For))(input)?;
+        let (input, params) = next!("Expected type parameters", many1(name), input);
+        let (input, _) = next!("Expected '.'", tag(TokenValue::from(Identifier::Operator(Operator(".".to_owned())))), input);
+        let (input, body) = next!("Expected type", TypeExpression::parse, input);
+        Ok((input, Self::Value {
+            params,
+            body: Box::new(body),
+        }))
     }
 }
 
@@ -47,7 +72,7 @@ mod tests {
 
     #[test]
     fn parses() {
-        let expected = TypeLambda {
+        let expected = TypeLambda::Value {
             params: vec![
                 Name("x".to_owned()),
                 Name("y".to_owned()),
