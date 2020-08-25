@@ -3,7 +3,7 @@ use nom::bytes::complete::tag;
 use nom::combinator::{map, value};
 use nom::sequence::{delimited, preceded};
 
-use crate::parser::fixity::{InfixApply, PrefixApply};
+use crate::parser::fixity::BasicFixity;
 use crate::parser::ParseResult;
 use crate::parser::primary::{name, Primary};
 use crate::parser::scoped::ScopedIdentifier;
@@ -51,12 +51,8 @@ impl Primary for TypePrimary {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum TypeExpression {
-    /// Simple type expressions `A`.
-    TypePrimary(TypePrimary),
-    /// Prefix type applications `A B ...`.
-    TypeApplication(PrefixApply<TypePrimary>),
-    /// Infix type applications `A @ B @ ...`.
-    InfixTypeApplication(InfixApply<TypePrimary>),
+    /// Basic type applications.
+    TypeApplication(BasicFixity<TypePrimary>),
     /// A universal quantifier, or type lambda expression.
     TypeLambda(TypeLambda),
 }
@@ -65,16 +61,14 @@ impl TypeExpression {
     pub fn parse(input: TokenStream) -> ParseResult<TokenStream, Self> {
         alt((
             map(TypeLambda::parse, Self::TypeLambda),
-            map(InfixApply::parse, Self::InfixTypeApplication),
-            map(PrefixApply::parse, Self::TypeApplication),
-            map(TypePrimary::parse, Self::TypePrimary),
+            map(BasicFixity::parse, Self::TypeApplication),
         ))(input)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::parser::fixity::InfixPrimary;
+    use crate::parser::fixity::{InfixApply, InfixPrimary, PrefixApply};
     use crate::parser::tagged::Tagged;
     use crate::parser::token::identifier::{Identifier, Operator};
     use crate::parser::token::Token;
@@ -83,21 +77,21 @@ mod tests {
 
     #[test]
     fn parses() {
-        let expected = TypeExpression::TypeApplication(PrefixApply {
+        let expected = TypeExpression::TypeApplication(BasicFixity::Prefix(PrefixApply {
             func: TypePrimary::TypeIdentifier(ScopedIdentifier::from(Identifier::Name(Name("Type".to_owned())))),
             args: vec![
                 TypePrimary::TypeVariable(Name("a".to_owned())),
                 TypePrimary::TypeSubExpression(Box::new(
-                    TypeExpression::InfixTypeApplication(InfixApply {
+                    TypeExpression::TypeApplication(BasicFixity::Infix(InfixApply {
                         func: Tagged::new(Identifier::Operator(Operator("->".to_owned()))),
                         args: vec![
                             InfixPrimary::Primary(TypePrimary::TypeVariable(Name("a".to_owned()))),
                             InfixPrimary::Primary(TypePrimary::TypeHole),
                         ],
-                    })
+                    }))
                 )),
             ],
-        });
+        }));
         let input = [
             Token::new(TokenValue::from(Identifier::Name(Name("Type".to_string())))),
             Token::new(TokenValue::from(Separator::Check)),

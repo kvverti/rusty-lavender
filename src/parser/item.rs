@@ -4,7 +4,7 @@ use nom::combinator::{map, map_res, opt};
 use nom::multi::{count, many0, many1};
 use nom::sequence::{delimited, pair, preceded, separated_pair, tuple};
 
-use crate::parser::fixity::prefix_operator;
+use crate::parser::fixity::{BasicFixity, prefix_operator};
 use crate::parser::ParseResult;
 use crate::parser::pattern::PatternPrimary;
 use crate::parser::primary::{name, Primary};
@@ -53,7 +53,7 @@ impl Definition {
             |((fixity, name), typ, params, bodies)| Self {
                 name,
                 fixity,
-                typ: typ.unwrap_or_else(|| TypeExpression::TypePrimary(TypePrimary::TypeHole)),
+                typ: typ.unwrap_or_else(|| TypeExpression::TypeApplication(BasicFixity::Primary(TypePrimary::TypeHole))),
                 params,
                 bodies,
             },
@@ -149,7 +149,7 @@ mod tests {
         let expected = Definition {
             name: Identifier::Operator(Operator("@".to_owned())),
             fixity: Fixity::Left,
-            typ: TypeExpression::TypePrimary(TypePrimary::TypeHole),
+            typ: TypeExpression::TypeApplication(BasicFixity::Primary(TypePrimary::TypeHole)),
             params: vec![
                 PatternPrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("a".to_owned())))),
                 PatternPrimary::SubPattern(Box::new(Pattern::Application(BasicFixity::Prefix(PrefixApply {
@@ -188,7 +188,7 @@ mod tests {
         let expected = Definition {
             name: Identifier::Name(Name("bind".to_owned())),
             fixity: Fixity::None,
-            typ: TypeExpression::TypePrimary(TypePrimary::TypeHole),
+            typ: TypeExpression::TypeApplication(BasicFixity::Primary(TypePrimary::TypeHole)),
             params: vec![PatternPrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("f".to_owned()))))],
             bodies: vec![
                 DefinitionBody {
@@ -231,7 +231,7 @@ mod tests {
         let expected = Definition {
             name: Identifier::Name(Name("const".to_owned())),
             fixity: Fixity::None,
-            typ: TypeExpression::InfixTypeApplication(InfixApply {
+            typ: TypeExpression::TypeApplication(BasicFixity::Infix(InfixApply {
                 func: Tagged {
                     value: Identifier::Operator(Operator("->".to_owned())),
                     idx: input.find("->").unwrap(),
@@ -242,7 +242,7 @@ mod tests {
                     InfixPrimary::Primary(TypePrimary::TypeSubExpression(Box::new(
                         TypeExpression::TypeLambda(TypeLambda::Value {
                             params: vec![Name("b".to_owned())],
-                            body: Box::new(TypeExpression::InfixTypeApplication(InfixApply {
+                            body: Box::new(TypeExpression::TypeApplication(BasicFixity::Infix(InfixApply {
                                 func: Tagged {
                                     value: Identifier::Operator(Operator("->".to_owned())),
                                     idx: input.match_indices("->").nth(1).unwrap().0,
@@ -252,11 +252,11 @@ mod tests {
                                     InfixPrimary::Primary(TypePrimary::TypeIdentifier(ScopedIdentifier::from(Identifier::Name(Name("b".to_owned()))))),
                                     InfixPrimary::Primary(TypePrimary::TypeVariable(Name("a".to_owned()))),
                                 ],
-                            })),
+                            }))),
                         })
                     )))
                 ],
-            }),
+            })),
             params: vec![
                 PatternPrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("a".to_owned())))),
                 PatternPrimary::Blank,
@@ -282,7 +282,7 @@ mod tests {
         let expected = Definition {
             name: Identifier::Name(Name("addi".to_owned())),
             fixity: Fixity::None,
-            typ: TypeExpression::InfixTypeApplication(InfixApply {
+            typ: TypeExpression::TypeApplication(BasicFixity::Infix(InfixApply {
                 func: Tagged {
                     value: Identifier::Operator(Operator("->".to_owned())),
                     idx: input.find("->").unwrap(),
@@ -293,7 +293,7 @@ mod tests {
                     InfixPrimary::Primary(TypePrimary::TypeIdentifier(ScopedIdentifier::from(Identifier::Name(Name("Int".to_owned()))))),
                     InfixPrimary::Primary(TypePrimary::TypeIdentifier(ScopedIdentifier::from(Identifier::Name(Name("Int".to_owned()))))),
                 ],
-            }),
+            })),
             params: vec![],
             bodies: vec![],
         };

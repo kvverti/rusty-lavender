@@ -2,7 +2,7 @@ use nom::branch::alt;
 use nom::bytes::complete::tag;
 use nom::combinator::map;
 use nom::multi::{many0, many1};
-use nom::sequence::{delimited, pair, preceded, tuple};
+use nom::sequence::{delimited, preceded};
 
 use crate::parser::ParseResult;
 use crate::parser::primary::{name, operator, Primary};
@@ -18,16 +18,6 @@ pub struct PrefixApply<P: Primary> {
     pub func: P,
     /// The function arguments. Nonempty.
     pub args: Vec<P>,
-}
-
-impl<P: Primary> PrefixApply<P> {
-    #[deprecated]
-    pub fn parse(input: TokenStream) -> ParseResult<TokenStream, Self> {
-        map(
-            pair(P::parse, many1(P::parse)),
-            |(func, args)| Self { func, args },
-        )(input)
-    }
 }
 
 /// The primary expression type for infix application.
@@ -63,18 +53,6 @@ pub struct InfixApply<P: Primary> {
     pub func: Tagged<Identifier>,
     /// The arguments. At least two.
     pub args: Vec<InfixPrimary<P>>,
-}
-
-impl<P: Primary> InfixApply<P> {
-    #[deprecated]
-    pub fn parse(input: TokenStream) -> ParseResult<TokenStream, Self> {
-        let (input, (first, func, second)) = tuple((InfixPrimary::parse, tagged(infix_operator), InfixPrimary::parse))(input)?;
-        let op = TokenValue::from(func.value.clone());
-        let (input, rest) = many0(preceded(tag(op), InfixPrimary::parse))(input)?;
-        let mut args = vec![first, second];
-        args.extend(rest.into_iter());
-        Ok((input, Self { func, args }))
-    }
 }
 
 /// A prefix expression `a b c ...` or infix expression `a @ b @ c ...` or primary expression `a`.
