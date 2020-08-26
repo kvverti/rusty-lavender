@@ -40,15 +40,8 @@ fn with_len<I, O, E, F>(p: F) -> impl Fn(I) -> IResult<I, (usize, O), E>
 }
 
 /// Consumes input until a separator or a keyword is reached.
-fn until_next_sync_point(input: TokenStream) -> (TokenStream, Vec<Tagged<()>>) {
-    let result: ParseResult<_, _> = take_till(TokenValue::is_keyword_or_separator)(input);
-    if let Ok((input, tokens)) = result {
-        (input, tokens.0.iter().map(|t| Tagged {
-            value: (),
-            idx: t.col,
-            len: t.len,
-        }).collect())
-    } else {
-        (input, vec![])
-    }
+fn until_next_sync_point<'a>(ctx: &'static str, input: TokenStream<'a>) -> (TokenStream<'a>, Tagged<&'static str>) {
+    tagged::tagged(
+        nom::combinator::value(ctx, take_till(TokenValue::is_keyword_or_separator))
+    )(input).expect("take_till returned error")
 }

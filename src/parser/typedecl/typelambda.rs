@@ -20,10 +20,8 @@ pub enum TypeLambda {
     },
     /// An error that occurred when parsing a type lambda expression.
     Error {
-        /// Error message.
-        context: &'static str,
-        /// The indices of tokens up to the next sync point.
-        tokens: Vec<Tagged<()>>,
+        /// The error message and source columns until the next sequence point.
+        context: Tagged<&'static str>,
     },
 }
 
@@ -35,10 +33,9 @@ macro_rules! next {
             Ok(v) => v,
             // parse error
             Err(nom::Err::Error(_)) => {
-                let (input, tokens) = until_next_sync_point($input);
+                let (input, context) = until_next_sync_point($ctx, $input);
                 return Ok((input, Self::Error {
-                    context: $ctx,
-                    tokens,
+                    context,
                 }));
             }
             // parse failure
