@@ -1,14 +1,17 @@
 # Rusty-Lavender
 The third iteration of the Lavender programming language, implemented in Rust.
 
-Lavender is a pure functional, lazy, (eventally) typed programming language. Its basic building blocks are intrinsic values and functions. Features include:
+Lavender is a pure functional, lazy, typed programming language. Its basic building blocks are intrinsic values and functions. Features include:
 
-- Fundamental types such as `Int`, `Float`, `String`, `Unit`
-- Lazy evaluation of functions
-- Product and sum types (NYI)
-- Pattern matching (NYI)
-- Type classes (NYI)
-- Higher kinded types (NYI)
+- Fundamental types such as `Int`, `Flt`, `Str`, `Bool`
+- Lazy evaluation
+- Built in array primitive
+- No garbage collector
+- Product and sum types
+- Pattern matching / destructuring
+- Type classes
+- Higher kinded types
+- Global type inference
 
 Lavender is written using a Haskell-like syntax and is compiled to a bytecode that is run using an interpreter.
 
