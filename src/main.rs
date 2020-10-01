@@ -7,6 +7,7 @@ use nom::error::VerboseErrorKind;
 
 use crate::parser::item::Definition;
 use crate::parser::token::{Token, TokenStream, TokenValue};
+use nom::multi::many1;
 
 mod ast;
 mod code;
@@ -58,9 +59,10 @@ fn main() {
             }
             return;
         }
-        match Definition::regular(TokenStream(&tokens)) {
-            Ok((_, item)) => {
-                println!("{:?}", item);
+        let parser = many1(Definition::regular);
+        match parser(TokenStream(&tokens)) {
+            Ok((_, items)) => {
+                println!("{:?}", items);
             }
             Err(err) => match err {
                 nom::Err::Error(err) => {
