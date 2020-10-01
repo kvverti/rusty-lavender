@@ -6,3 +6,10 @@
 
 pub mod symbol;
 pub mod types;
+
+/// Extracts a collection of values from some type. This trait is used for walking the parse
+/// tree and extracting names, types, defintions, etc.
+pub trait Extract<T> {
+    /// Extracts a collection of values.
+    fn extract(&self) -> Vec<T>;
+}
