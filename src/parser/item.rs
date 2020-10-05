@@ -163,7 +163,7 @@ mod tests {
                     body: ValueExpression::Application(BasicFixity::Infix(InfixApply {
                         func: Tagged {
                             value: Identifier::Operator(Operator("+".to_owned())),
-                            idx: input.find("+").unwrap(),
+                            idx: input.find('+').unwrap(),
                             len: 1,
                         },
                         args: vec![

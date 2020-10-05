@@ -194,7 +194,7 @@ mod tests {
         assert!(operator_result.is_ok(), format!("Operator result error {:?}", operator_result));
         assert_eq!(TokenValue::from(operator_result.unwrap().1), operator);
 
-        let error_op_input = [Token::new(operator.clone())];
+        let error_op_input = [Token::new(operator)];
         let error_op_result = prefix_operator(TokenStream(&error_op_input));
         assert!(error_op_result.is_err(), format!("Bare operator did not error {:?}", error_op_result));
     }
