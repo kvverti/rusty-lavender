@@ -165,8 +165,8 @@ mod tests {
         assert!(symbols.is_label_defined(label), "label is defined");
         assert!(!symbols.is_label_defined(label2), "label2 is not defined");
         let add = symbols.resolve_label(label);
-        for i in 0..code.len() {
-            if let (Opcode::DebugTop, Opcode::DebugTop) = (code[i], symbols.opcode_at(add + i)) {} else {
+        for (i, opcode) in code.iter().enumerate() {
+            if let (Opcode::DebugTop, Opcode::DebugTop) = (opcode, symbols.opcode_at(add + i)) {} else {
                 panic!("Unequal opcodes");
             }
         }

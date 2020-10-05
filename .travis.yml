@@ -2,6 +2,7 @@ language: rust
 rust:
   - stable
   - beta
+  - nightly
 jobs:
   allow_failures:
     - rust: nightly
@@ -9,6 +10,6 @@ jobs:
 before_script:
   - rustup component add clippy
 script:
-  - cargo clippy --all-targets --all-features
+  - cargo clippy --all-targets --all-features -- -D warnings
   - cargo test
   
