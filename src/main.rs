@@ -18,7 +18,7 @@ mod value;
 /// Creates a vector of (begin source index, length) for lines,
 /// not including the line terminator.
 fn create_line_mapping(source: &str) -> Vec<(usize, usize)> {
-    let lines = source.split("\n")
+    let lines = source.split('\n')
         .collect::<Vec<_>>();
     let mut res = Vec::new();
     let mut col = 0usize;
@@ -30,7 +30,7 @@ fn create_line_mapping(source: &str) -> Vec<(usize, usize)> {
 }
 
 fn main() {
-    let source = env::args().into_iter().nth(1);
+    let source = env::args().nth(1);
     if let Some(source) = source {
         let source_lines = create_line_mapping(&source);
         let tokens = Token::parse_sequence(&source);
@@ -73,7 +73,7 @@ fn main() {
                             VerboseErrorKind::Nom(kind) => kind.description().to_owned(),
                         };
                         if let Some(&Token { col, len, .. }) = tokens.first() {
-                            println!("[{}:{}] Error: {}", "?", col, msg);
+                            println!("[?:{}] Error: {}", col, msg);
                             println!("\t{}", &source[col..col + len]);
                         } else {
                             println!("Error parsing (no message)");

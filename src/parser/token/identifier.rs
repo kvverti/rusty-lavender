@@ -26,7 +26,7 @@ impl Name {
                     let s = s.as_bytes();
                     is_alphabetic(s[0]) || s[0] == b'_'
                 }),
-            |v| Self(v.to_owned()),
+            Self,
         )(input)
     }
 }

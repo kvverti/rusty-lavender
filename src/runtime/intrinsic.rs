@@ -296,6 +296,7 @@ pub const TEXT_REMF: [Opcode; 6] = [
     Opcode::Return,
 ];
 
+#[allow(clippy::float_cmp)]
 fn eqf(args: &mut [LvValue]) -> LvValue {
     let a = extract_float(&args[0]);
     let b = extract_float(&args[1]);
@@ -557,7 +558,7 @@ fn partial_lenv(args: &[LvValue]) -> LvValue {
 fn partial_last(args: &mut [LvValue]) -> LvValue {
     let vect = mem::replace(&mut args[0], LvValue::Unit);
     if let LvValue::Vect(vect) = vect {
-        vect.values.into_iter().nth(0).expect("Vect with no tail");
+        vect.values.into_iter().next().expect("Vect with no tail");
         unimplemented!()
     } else {
         panic!("Expected vect");
