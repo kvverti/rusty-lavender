@@ -38,10 +38,7 @@ impl TokenValue {
     /// Whether this token represents a keyword or separator. Keywords and separators represent
     /// expression boundaries and are used as sync points.
     pub fn is_keyword_or_separator(&self) -> bool {
-        match self {
-            Self::Keyword(_) | Self::Separator(_) => true,
-            _ => false,
-        }
+        matches!(self, Self::Keyword(_) | Self::Separator(_))
     }
 }
 
