@@ -49,6 +49,7 @@ impl From<Identifier> for ScopedIdentifier {
 
 #[cfg(test)]
 mod tests {
+    use crate::ast::Extracted;
     use crate::parser::token::Token;
 
     use super::*;
@@ -110,7 +111,7 @@ mod tests {
             name: Identifier::Name(Name("a".into())),
             scopes: vec![Name("b".into()), Name("c".into()), Name("d".into())],
         };
-        let symbs: Vec<AstSymbol> = id.extract();
+        let symbs: Vec<AstSymbol> = AstSymbol::extract_from(id);
         assert_eq!(symbs.len(), 1);
         let symb = symbs.first().unwrap();
         assert_eq!(*symb, AstSymbol::new_scoped(&["b", "c", "d", "a"]));

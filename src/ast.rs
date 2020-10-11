@@ -8,8 +8,21 @@ pub mod symbol;
 pub mod types;
 
 /// Extracts a collection of values from some type. This trait is used for walking the parse
-/// tree and extracting names, types, defintions, etc.
+/// tree and extracting names, types, definitions, etc.
 pub trait Extract<T> {
-    /// Extracts a collection of values.
+    /// Extracts a collection of values. Prefer [Extracted::extract_from] to this function.
     fn extract(&self) -> Vec<T>;
+}
+
+/// Implemented on types which are extracted from types implementing [Extract<T>].
+pub trait Extracted<T>: Sized {
+    /// Extracts values from the given argument.
+    fn extract_from(t: T) -> Vec<Self>;
+}
+
+/// Blanket implementation of [Extracted<T>].
+impl<A, T: Extract<A>> Extracted<T> for A {
+    fn extract_from(t: T) -> Vec<Self> {
+        t.extract()
+    }
 }

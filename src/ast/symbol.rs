@@ -1,7 +1,5 @@
 use std::fmt::{Display, Formatter};
 
-use crate::ast::Extract;
-
 /// A symbol is a scoped name associated with a value or type.
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct AstSymbol {
