@@ -3,6 +3,8 @@ use nom::combinator::map;
 use nom::multi::many0;
 use nom::sequence::{pair, terminated};
 
+use crate::ast::Extract;
+use crate::ast::symbol::AstSymbol;
 use crate::parser::fixity::prefix_operator;
 use crate::parser::ParseResult;
 use crate::parser::primary::name;
@@ -26,6 +28,16 @@ impl ScopedIdentifier {
             ),
             |(scopes, name)| ScopedIdentifier { name, scopes },
         )(input)
+    }
+}
+
+impl Extract<AstSymbol> for ScopedIdentifier {
+    fn extract(&self) -> Vec<AstSymbol> {
+        let mut symb = self.name.extract();
+        for Name(scope) in self.scopes.iter().rev() {
+            symb.iter_mut().for_each(|s| s.place_in_scope(scope));
+        }
+        symb
     }
 }
 
@@ -90,5 +102,17 @@ mod tests {
         ];
         let result = ScopedIdentifier::parse(TokenStream(&input));
         assert!(result.is_err(), "Expected err result, got {:?}", result);
+    }
+
+    #[test]
+    fn name_extract() {
+        let id = ScopedIdentifier {
+            name: Identifier::Name(Name("a".into())),
+            scopes: vec![Name("b".into()), Name("c".into()), Name("d".into())],
+        };
+        let symbs: Vec<AstSymbol> = id.extract();
+        assert_eq!(symbs.len(), 1);
+        let symb = symbs.first().unwrap();
+        assert_eq!(*symb, AstSymbol::new_scoped(&["b", "c", "d", "a"]));
     }
 }

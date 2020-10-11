@@ -6,6 +6,8 @@ use nom::combinator::{map, verify};
 use nom::IResult;
 use nom::multi::{fold_many1, many1};
 
+use crate::ast::Extract;
+use crate::ast::symbol::AstSymbol;
 use crate::parser::Source;
 use crate::parser::token::fixed::is_keyword_or_separator;
 use crate::parser::token::literal::is_bool_literal;
@@ -69,6 +71,16 @@ impl Identifier {
             Self::Operator(Operator(s)) => s,
         };
         !is_keyword_or_separator(s) && !is_bool_literal(s)
+    }
+}
+
+impl Extract<AstSymbol> for Identifier {
+    fn extract(&self) -> Vec<AstSymbol> {
+        let name = match self {
+            Self::Name(Name(s)) => s,
+            Self::Operator(Operator(s)) => s,
+        };
+        vec![AstSymbol::new(name)]
     }
 }
 

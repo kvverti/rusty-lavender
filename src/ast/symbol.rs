@@ -1,5 +1,7 @@
 use std::fmt::{Display, Formatter};
 
+use crate::ast::Extract;
+
 /// A symbol is a scoped name associated with a value or type.
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct AstSymbol {
@@ -9,13 +11,19 @@ pub struct AstSymbol {
 
 impl AstSymbol {
     /// Creates a new unscoped symbol.
-    pub fn new(name: String) -> Self {
-        Self { scopes: vec![name] }
+    pub fn new(name: &str) -> Self {
+        Self { scopes: vec![name.into()] }
+    }
+
+    /// Creates a new symbol from the given list of scopes, the last of which being the
+    /// simple name.
+    pub fn new_scoped(scopes: &[&str]) -> Self {
+        Self { scopes: scopes.iter().map(|&s| s.into()).collect() }
     }
 
     /// Adds the given scope name as the outermost scope for this symbol.
-    pub fn place_in_scope(&mut self, scope_name: String) {
-        self.scopes.insert(0, scope_name);
+    pub fn place_in_scope(&mut self, scope_name: &str) {
+        self.scopes.insert(0, scope_name.into());
     }
 }
 
@@ -33,10 +41,10 @@ mod tests {
 
     #[test]
     fn test_display() {
-        let mut symb = AstSymbol::new("name".to_owned());
-        symb.place_in_scope("c".to_owned());
-        symb.place_in_scope("b".to_owned());
-        symb.place_in_scope("a".to_owned());
+        let mut symb = AstSymbol::new("name");
+        symb.place_in_scope("c");
+        symb.place_in_scope("b");
+        symb.place_in_scope("a");
         let display = format!("{}", symb);
         assert_eq!(display, "a::b::c::name");
     }
