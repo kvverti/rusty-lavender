@@ -4,6 +4,7 @@ use nom::combinator::map;
 use nom::multi::{many0, many1};
 use nom::sequence::{delimited, preceded};
 
+use crate::ast::Extract;
 use crate::parser::ParseResult;
 use crate::parser::primary::{name, operator, Primary};
 use crate::parser::tagged::{Tagged, tagged};
@@ -18,6 +19,12 @@ pub struct PrefixApply<P: Primary> {
     pub func: P,
     /// The function arguments. Nonempty.
     pub args: Vec<P>,
+}
+
+impl<T, P: Primary + Extract<T>> Extract<T> for PrefixApply<P> {
+    fn extract(&self) -> Vec<T> {
+        self.args.iter().flat_map(Extract::extract).collect()
+    }
 }
 
 /// The primary expression type for infix application.
@@ -44,6 +51,15 @@ impl<P: Primary> InfixPrimary<P> {
     }
 }
 
+impl<T, P: Primary + Extract<T>> Extract<T> for InfixPrimary<P> {
+    fn extract(&self) -> Vec<T> {
+        match self {
+            Self::Application(prefix) => prefix.extract(),
+            Self::Primary(p) => p.extract(),
+        }
+    }
+}
+
 /// Infix function application `a @ b @ c ...` where `a`, `b`, etc. are prefix applications
 /// and `@` is a single operator (which may be left or right associative - we don't decide that
 /// here).
@@ -55,12 +71,28 @@ pub struct InfixApply<P: Primary> {
     pub args: Vec<InfixPrimary<P>>,
 }
 
+impl<T, P: Primary + Extract<T>> Extract<T> for InfixApply<P> {
+    fn extract(&self) -> Vec<T> {
+        self.args.iter().flat_map(Extract::extract).collect()
+    }
+}
+
 /// A prefix expression `a b c ...` or infix expression `a @ b @ c ...` or primary expression `a`.
 #[derive(Clone, Debug, PartialEq)]
 pub enum BasicFixity<P: Primary> {
     Primary(P),
     Prefix(PrefixApply<P>),
     Infix(InfixApply<P>),
+}
+
+impl<T, P: Primary + Extract<T>> Extract<T> for BasicFixity<P> {
+    fn extract(&self) -> Vec<T> {
+        match self {
+            Self::Primary(p) => p.extract(),
+            Self::Prefix(p) => p.extract(),
+            Self::Infix(infix) => infix.extract()
+        }
+    }
 }
 
 impl<P: Primary> BasicFixity<P> {
