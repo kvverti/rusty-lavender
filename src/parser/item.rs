@@ -53,7 +53,7 @@ impl Definition {
             |((fixity, name), typ, params, bodies)| Self {
                 name,
                 fixity,
-                typ: typ.unwrap_or_else(|| TypeExpression::TypeApplication(BasicFixity::Primary(TypePrimary::TypeHole))),
+                typ: typ.unwrap_or(TypeExpression::TypeApplication(BasicFixity::Primary(TypePrimary::TypeHole))),
                 params,
                 bodies,
             },
