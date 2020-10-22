@@ -4,6 +4,8 @@ use nom::combinator::map;
 use nom::multi::{many0, many1};
 use nom::sequence::{delimited, preceded};
 
+use crate::ast::{Extract, SemanticContext, SemanticData};
+use crate::ast::symbol::{AstSymbol, SymbolSpace};
 use crate::parser::ParseResult;
 use crate::parser::primary::{name, operator, Primary};
 use crate::parser::tagged::{Tagged, tagged};
@@ -18,6 +20,16 @@ pub struct PrefixApply<P: Primary> {
     pub func: P,
     /// The function arguments. Nonempty.
     pub args: Vec<P>,
+}
+
+impl<P: Primary + Extract> Extract for PrefixApply<P> {
+    /// Extracts data from the function and its arguments.
+    fn extract(&self, data: &mut SemanticData, ctx: &SemanticContext) {
+        self.func.extract(data, ctx);
+        for arg in &self.args {
+            arg.extract(data, ctx);
+        }
+    }
 }
 
 /// The primary expression type for infix application.
@@ -44,6 +56,16 @@ impl<P: Primary> InfixPrimary<P> {
     }
 }
 
+impl<P: Primary + Extract> Extract for InfixPrimary<P> {
+    /// Extracts data from the inner value.
+    fn extract(&self, data: &mut SemanticData, ctx: &SemanticContext) {
+        match self {
+            Self::Primary(p) => p.extract(data, ctx),
+            Self::Application(prefix) => prefix.extract(data, ctx),
+        }
+    }
+}
+
 /// Infix function application `a @ b @ c ...` where `a`, `b`, etc. are prefix applications
 /// and `@` is a single operator (which may be left or right associative - we don't decide that
 /// here).
@@ -53,6 +75,17 @@ pub struct InfixApply<P: Primary> {
     pub func: Tagged<Identifier>,
     /// The arguments. At least two.
     pub args: Vec<InfixPrimary<P>>,
+}
+
+impl<P: Primary + Extract> Extract for InfixApply<P> {
+    /// Extract the function name as unbound and extract the arguments.
+    fn extract(&self, data: &mut SemanticData, ctx: &SemanticContext) {
+        let func_symbol = AstSymbol::in_scope(&ctx.enclosing_scope, self.func.value.value());
+        data.declare_unbound_symbol(func_symbol);
+        for primary in &self.args {
+            primary.extract(data, ctx);
+        }
+    }
 }
 
 /// A prefix expression `a b c ...` or infix expression `a @ b @ c ...` or primary expression `a`.
@@ -81,6 +114,17 @@ impl<P: Primary> BasicFixity<P> {
                 InfixPrimary::Application(p) => Self::Prefix(p),
             };
             Ok((input, expr))
+        }
+    }
+}
+
+impl<P: Primary + Extract> Extract for BasicFixity<P> {
+    /// Extract from the inner value.
+    fn extract(&self, data: &mut SemanticData, ctx: &SemanticContext) {
+        match self {
+            Self::Primary(p) => p.extract(data, ctx),
+            Self::Infix(infix) => infix.extract(data, ctx),
+            Self::Prefix(prefix) => prefix.extract(data, ctx),
         }
     }
 }

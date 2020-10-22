@@ -70,6 +70,13 @@ impl Identifier {
         };
         !is_keyword_or_separator(s) && !is_bool_literal(s)
     }
+
+    pub fn value(&self) -> &str {
+        match self {
+            Self::Name(Name(s)) => s,
+            Self::Operator(Operator(s)) => s,
+        }
+    }
 }
 
 #[cfg(test)]
