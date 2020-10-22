@@ -77,11 +77,16 @@ pub struct InfixApply<P: Primary> {
     pub args: Vec<InfixPrimary<P>>,
 }
 
-impl<P: Primary + Extract> Extract for InfixApply<P> {
+/// Trait for determining which infix namespace to use.
+pub trait InfixNamespace {
+    const NAMESPACE: SymbolSpace;
+}
+
+impl<P: Primary + Extract + InfixNamespace> Extract for InfixApply<P> {
     /// Extract the function name as unbound and extract the arguments.
     fn extract(&self, data: &mut SemanticData, ctx: &SemanticContext) {
-        let func_symbol = AstSymbol::in_scope(&ctx.enclosing_scope, self.func.value.value());
-        data.declare_unbound_symbol(func_symbol);
+        let func_symbol = AstSymbol::new(P::NAMESPACE, self.func.value.value());
+        data.declare_unbound_symbol(ctx.enclosing_scope.clone(), func_symbol);
         for primary in &self.args {
             primary.extract(data, ctx);
         }
@@ -118,7 +123,7 @@ impl<P: Primary> BasicFixity<P> {
     }
 }
 
-impl<P: Primary + Extract> Extract for BasicFixity<P> {
+impl<P: Primary + Extract + InfixNamespace> Extract for BasicFixity<P> {
     /// Extract from the inner value.
     fn extract(&self, data: &mut SemanticData, ctx: &SemanticContext) {
         match self {

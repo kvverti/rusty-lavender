@@ -19,22 +19,45 @@ pub trait Extract {
 }
 
 /// Contextual information from parent nodes in the AST.
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SemanticContext {
+    /// The immediately enclosing scope. The namespace will always be Value.
     pub enclosing_scope: AstSymbol,
+    /// The closest enclosing definition. The namespace will always be Value.
     pub enclosing_definition: AstSymbol,
 }
 
+/// Semantic data extracted from the parse tree and associated with the AST.
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SemanticData {
+    /// The declared symbols in the tree.
     declared_symbols: HashSet<AstSymbol>,
-    unbound_symbols: HashSet<AstSymbol>,
+    /// The yet unbound symbols in the tree, which will be resolved against the declared
+    /// symbols.
+    unbound_symbols: HashSet<(AstSymbol, AstSymbol)>,
 }
 
 impl SemanticData {
+    pub fn new() -> Self {
+        SemanticData {
+            declared_symbols: HashSet::new(),
+            unbound_symbols: HashSet::new(),
+        }
+    }
+
+    /// Constructs a semantic data from parts, used in unit testing.
+    #[cfg(test)]
+    pub(crate) fn from_parts(declared_symbols: HashSet<AstSymbol>, unbound_symbols: HashSet<(AstSymbol, AstSymbol)>) -> Self {
+        Self { declared_symbols, unbound_symbols }
+    }
+
+    /// Declares a symbol.
     pub fn declare_symbol(&mut self, symb: AstSymbol) {
         self.declared_symbols.insert(symb);
     }
 
-    pub fn declare_unbound_symbol(&mut self, symb: AstSymbol) {
-        self.unbound_symbols.insert(symb);
+    /// Marks an unbound symbol found in the given scope.
+    pub fn declare_unbound_symbol(&mut self, scope: AstSymbol, symb: AstSymbol) {
+        self.unbound_symbols.insert((scope, symb));
     }
 }

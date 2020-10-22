@@ -27,24 +27,33 @@ pub struct AstSymbol {
 
 impl AstSymbol {
     /// Creates a new unscoped symbol.
-    pub fn new(nspace: SymbolSpace, name: String) -> Self {
-        Self { nspace, scopes: vec![name] }
+    pub fn new(nspace: SymbolSpace, name: &str) -> Self {
+        Self { nspace, scopes: vec![name.into()] }
     }
 
     /// Creates a symbol in the scope of the given symbol.
-    pub fn in_scope(scope: &AstSymbol, name: &str) -> Self {
+    pub fn in_scope(nspace: SymbolSpace, scope: &AstSymbol, name: &str) -> Self {
         let mut scopes = scope.scopes.clone();
         scopes.push(name.into());
         Self {
-            nspace: scope.nspace,
+            nspace,
             scopes,
+        }
+    }
+
+    /// Creates a symbol from the given namespace and scopes.
+    pub fn from_scopes(nspace: SymbolSpace, scopes: &[&str]) -> Self {
+        Self {
+            nspace,
+            scopes: scopes.iter().map(|&s| s.into()).collect(),
         }
     }
 
     /// Adds the given scope name as the outermost scope for this symbol. The namespace of the
     /// symbol is ignored.
-    pub fn place_in_scope(&mut self, scope_name: AstSymbol) {
-        let mut sc = scope_name.scopes.clone();
+    #[deprecated]
+    fn place_in_scope(&mut self, scope_name: AstSymbol) {
+        let mut sc = scope_name.scopes;
         sc.append(&mut self.scopes);
         swap(&mut sc, &mut self.scopes);
     }
@@ -64,11 +73,12 @@ mod tests {
     use super::*;
 
     #[test]
+    #[allow(deprecated)]
     fn test_display() {
-        let mut symb = AstSymbol::new(SymbolSpace::Value, "name".into());
-        symb.place_in_scope(AstSymbol::new(SymbolSpace::Value, "c".into()));
-        symb.place_in_scope(AstSymbol::new(SymbolSpace::Value, "b".into()));
-        symb.place_in_scope(AstSymbol::new(SymbolSpace::Value, "a".into()));
+        let mut symb = AstSymbol::new(SymbolSpace::Value, "name");
+        symb.place_in_scope(AstSymbol::new(SymbolSpace::Value, "c"));
+        symb.place_in_scope(AstSymbol::new(SymbolSpace::Value, "b"));
+        symb.place_in_scope(AstSymbol::new(SymbolSpace::Value, "a"));
         let display = format!("{}", symb);
         assert_eq!(display, "value/a::b::c::name");
     }

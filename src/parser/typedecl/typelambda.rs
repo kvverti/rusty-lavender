@@ -8,6 +8,8 @@ use crate::parser::token::{TokenStream, TokenValue};
 use crate::parser::token::fixed::Keyword;
 use crate::parser::token::identifier::{Identifier, Name, Operator};
 use crate::parser::typedecl::TypeExpression;
+use crate::ast::{Extract, SemanticContext, SemanticData};
+use crate::ast::symbol::{AstSymbol, SymbolSpace};
 
 /// A universal quantifier `for a b. c`.
 #[derive(Clone, Debug, PartialEq)]
@@ -54,6 +56,25 @@ impl TypeLambda {
             params,
             body: Box::new(body),
         }))
+    }
+}
+
+impl Extract for TypeLambda {
+    /// Extract the lambda names and anything in the body
+    fn extract(&self, data: &mut SemanticData, ctx: &SemanticContext) {
+        if let Self::Value { params, body } = self {
+            let inner_scope = AstSymbol::in_scope(SymbolSpace::Value, &ctx.enclosing_scope, "0");
+            for name in params {
+                let symbol = AstSymbol::in_scope(SymbolSpace::Type, &inner_scope, &name.0);
+                data.declare_symbol(symbol);
+            }
+            body.extract(data, &SemanticContext {
+                enclosing_scope: inner_scope,
+                enclosing_definition: ctx.enclosing_definition.clone()
+            });
+        } else {
+            unreachable!();
+        }
     }
 }
 
