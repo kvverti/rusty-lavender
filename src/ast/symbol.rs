@@ -1,9 +1,11 @@
 use std::fmt::{Display, Formatter};
-use std::mem::swap;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+/// The namespace a symbol is in. Namespaces separate otherwise identical symbols.
 pub enum SymbolSpace {
+    /// The namespace for values and definitions.
     Value,
+    /// The namespace for types.
     Type,
 }
 
@@ -48,15 +50,6 @@ impl AstSymbol {
             scopes: scopes.iter().map(|&s| s.into()).collect(),
         }
     }
-
-    /// Adds the given scope name as the outermost scope for this symbol. The namespace of the
-    /// symbol is ignored.
-    #[deprecated]
-    fn place_in_scope(&mut self, scope_name: AstSymbol) {
-        let mut sc = scope_name.scopes;
-        sc.append(&mut self.scopes);
-        swap(&mut sc, &mut self.scopes);
-    }
 }
 
 impl Display for AstSymbol {
@@ -73,13 +66,12 @@ mod tests {
     use super::*;
 
     #[test]
-    #[allow(deprecated)]
-    fn test_display() {
-        let mut symb = AstSymbol::new(SymbolSpace::Value, "name");
-        symb.place_in_scope(AstSymbol::new(SymbolSpace::Value, "c"));
-        symb.place_in_scope(AstSymbol::new(SymbolSpace::Value, "b"));
-        symb.place_in_scope(AstSymbol::new(SymbolSpace::Value, "a"));
-        let display = format!("{}", symb);
-        assert_eq!(display, "value/a::b::c::name");
+    fn test_in_scope() {
+        let scope = AstSymbol::from_scopes(SymbolSpace::Value, &["x", "y"]);
+        let input = "a";
+        let expected = "value/x::y::a";
+        let symbol = AstSymbol::in_scope(SymbolSpace::Value, &scope, input);
+        let result = format!("{}", symbol);
+        assert_eq!(result, expected);
     }
 }
