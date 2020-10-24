@@ -54,18 +54,19 @@ impl Primary for TypePrimary {
 impl Extract for TypePrimary {
     fn extract(&self, data: &mut SemanticData, ctx: &SemanticContext) {
         match self {
+            // type IDs are unbound symbols (at first)
             Self::TypeIdentifier(id) => {
-                let mut scopes = id.scopes.iter()
-                    .map(|n| n.0.as_str())
-                    .collect::<Vec<_>>();
-                scopes.push(id.name.value());
-                data.declare_unbound_symbol(ctx.enclosing_scope.clone(), AstSymbol::from_scopes(SymbolSpace::Type, &scopes));
+                let symbol = AstSymbol::from_scopes(SymbolSpace::Type, &id.to_scopes());
+                data.declare_unbound_symbol(ctx.enclosing_scope.clone(), symbol);
             }
+            // type variables are bound to definition scope
             Self::TypeVariable(name) => {
                 let symbol = AstSymbol::in_scope(SymbolSpace::Type, &ctx.enclosing_definition, &name.0);
                 data.declare_symbol(symbol);
             }
+            // subexpressions pass through
             Self::TypeSubExpression(expr) => expr.extract(data, ctx),
+            // a hole declares no symbols
             Self::TypeHole => {}
         }
     }
