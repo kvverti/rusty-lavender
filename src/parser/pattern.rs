@@ -3,7 +3,9 @@ use nom::bytes::complete::tag;
 use nom::combinator::{map, value};
 use nom::sequence::delimited;
 
-use crate::parser::fixity::BasicFixity;
+use crate::ast::{Extract, SemanticContext, SemanticData};
+use crate::ast::symbol::{AstSymbol, SymbolSpace};
+use crate::parser::fixity::{BasicFixity, InfixNamespace};
 use crate::parser::ParseResult;
 use crate::parser::primary::{literal, Primary};
 use crate::parser::scoped::ScopedIdentifier;
@@ -40,6 +42,26 @@ impl Primary for PatternPrimary {
     }
 }
 
+impl InfixNamespace for PatternPrimary {
+    const NAMESPACE: SymbolSpace = SymbolSpace::Value;
+}
+
+impl Extract for PatternPrimary {
+    fn extract(&self, data: &mut SemanticData, ctx: &SemanticContext) {
+        match self {
+            // literals and blanks declare no symbols
+            Self::Literal(_) | Self::Blank => {}
+            // identifiers declare unbound (at first) symbols
+            Self::Identifier(id) => {
+                let symbol = AstSymbol::from_scopes(SymbolSpace::Value, &id.to_scopes());
+                data.declare_unbound_symbol(ctx.enclosing_scope.clone(), symbol);
+            }
+            // subpatterns pass through
+            Self::SubPattern(pattern) => pattern.extract(data, ctx),
+        }
+    }
+}
+
 /// A pattern composes pattern primaries with prefix and infix
 /// application.
 #[derive(Clone, Debug, PartialEq)]
@@ -54,8 +76,17 @@ impl Pattern {
     }
 }
 
+impl Extract for Pattern {
+    fn extract(&self, data: &mut SemanticData, ctx: &SemanticContext) {
+        let Self::Application(fix) = self;
+        fix.extract(data, ctx);
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use nom::lib::std::collections::HashSet;
+
     use crate::parser::fixity::{InfixApply, InfixPrimary, PrefixApply};
     use crate::parser::tagged::Tagged;
     use crate::parser::token::identifier::{Identifier, Name, Operator};
@@ -91,6 +122,30 @@ mod tests {
         assert!(result.is_ok(), "Expected ok result, got {:?}", result);
         let (rest, result) = result.unwrap();
         assert_eq!(rest.0, &[]);
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn extracts_names() {
+        let input = "(a, Some b c::d _ 3)";
+        let input = Token::parse_sequence(input);
+        let input = PatternPrimary::parse(TokenStream(&input)).unwrap().1;
+        let mut result = SemanticData::new();
+        let ctx = SemanticContext {
+            enclosing_scope: AstSymbol::new(SymbolSpace::Value, ""),
+            enclosing_definition: AstSymbol::new(SymbolSpace::Value, ""),
+        };
+        let expected = SemanticData::from_parts(
+            HashSet::new(),
+            vec![
+                (AstSymbol::new(SymbolSpace::Value, ""), AstSymbol::from_scopes(SymbolSpace::Value, &["a"])),
+                (AstSymbol::new(SymbolSpace::Value, ""), AstSymbol::from_scopes(SymbolSpace::Value, &[","])),
+                (AstSymbol::new(SymbolSpace::Value, ""), AstSymbol::from_scopes(SymbolSpace::Value, &["Some"])),
+                (AstSymbol::new(SymbolSpace::Value, ""), AstSymbol::from_scopes(SymbolSpace::Value, &["b"])),
+                (AstSymbol::new(SymbolSpace::Value, ""), AstSymbol::from_scopes(SymbolSpace::Value, &["c", "d"])),
+            ].into_iter().collect(),
+        );
+        input.extract(&mut result, &ctx);
         assert_eq!(result, expected);
     }
 }

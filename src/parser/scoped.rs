@@ -27,6 +27,14 @@ impl ScopedIdentifier {
             |(scopes, name)| ScopedIdentifier { name, scopes },
         )(input)
     }
+
+    pub fn to_scopes(&self) -> Vec<&str> {
+        let mut scopes = self.scopes.iter()
+            .map(|n| n.0.as_str())
+            .collect::<Vec<_>>();
+        scopes.push(self.name.value());
+        scopes
+    }
 }
 
 impl From<Identifier> for ScopedIdentifier {
