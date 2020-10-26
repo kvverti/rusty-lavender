@@ -3,7 +3,9 @@ use nom::bytes::complete::tag;
 use nom::combinator::map;
 use nom::sequence::delimited;
 
-use crate::parser::fixity::BasicFixity;
+use crate::ast::{Extract, SemanticContext, SemanticData};
+use crate::ast::symbol::{AstSymbol, SymbolSpace};
+use crate::parser::fixity::{BasicFixity, InfixNamespace};
 use crate::parser::ParseResult;
 use crate::parser::primary::{literal, Primary};
 use crate::parser::scoped::ScopedIdentifier;
@@ -47,6 +49,26 @@ impl Primary for ValuePrimary {
     }
 }
 
+impl InfixNamespace for ValuePrimary {
+    const NAMESPACE: SymbolSpace = SymbolSpace::Value;
+}
+
+impl Extract for ValuePrimary {
+    fn extract(&self, data: &mut SemanticData, ctx: &SemanticContext) {
+        match self {
+            // literals declare no symbols
+            Self::Literal(_) => {}
+            // scoped IDs in value expressions are unbound symbols
+            Self::Identifier(id) => {
+                let symbol = AstSymbol::from_scopes(SymbolSpace::Value, &id.to_scopes());
+                data.declare_unbound_symbol(ctx.enclosing_scope.clone(), symbol);
+            }
+            // subexpressions pass through symbols
+            Self::SubExpression(expr) => expr.extract(data, ctx),
+        }
+    }
+}
+
 /// The types of Lavender expressions.
 #[derive(Clone, Debug, PartialEq)]
 pub enum ValueExpression {
@@ -65,6 +87,15 @@ impl ValueExpression {
     }
 }
 
+impl Extract for ValueExpression {
+    fn extract(&self, data: &mut SemanticData, ctx: &SemanticContext) {
+        match self {
+            Self::Application(expr) => expr.extract(data, ctx),
+            Self::Lambda(lambda) => lambda.extract(data, ctx),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::parser::fixity::{InfixApply, InfixPrimary, PrefixApply};
@@ -76,6 +107,7 @@ mod tests {
     use crate::parser::token::literal::{IntLiteral, Literal};
 
     use super::*;
+    use nom::lib::std::collections::HashSet;
 
     #[test]
     fn parses() {
@@ -154,5 +186,33 @@ mod tests {
         let (rest, result) = result.unwrap();
         assert_eq!(rest.0, &[]);
         assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn extracts_names() {
+        let input = "a @ (lam (Some b, c). b + c + (lam _. a))";
+        let input = Token::parse_sequence(input);
+        let expr = ValueExpression::parse(TokenStream(&input)).unwrap().1;
+        let mut data = SemanticData::new();
+        let ctx = SemanticContext {
+            enclosing_scope: AstSymbol::new(SymbolSpace::Value, ""),
+            enclosing_definition: AstSymbol::new(SymbolSpace::Value, ""),
+        };
+        let expected = SemanticData::from_parts(
+            // patterns never declare anything explicitly
+            HashSet::new(),
+            vec![
+                (AstSymbol::from_scopes(SymbolSpace::Value, &[""]), AstSymbol::from_scopes(SymbolSpace::Value, &["a"])),
+                (AstSymbol::from_scopes(SymbolSpace::Value, &[""]), AstSymbol::from_scopes(SymbolSpace::Value, &["@"])),
+                (AstSymbol::from_scopes(SymbolSpace::Value, &["", "0"]), AstSymbol::from_scopes(SymbolSpace::Value, &["Some"])),
+                (AstSymbol::from_scopes(SymbolSpace::Value, &["", "0"]), AstSymbol::from_scopes(SymbolSpace::Value, &["b"])),
+                (AstSymbol::from_scopes(SymbolSpace::Value, &["", "0"]), AstSymbol::from_scopes(SymbolSpace::Value, &[","])),
+                (AstSymbol::from_scopes(SymbolSpace::Value, &["", "0"]), AstSymbol::from_scopes(SymbolSpace::Value, &["c"])),
+                (AstSymbol::from_scopes(SymbolSpace::Value, &["", "0"]), AstSymbol::from_scopes(SymbolSpace::Value, &["+"])),
+                (AstSymbol::from_scopes(SymbolSpace::Value, &["", "0", "0"]), AstSymbol::from_scopes(SymbolSpace::Value, &["a"])),
+            ].into_iter().collect(),
+        );
+        expr.extract(&mut data, &ctx);
+        assert_eq!(data, expected);
     }
 }
