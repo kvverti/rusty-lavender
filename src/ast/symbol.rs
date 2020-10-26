@@ -1,7 +1,14 @@
+mod fixity;
+
+use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+mod pattern;
+mod typedecl;
+mod value;
+
 /// The namespace a symbol is in. Namespaces separate otherwise identical symbols.
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub enum SymbolSpace {
     /// The namespace for values and definitions.
     Value,
@@ -62,6 +69,57 @@ impl Display for AstSymbol {
             .fold(prefix.and(write!(f, "{}", self.scopes[0])),
                   |res, scope| res.and(write!(f, "::{}", scope)))
     }
+}
+
+/// Extracts a collection of values from some type. This trait is used for walking the parse
+/// tree and extracting names, types, definitions, etc.
+pub trait ExtractSymbol {
+    /// Extracts a collection of values.
+    fn extract(&self, data: &mut SymbolData, ctx: &SymbolContext);
+}
+
+/// Contextual information from parent nodes in the AST.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SymbolContext {
+    /// The immediately enclosing scope. The namespace will always be Value.
+    pub enclosing_scope: AstSymbol,
+    /// The closest enclosing definition. The namespace will always be Value.
+    pub enclosing_definition: AstSymbol,
+}
+
+impl SymbolData {
+    pub fn new() -> Self {
+        SymbolData {
+            declared_symbols: HashSet::new(),
+            unbound_symbols: HashSet::new(),
+        }
+    }
+
+    /// Constructs a semantic data from parts, used in unit testing.
+    #[cfg(test)]
+    pub(crate) fn from_parts(declared_symbols: HashSet<AstSymbol>, unbound_symbols: HashSet<(AstSymbol, AstSymbol)>) -> Self {
+        Self { declared_symbols, unbound_symbols }
+    }
+
+    /// Declares a symbol.
+    pub fn declare_symbol(&mut self, symb: AstSymbol) {
+        self.declared_symbols.insert(symb);
+    }
+
+    /// Marks an unbound symbol found in the given scope.
+    pub fn declare_unbound_symbol(&mut self, scope: AstSymbol, symb: AstSymbol) {
+        self.unbound_symbols.insert((scope, symb));
+    }
+}
+
+/// Semantic data extracted from the parse tree and associated with the AST.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SymbolData {
+    /// The declared symbols in the tree.
+    declared_symbols: HashSet<AstSymbol>,
+    /// The yet unbound symbols in the tree, which will be resolved against the declared
+    /// symbols.
+    unbound_symbols: HashSet<(AstSymbol, AstSymbol)>,
 }
 
 #[cfg(test)]

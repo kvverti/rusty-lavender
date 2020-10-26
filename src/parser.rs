@@ -5,24 +5,24 @@ use nom::error::{ParseError, VerboseError};
 use crate::parser::tagged::Tagged;
 use crate::parser::token::{TokenStream, TokenValue};
 
-/// Generic parsers for prefix and infix juxtaposition.
-mod fixity;
-/// Item parsers.
-pub mod item;
-/// Pattern parsers.
-mod pattern;
-/// Generic parsers for primary nodes.
-mod primary;
-/// Scoped identifier parser.
-mod scoped;
 /// The tokenizer.
 pub mod token;
 /// Stores tag info like source location in the parse tree.
 pub mod tagged;
+/// Item parsers.
+pub mod item;
+/// Scoped identifier parser.
+pub(crate) mod scoped;
+/// Generic parsers for primary nodes.
+pub(crate) mod primary;
+/// Generic parsers for prefix and infix juxtaposition.
+pub(crate) mod fixity;
+/// Pattern parsers.
+pub(crate) mod pattern;
 /// Explicit type declarations.
-mod typedecl;
+pub(crate) mod typedecl;
 /// Value expression parsers.
-mod value;
+pub(crate) mod value;
 
 pub type Source<'a> = &'a str;
 pub type ParseResult<I, O> = IResult<I, O, VerboseError<I>>;

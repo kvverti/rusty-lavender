@@ -1,8 +1,7 @@
 use nom::bytes::complete::tag;
 use nom::multi::many1;
 
-use crate::ast::{Extract, SemanticContext, SemanticData};
-use crate::ast::symbol::{AstSymbol, SymbolSpace};
+use crate::ast::symbol::{AstSymbol, SymbolSpace, ExtractSymbol, SymbolData, SymbolContext};
 use crate::parser::{ParseResult, until_next_sync_point};
 use crate::parser::pattern::PatternPrimary;
 use crate::parser::primary::Primary;
@@ -61,12 +60,12 @@ impl LambdaExpression {
     }
 }
 
-impl Extract for LambdaExpression {
+impl ExtractSymbol for LambdaExpression {
     /// Extract the lambda names and anything in the body
-    fn extract(&self, data: &mut SemanticData, ctx: &SemanticContext) {
+    fn extract(&self, data: &mut SymbolData, ctx: &SymbolContext) {
         if let Self::Value { params, body } = self {
             let inner_scope = AstSymbol::in_scope(SymbolSpace::Value, &ctx.enclosing_scope, "0");
-            let inner_ctx = SemanticContext {
+            let inner_ctx = SymbolContext {
                 enclosing_scope: inner_scope,
                 enclosing_definition: ctx.enclosing_definition.clone(),
             };
