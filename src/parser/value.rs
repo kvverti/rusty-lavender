@@ -204,11 +204,13 @@ mod tests {
             vec![
                 (AstSymbol::from_scopes(SymbolSpace::Value, &[""]), AstSymbol::from_scopes(SymbolSpace::Value, &["a"])),
                 (AstSymbol::from_scopes(SymbolSpace::Value, &[""]), AstSymbol::from_scopes(SymbolSpace::Value, &["@"])),
-                (AstSymbol::from_scopes(SymbolSpace::Value, &["", "0"]), AstSymbol::from_scopes(SymbolSpace::Value, &["Some"])),
+                (AstSymbol::from_scopes(SymbolSpace::Value, &["", "0"]), AstSymbol::from_scopes(SymbolSpace::Pattern, &["Some"])),
+                (AstSymbol::from_scopes(SymbolSpace::Value, &["", "0"]), AstSymbol::from_scopes(SymbolSpace::Pattern, &["b"])),
+                (AstSymbol::from_scopes(SymbolSpace::Value, &["", "0"]), AstSymbol::from_scopes(SymbolSpace::Pattern, &[","])),
+                (AstSymbol::from_scopes(SymbolSpace::Value, &["", "0"]), AstSymbol::from_scopes(SymbolSpace::Pattern, &["c"])),
                 (AstSymbol::from_scopes(SymbolSpace::Value, &["", "0"]), AstSymbol::from_scopes(SymbolSpace::Value, &["b"])),
-                (AstSymbol::from_scopes(SymbolSpace::Value, &["", "0"]), AstSymbol::from_scopes(SymbolSpace::Value, &[","])),
-                (AstSymbol::from_scopes(SymbolSpace::Value, &["", "0"]), AstSymbol::from_scopes(SymbolSpace::Value, &["c"])),
                 (AstSymbol::from_scopes(SymbolSpace::Value, &["", "0"]), AstSymbol::from_scopes(SymbolSpace::Value, &["+"])),
+                (AstSymbol::from_scopes(SymbolSpace::Value, &["", "0"]), AstSymbol::from_scopes(SymbolSpace::Value, &["c"])),
                 (AstSymbol::from_scopes(SymbolSpace::Value, &["", "0", "0"]), AstSymbol::from_scopes(SymbolSpace::Value, &["a"])),
             ].into_iter().collect(),
         );

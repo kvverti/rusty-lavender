@@ -7,6 +7,8 @@ pub enum SymbolSpace {
     Value,
     /// The namespace for types.
     Type,
+    /// The namespace for patterns.
+    Pattern,
 }
 
 impl Display for SymbolSpace {
@@ -14,6 +16,7 @@ impl Display for SymbolSpace {
         match self {
             Self::Value => write!(f, "value"),
             Self::Type => write!(f, "type"),
+            Self::Pattern => write!(f, "pattern"),
         }
     }
 }

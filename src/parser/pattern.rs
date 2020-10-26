@@ -43,7 +43,7 @@ impl Primary for PatternPrimary {
 }
 
 impl InfixNamespace for PatternPrimary {
-    const NAMESPACE: SymbolSpace = SymbolSpace::Value;
+    const NAMESPACE: SymbolSpace = SymbolSpace::Pattern;
 }
 
 impl Extract for PatternPrimary {
@@ -53,7 +53,7 @@ impl Extract for PatternPrimary {
             Self::Literal(_) | Self::Blank => {}
             // identifiers declare unbound (at first) symbols
             Self::Identifier(id) => {
-                let symbol = AstSymbol::from_scopes(SymbolSpace::Value, &id.to_scopes());
+                let symbol = AstSymbol::from_scopes(SymbolSpace::Pattern, &id.to_scopes());
                 data.declare_unbound_symbol(ctx.enclosing_scope.clone(), symbol);
             }
             // subpatterns pass through
@@ -138,11 +138,11 @@ mod tests {
         let expected = SemanticData::from_parts(
             HashSet::new(),
             vec![
-                (AstSymbol::new(SymbolSpace::Value, ""), AstSymbol::from_scopes(SymbolSpace::Value, &["a"])),
-                (AstSymbol::new(SymbolSpace::Value, ""), AstSymbol::from_scopes(SymbolSpace::Value, &[","])),
-                (AstSymbol::new(SymbolSpace::Value, ""), AstSymbol::from_scopes(SymbolSpace::Value, &["Some"])),
-                (AstSymbol::new(SymbolSpace::Value, ""), AstSymbol::from_scopes(SymbolSpace::Value, &["b"])),
-                (AstSymbol::new(SymbolSpace::Value, ""), AstSymbol::from_scopes(SymbolSpace::Value, &["c", "d"])),
+                (AstSymbol::new(SymbolSpace::Value, ""), AstSymbol::from_scopes(SymbolSpace::Pattern, &["a"])),
+                (AstSymbol::new(SymbolSpace::Value, ""), AstSymbol::from_scopes(SymbolSpace::Pattern, &[","])),
+                (AstSymbol::new(SymbolSpace::Value, ""), AstSymbol::from_scopes(SymbolSpace::Pattern, &["Some"])),
+                (AstSymbol::new(SymbolSpace::Value, ""), AstSymbol::from_scopes(SymbolSpace::Pattern, &["b"])),
+                (AstSymbol::new(SymbolSpace::Value, ""), AstSymbol::from_scopes(SymbolSpace::Pattern, &["c", "d"])),
             ].into_iter().collect(),
         );
         input.extract(&mut result, &ctx);
