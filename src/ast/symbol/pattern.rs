@@ -44,18 +44,15 @@ mod tests {
         let input = Token::parse_sequence(input);
         let input = PatternPrimary::parse(TokenStream(&input)).unwrap().1;
         let mut result = SymbolData::new();
-        let ctx = SymbolContext {
-            enclosing_scope: &AstSymbol::new(SymbolSpace::Value, ""),
-            enclosing_definition: &AstSymbol::new(SymbolSpace::Value, ""),
-        };
+        let ctx = SymbolContext::new();
         let expected = SymbolData::from_parts(
             HashSet::new(),
             vec![
-                (AstSymbol::new(SymbolSpace::Value, ""), AstSymbol::from_scopes(SymbolSpace::Pattern, &["a"])),
-                (AstSymbol::new(SymbolSpace::Value, ""), AstSymbol::from_scopes(SymbolSpace::Pattern, &[","])),
-                (AstSymbol::new(SymbolSpace::Value, ""), AstSymbol::from_scopes(SymbolSpace::Pattern, &["Some"])),
-                (AstSymbol::new(SymbolSpace::Value, ""), AstSymbol::from_scopes(SymbolSpace::Pattern, &["b"])),
-                (AstSymbol::new(SymbolSpace::Value, ""), AstSymbol::from_scopes(SymbolSpace::Pattern, &["c", "d"])),
+                (AstSymbol::from_scopes(SymbolSpace::Value, &[]), AstSymbol::from_scopes(SymbolSpace::Pattern, &["a"])),
+                (AstSymbol::from_scopes(SymbolSpace::Value, &[]), AstSymbol::from_scopes(SymbolSpace::Pattern, &[","])),
+                (AstSymbol::from_scopes(SymbolSpace::Value, &[]), AstSymbol::from_scopes(SymbolSpace::Pattern, &["Some"])),
+                (AstSymbol::from_scopes(SymbolSpace::Value, &[]), AstSymbol::from_scopes(SymbolSpace::Pattern, &["b"])),
+                (AstSymbol::from_scopes(SymbolSpace::Value, &[]), AstSymbol::from_scopes(SymbolSpace::Pattern, &["c", "d"])),
             ].into_iter().collect(),
         );
         input.extract(&mut result, ctx);

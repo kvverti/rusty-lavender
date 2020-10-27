@@ -33,8 +33,8 @@ impl<P: Primary + ExtractSymbol + InfixNamespace> ExtractSymbol for InfixApply<P
     fn extract(&self, data: &mut SymbolData, ctx: SymbolContext) {
         let func_symbol = AstSymbol::new(P::NAMESPACE, self.func.value.value());
         data.declare_unbound_symbol(ctx.enclosing_scope.clone(), func_symbol);
-        for primary in &self.args {
-            primary.extract(data, ctx);
+        for (idx, primary) in self.args.iter().enumerate() {
+            primary.extract(data, ctx.with_scope_idx(ctx.scope_idx + idx as u32));
         }
     }
 }
@@ -43,8 +43,8 @@ impl<P: Primary + ExtractSymbol> ExtractSymbol for PrefixApply<P> {
     /// Extracts data from the function and its arguments.
     fn extract(&self, data: &mut SymbolData, ctx: SymbolContext) {
         self.func.extract(data, ctx);
-        for arg in &self.args {
-            arg.extract(data, ctx);
+        for (idx, arg) in self.args.iter().enumerate() {
+            arg.extract(data, ctx.with_scope_idx(ctx.scope_idx + 1 + idx as u32));
         }
     }
 }

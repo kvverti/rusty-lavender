@@ -62,15 +62,12 @@ impl ExtractSymbol for TypeLambda {
     /// Extract the lambda names and anything in the body
     fn extract(&self, data: &mut SymbolData, ctx: SymbolContext) {
         if let Self::Value { params, body } = self {
-            let inner_scope = AstSymbol::in_scope(SymbolSpace::Value, ctx.enclosing_scope, "0");
+            let inner_scope = AstSymbol::in_scope(SymbolSpace::Value, ctx.enclosing_scope, &ctx.scope_idx.to_string());
             for name in params {
                 let symbol = AstSymbol::in_scope(SymbolSpace::Type, &inner_scope, &name.0);
                 data.declare_symbol(symbol);
             }
-            body.extract(data, SymbolContext {
-                enclosing_scope: &inner_scope,
-                enclosing_definition: ctx.enclosing_definition,
-            });
+            body.extract(data, ctx.with_enclosing_scope(&inner_scope));
         } else {
             unreachable!();
         }

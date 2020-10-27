@@ -48,19 +48,65 @@ mod tests {
         let input = Token::parse_sequence(input);
         let expr = TypeExpression::parse(TokenStream(&input)).unwrap().1;
         let mut data = SymbolData::new();
-        let ctx = SymbolContext {
-            enclosing_scope: &AstSymbol::new(SymbolSpace::Value, ""),
-            enclosing_definition: &AstSymbol::new(SymbolSpace::Value, ""),
-        };
+        let ctx = SymbolContext::new();
         let expected = SymbolData::from_parts(
             vec![
-                AstSymbol::from_scopes(SymbolSpace::Type, &["", "a"]),
-                AstSymbol::from_scopes(SymbolSpace::Type, &["", "0", "b"])
+                AstSymbol::from_scopes(SymbolSpace::Type, &["a"]),
+                AstSymbol::from_scopes(SymbolSpace::Type, &["1", "b"]),
             ].into_iter().collect(),
             vec![
-                (AstSymbol::from_scopes(SymbolSpace::Value, &[""]), AstSymbol::from_scopes(SymbolSpace::Type, &["->"])),
-                (AstSymbol::from_scopes(SymbolSpace::Value, &["", "0"]), AstSymbol::from_scopes(SymbolSpace::Type, &["->"])),
-                (AstSymbol::from_scopes(SymbolSpace::Value, &["", "0"]), AstSymbol::from_scopes(SymbolSpace::Type, &["b"])),
+                (AstSymbol::from_scopes(SymbolSpace::Value, &[]), AstSymbol::from_scopes(SymbolSpace::Type, &["->"])),
+                (AstSymbol::from_scopes(SymbolSpace::Value, &["1"]), AstSymbol::from_scopes(SymbolSpace::Type, &["->"])),
+                (AstSymbol::from_scopes(SymbolSpace::Value, &["1"]), AstSymbol::from_scopes(SymbolSpace::Type, &["b"])),
+            ].into_iter().collect(),
+        );
+        expr.extract(&mut data, ctx);
+        assert_eq!(data, expected);
+    }
+
+    #[test]
+    fn extracts_inner_infix_scopes() {
+        let input = "(for b. b -> 'a) -> (for b. b -> 'a)";
+        let input = Token::parse_sequence(input);
+        let expr = TypeExpression::parse(TokenStream(&input)).unwrap().1;
+        let mut data = SymbolData::new();
+        let ctx = SymbolContext::new();
+        let expected = SymbolData::from_parts(
+            vec![
+                AstSymbol::from_scopes(SymbolSpace::Type, &["a"]),
+                AstSymbol::from_scopes(SymbolSpace::Type, &["0", "b"]),
+                AstSymbol::from_scopes(SymbolSpace::Type, &["1", "b"]),
+            ].into_iter().collect(),
+            vec![
+                (AstSymbol::from_scopes(SymbolSpace::Value, &[]), AstSymbol::from_scopes(SymbolSpace::Type, &["->"])),
+                (AstSymbol::from_scopes(SymbolSpace::Value, &["0"]), AstSymbol::from_scopes(SymbolSpace::Type, &["->"])),
+                (AstSymbol::from_scopes(SymbolSpace::Value, &["0"]), AstSymbol::from_scopes(SymbolSpace::Type, &["b"])),
+                (AstSymbol::from_scopes(SymbolSpace::Value, &["1"]), AstSymbol::from_scopes(SymbolSpace::Type, &["->"])),
+                (AstSymbol::from_scopes(SymbolSpace::Value, &["1"]), AstSymbol::from_scopes(SymbolSpace::Type, &["b"])),
+            ].into_iter().collect(),
+        );
+        expr.extract(&mut data, ctx);
+        assert_eq!(data, expected);
+    }
+
+    #[test]
+    fn extracts_inner_prefix_scopes() {
+        let input = "(for b. b -> 'a) (for b. b -> 'a)";
+        let input = Token::parse_sequence(input);
+        let expr = TypeExpression::parse(TokenStream(&input)).unwrap().1;
+        let mut data = SymbolData::new();
+        let ctx = SymbolContext::new();
+        let expected = SymbolData::from_parts(
+            vec![
+                AstSymbol::from_scopes(SymbolSpace::Type, &["a"]),
+                AstSymbol::from_scopes(SymbolSpace::Type, &["0", "b"]),
+                AstSymbol::from_scopes(SymbolSpace::Type, &["1", "b"]),
+            ].into_iter().collect(),
+            vec![
+                (AstSymbol::from_scopes(SymbolSpace::Value, &["0"]), AstSymbol::from_scopes(SymbolSpace::Type, &["->"])),
+                (AstSymbol::from_scopes(SymbolSpace::Value, &["0"]), AstSymbol::from_scopes(SymbolSpace::Type, &["b"])),
+                (AstSymbol::from_scopes(SymbolSpace::Value, &["1"]), AstSymbol::from_scopes(SymbolSpace::Type, &["->"])),
+                (AstSymbol::from_scopes(SymbolSpace::Value, &["1"]), AstSymbol::from_scopes(SymbolSpace::Type, &["b"])),
             ].into_iter().collect(),
         );
         expr.extract(&mut data, ctx);

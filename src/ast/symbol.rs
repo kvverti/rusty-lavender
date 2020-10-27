@@ -28,6 +28,9 @@ impl Display for SymbolSpace {
     }
 }
 
+/// The global scope
+pub static GLOBAL_SCOPE: AstSymbol = AstSymbol { nspace: SymbolSpace::Value, scopes: vec![] };
+
 /// A symbol is a scoped name associated with a value or type.
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct AstSymbol {
@@ -85,6 +88,43 @@ pub struct SymbolContext<'a> {
     pub enclosing_scope: &'a AstSymbol,
     /// The closest enclosing definition. The namespace will always be Value.
     pub enclosing_definition: &'a AstSymbol,
+    /// An index used for anonymous scopes (such as in lambdas)
+    pub scope_idx: u32,
+}
+
+impl<'a> SymbolContext<'a> {
+    /// Creates a new symbol context with the minimum scope index and with no enclosing scopes.
+    pub fn new() -> Self {
+        Self {
+            enclosing_scope: &GLOBAL_SCOPE,
+            enclosing_definition: &GLOBAL_SCOPE,
+            scope_idx: 0,
+        }
+    }
+
+    /// Returns a new context with the enclosing scope replaced.
+    pub fn with_enclosing_scope<'b>(self, enclosing_scope: &'b AstSymbol) -> SymbolContext<'b>
+        where 'a: 'b
+    {
+        let mut v = self;
+        v.enclosing_scope = enclosing_scope;
+        v
+    }
+
+    /// Returns a new context with the enclosing definition replaced.
+    pub fn with_enclosing_definition<'b>(self, enclosing_definition: &'b AstSymbol) -> SymbolContext<'b>
+        where 'a: 'b
+    {
+        let mut v = self;
+        v.enclosing_definition = enclosing_definition;
+        v
+    }
+
+    /// Returns a new context with the scope index replaced.
+    pub fn with_scope_idx(mut self, scope_idx: u32) -> Self {
+        self.scope_idx = scope_idx;
+        self
+    }
 }
 
 /// Semantic data extracted from the parse tree and associated with the AST.

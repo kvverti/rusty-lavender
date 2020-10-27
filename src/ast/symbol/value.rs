@@ -45,24 +45,21 @@ mod test {
         let input = Token::parse_sequence(input);
         let expr = ValueExpression::parse(TokenStream(&input)).unwrap().1;
         let mut data = SymbolData::new();
-        let ctx = SymbolContext {
-            enclosing_scope: &AstSymbol::new(SymbolSpace::Value, ""),
-            enclosing_definition: &AstSymbol::new(SymbolSpace::Value, ""),
-        };
+        let ctx = SymbolContext::new();
         let expected = SymbolData::from_parts(
             // patterns never declare anything explicitly
             HashSet::new(),
             vec![
-                (AstSymbol::from_scopes(SymbolSpace::Value, &[""]), AstSymbol::from_scopes(SymbolSpace::Value, &["a"])),
-                (AstSymbol::from_scopes(SymbolSpace::Value, &[""]), AstSymbol::from_scopes(SymbolSpace::Value, &["@"])),
-                (AstSymbol::from_scopes(SymbolSpace::Value, &["", "0"]), AstSymbol::from_scopes(SymbolSpace::Pattern, &["Some"])),
-                (AstSymbol::from_scopes(SymbolSpace::Value, &["", "0"]), AstSymbol::from_scopes(SymbolSpace::Pattern, &["b"])),
-                (AstSymbol::from_scopes(SymbolSpace::Value, &["", "0"]), AstSymbol::from_scopes(SymbolSpace::Pattern, &[","])),
-                (AstSymbol::from_scopes(SymbolSpace::Value, &["", "0"]), AstSymbol::from_scopes(SymbolSpace::Pattern, &["c"])),
-                (AstSymbol::from_scopes(SymbolSpace::Value, &["", "0"]), AstSymbol::from_scopes(SymbolSpace::Value, &["b"])),
-                (AstSymbol::from_scopes(SymbolSpace::Value, &["", "0"]), AstSymbol::from_scopes(SymbolSpace::Value, &["+"])),
-                (AstSymbol::from_scopes(SymbolSpace::Value, &["", "0"]), AstSymbol::from_scopes(SymbolSpace::Value, &["c"])),
-                (AstSymbol::from_scopes(SymbolSpace::Value, &["", "0", "0"]), AstSymbol::from_scopes(SymbolSpace::Value, &["a"])),
+                (AstSymbol::from_scopes(SymbolSpace::Value, &[]), AstSymbol::from_scopes(SymbolSpace::Value, &["a"])),
+                (AstSymbol::from_scopes(SymbolSpace::Value, &[]), AstSymbol::from_scopes(SymbolSpace::Value, &["@"])),
+                (AstSymbol::from_scopes(SymbolSpace::Value, &["1"]), AstSymbol::from_scopes(SymbolSpace::Pattern, &["Some"])),
+                (AstSymbol::from_scopes(SymbolSpace::Value, &["1"]), AstSymbol::from_scopes(SymbolSpace::Pattern, &["b"])),
+                (AstSymbol::from_scopes(SymbolSpace::Value, &["1"]), AstSymbol::from_scopes(SymbolSpace::Pattern, &[","])),
+                (AstSymbol::from_scopes(SymbolSpace::Value, &["1"]), AstSymbol::from_scopes(SymbolSpace::Pattern, &["c"])),
+                (AstSymbol::from_scopes(SymbolSpace::Value, &["1"]), AstSymbol::from_scopes(SymbolSpace::Value, &["b"])),
+                (AstSymbol::from_scopes(SymbolSpace::Value, &["1"]), AstSymbol::from_scopes(SymbolSpace::Value, &["+"])),
+                (AstSymbol::from_scopes(SymbolSpace::Value, &["1"]), AstSymbol::from_scopes(SymbolSpace::Value, &["c"])),
+                (AstSymbol::from_scopes(SymbolSpace::Value, &["1", "3"]), AstSymbol::from_scopes(SymbolSpace::Value, &["a"])),
             ].into_iter().collect(),
         );
         expr.extract(&mut data, ctx);
