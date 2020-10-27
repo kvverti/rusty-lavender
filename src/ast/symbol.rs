@@ -103,21 +103,15 @@ impl<'a> SymbolContext<'a> {
     }
 
     /// Returns a new context with the enclosing scope replaced.
-    pub fn with_enclosing_scope<'b>(self, enclosing_scope: &'b AstSymbol) -> SymbolContext<'b>
-        where 'a: 'b
-    {
-        let mut v = self;
-        v.enclosing_scope = enclosing_scope;
-        v
+    pub fn with_enclosing_scope(mut self, enclosing_scope: &'a AstSymbol) -> Self {
+        self.enclosing_scope = enclosing_scope;
+        self
     }
 
     /// Returns a new context with the enclosing definition replaced.
-    pub fn with_enclosing_definition<'b>(self, enclosing_definition: &'b AstSymbol) -> SymbolContext<'b>
-        where 'a: 'b
-    {
-        let mut v = self;
-        v.enclosing_definition = enclosing_definition;
-        v
+    pub fn with_enclosing_definition(mut self, enclosing_definition: &'a AstSymbol) -> Self {
+        self.enclosing_definition = enclosing_definition;
+        self
     }
 
     /// Returns a new context with the scope index replaced.
