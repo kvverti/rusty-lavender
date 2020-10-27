@@ -1,7 +1,7 @@
-mod fixity;
-
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
+
+mod fixity;
 
 mod pattern;
 mod typedecl;
@@ -75,16 +75,26 @@ impl Display for AstSymbol {
 /// tree and extracting names, types, definitions, etc.
 pub trait ExtractSymbol {
     /// Extracts a collection of values.
-    fn extract(&self, data: &mut SymbolData, ctx: &SymbolContext);
+    fn extract(&self, data: &mut SymbolData, ctx: SymbolContext);
 }
 
 /// Contextual information from parent nodes in the AST.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct SymbolContext {
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub struct SymbolContext<'a> {
     /// The immediately enclosing scope. The namespace will always be Value.
-    pub enclosing_scope: AstSymbol,
+    pub enclosing_scope: &'a AstSymbol,
     /// The closest enclosing definition. The namespace will always be Value.
-    pub enclosing_definition: AstSymbol,
+    pub enclosing_definition: &'a AstSymbol,
+}
+
+/// Semantic data extracted from the parse tree and associated with the AST.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SymbolData {
+    /// The declared symbols in the tree.
+    declared_symbols: HashSet<AstSymbol>,
+    /// The yet unbound symbols in the tree, which will be resolved against the declared
+    /// symbols.
+    unbound_symbols: HashSet<(AstSymbol, AstSymbol)>,
 }
 
 impl SymbolData {
@@ -110,16 +120,6 @@ impl SymbolData {
     pub fn declare_unbound_symbol(&mut self, scope: AstSymbol, symb: AstSymbol) {
         self.unbound_symbols.insert((scope, symb));
     }
-}
-
-/// Semantic data extracted from the parse tree and associated with the AST.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct SymbolData {
-    /// The declared symbols in the tree.
-    declared_symbols: HashSet<AstSymbol>,
-    /// The yet unbound symbols in the tree, which will be resolved against the declared
-    /// symbols.
-    unbound_symbols: HashSet<(AstSymbol, AstSymbol)>,
 }
 
 #[cfg(test)]

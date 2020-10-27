@@ -9,7 +9,7 @@ pub trait InfixNamespace {
 
 impl<P: Primary + ExtractSymbol + InfixNamespace> ExtractSymbol for BasicFixity<P> {
     /// Extract from the inner value.
-    fn extract(&self, data: &mut SymbolData, ctx: &SymbolContext) {
+    fn extract(&self, data: &mut SymbolData, ctx: SymbolContext) {
         match self {
             Self::Primary(p) => p.extract(data, ctx),
             Self::Infix(infix) => infix.extract(data, ctx),
@@ -20,7 +20,7 @@ impl<P: Primary + ExtractSymbol + InfixNamespace> ExtractSymbol for BasicFixity<
 
 impl<P: Primary + ExtractSymbol> ExtractSymbol for InfixPrimary<P> {
     /// Extracts data from the inner value.
-    fn extract(&self, data: &mut SymbolData, ctx: &SymbolContext) {
+    fn extract(&self, data: &mut SymbolData, ctx: SymbolContext) {
         match self {
             Self::Primary(p) => p.extract(data, ctx),
             Self::Application(prefix) => prefix.extract(data, ctx),
@@ -30,7 +30,7 @@ impl<P: Primary + ExtractSymbol> ExtractSymbol for InfixPrimary<P> {
 
 impl<P: Primary + ExtractSymbol + InfixNamespace> ExtractSymbol for InfixApply<P> {
     /// Extract the function name as unbound and extract the arguments.
-    fn extract(&self, data: &mut SymbolData, ctx: &SymbolContext) {
+    fn extract(&self, data: &mut SymbolData, ctx: SymbolContext) {
         let func_symbol = AstSymbol::new(P::NAMESPACE, self.func.value.value());
         data.declare_unbound_symbol(ctx.enclosing_scope.clone(), func_symbol);
         for primary in &self.args {
@@ -41,7 +41,7 @@ impl<P: Primary + ExtractSymbol + InfixNamespace> ExtractSymbol for InfixApply<P
 
 impl<P: Primary + ExtractSymbol> ExtractSymbol for PrefixApply<P> {
     /// Extracts data from the function and its arguments.
-    fn extract(&self, data: &mut SymbolData, ctx: &SymbolContext) {
+    fn extract(&self, data: &mut SymbolData, ctx: SymbolContext) {
         self.func.extract(data, ctx);
         for arg in &self.args {
             arg.extract(data, ctx);

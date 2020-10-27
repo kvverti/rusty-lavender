@@ -3,7 +3,7 @@ use crate::ast::symbol::fixity::InfixNamespace;
 use crate::parser::typedecl::{TypeExpression, TypePrimary};
 
 impl ExtractSymbol for TypePrimary {
-    fn extract(&self, data: &mut SymbolData, ctx: &SymbolContext) {
+    fn extract(&self, data: &mut SymbolData, ctx: SymbolContext) {
         match self {
             // type IDs are unbound symbols (at first)
             Self::TypeIdentifier(id) => {
@@ -12,7 +12,7 @@ impl ExtractSymbol for TypePrimary {
             }
             // type variables are bound to definition scope
             Self::TypeVariable(name) => {
-                let symbol = AstSymbol::in_scope(SymbolSpace::Type, &ctx.enclosing_definition, &name.0);
+                let symbol = AstSymbol::in_scope(SymbolSpace::Type, ctx.enclosing_definition, &name.0);
                 data.declare_symbol(symbol);
             }
             // subexpressions pass through
@@ -28,7 +28,7 @@ impl InfixNamespace for TypePrimary {
 }
 
 impl ExtractSymbol for TypeExpression {
-    fn extract(&self, data: &mut SymbolData, ctx: &SymbolContext) {
+    fn extract(&self, data: &mut SymbolData, ctx: SymbolContext) {
         match self {
             Self::TypeApplication(app) => app.extract(data, ctx),
             Self::TypeLambda(lambda) => lambda.extract(data, ctx),
@@ -49,8 +49,8 @@ mod tests {
         let expr = TypeExpression::parse(TokenStream(&input)).unwrap().1;
         let mut data = SymbolData::new();
         let ctx = SymbolContext {
-            enclosing_scope: AstSymbol::new(SymbolSpace::Value, ""),
-            enclosing_definition: AstSymbol::new(SymbolSpace::Value, ""),
+            enclosing_scope: &AstSymbol::new(SymbolSpace::Value, ""),
+            enclosing_definition: &AstSymbol::new(SymbolSpace::Value, ""),
         };
         let expected = SymbolData::from_parts(
             vec![
@@ -63,7 +63,7 @@ mod tests {
                 (AstSymbol::from_scopes(SymbolSpace::Value, &["", "0"]), AstSymbol::from_scopes(SymbolSpace::Type, &["b"])),
             ].into_iter().collect(),
         );
-        expr.extract(&mut data, &ctx);
+        expr.extract(&mut data, ctx);
         assert_eq!(data, expected);
     }
 }

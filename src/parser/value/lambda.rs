@@ -62,17 +62,17 @@ impl LambdaExpression {
 
 impl ExtractSymbol for LambdaExpression {
     /// Extract the lambda names and anything in the body
-    fn extract(&self, data: &mut SymbolData, ctx: &SymbolContext) {
+    fn extract(&self, data: &mut SymbolData, ctx: SymbolContext) {
         if let Self::Value { params, body } = self {
-            let inner_scope = AstSymbol::in_scope(SymbolSpace::Value, &ctx.enclosing_scope, "0");
+            let inner_scope = AstSymbol::in_scope(SymbolSpace::Value, ctx.enclosing_scope, "0");
             let inner_ctx = SymbolContext {
-                enclosing_scope: inner_scope,
-                enclosing_definition: ctx.enclosing_definition.clone(),
+                enclosing_scope: &inner_scope,
+                enclosing_definition: ctx.enclosing_definition,
             };
             for param in params {
-                param.extract(data, &inner_ctx);
+                param.extract(data, inner_ctx);
             }
-            body.extract(data, &inner_ctx);
+            body.extract(data, inner_ctx);
         } else {
             unreachable!();
         }

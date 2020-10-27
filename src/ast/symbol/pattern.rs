@@ -7,7 +7,7 @@ impl InfixNamespace for PatternPrimary {
 }
 
 impl ExtractSymbol for PatternPrimary {
-    fn extract(&self, data: &mut SymbolData, ctx: &SymbolContext) {
+    fn extract(&self, data: &mut SymbolData, ctx: SymbolContext) {
         match self {
             // literals and blanks declare no symbols
             Self::Literal(_) | Self::Blank => {}
@@ -23,7 +23,7 @@ impl ExtractSymbol for PatternPrimary {
 }
 
 impl ExtractSymbol for Pattern {
-    fn extract(&self, data: &mut SymbolData, ctx: &SymbolContext) {
+    fn extract(&self, data: &mut SymbolData, ctx: SymbolContext) {
         let Self::Application(fix) = self;
         fix.extract(data, ctx);
     }
@@ -45,8 +45,8 @@ mod tests {
         let input = PatternPrimary::parse(TokenStream(&input)).unwrap().1;
         let mut result = SymbolData::new();
         let ctx = SymbolContext {
-            enclosing_scope: AstSymbol::new(SymbolSpace::Value, ""),
-            enclosing_definition: AstSymbol::new(SymbolSpace::Value, ""),
+            enclosing_scope: &AstSymbol::new(SymbolSpace::Value, ""),
+            enclosing_definition: &AstSymbol::new(SymbolSpace::Value, ""),
         };
         let expected = SymbolData::from_parts(
             HashSet::new(),
@@ -58,7 +58,7 @@ mod tests {
                 (AstSymbol::new(SymbolSpace::Value, ""), AstSymbol::from_scopes(SymbolSpace::Pattern, &["c", "d"])),
             ].into_iter().collect(),
         );
-        input.extract(&mut result, &ctx);
+        input.extract(&mut result, ctx);
         assert_eq!(result, expected);
     }
 }

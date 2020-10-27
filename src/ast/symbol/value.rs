@@ -7,7 +7,7 @@ impl InfixNamespace for ValuePrimary {
 }
 
 impl ExtractSymbol for ValuePrimary {
-    fn extract(&self, data: &mut SymbolData, ctx: &SymbolContext) {
+    fn extract(&self, data: &mut SymbolData, ctx: SymbolContext) {
         match self {
             // literals declare no symbols
             Self::Literal(_) => {}
@@ -23,7 +23,7 @@ impl ExtractSymbol for ValuePrimary {
 }
 
 impl ExtractSymbol for ValueExpression {
-    fn extract(&self, data: &mut SymbolData, ctx: &SymbolContext) {
+    fn extract(&self, data: &mut SymbolData, ctx: SymbolContext) {
         match self {
             Self::Application(expr) => expr.extract(data, ctx),
             Self::Lambda(lambda) => lambda.extract(data, ctx),
@@ -46,8 +46,8 @@ mod test {
         let expr = ValueExpression::parse(TokenStream(&input)).unwrap().1;
         let mut data = SymbolData::new();
         let ctx = SymbolContext {
-            enclosing_scope: AstSymbol::new(SymbolSpace::Value, ""),
-            enclosing_definition: AstSymbol::new(SymbolSpace::Value, ""),
+            enclosing_scope: &AstSymbol::new(SymbolSpace::Value, ""),
+            enclosing_definition: &AstSymbol::new(SymbolSpace::Value, ""),
         };
         let expected = SymbolData::from_parts(
             // patterns never declare anything explicitly
@@ -65,7 +65,7 @@ mod test {
                 (AstSymbol::from_scopes(SymbolSpace::Value, &["", "0", "0"]), AstSymbol::from_scopes(SymbolSpace::Value, &["a"])),
             ].into_iter().collect(),
         );
-        expr.extract(&mut data, &ctx);
+        expr.extract(&mut data, ctx);
         assert_eq!(data, expected);
     }
 }
