@@ -1,8 +1,8 @@
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
 
+mod definition;
 mod fixity;
-
 mod pattern;
 mod typedecl;
 mod value;
