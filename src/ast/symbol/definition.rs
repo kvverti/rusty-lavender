@@ -51,9 +51,9 @@ mod tests {
         let expected = SymbolData::from_parts(
             vec![
                 AstSymbol::from_scopes(SymbolSpace::Value, &["id"]),
+                AstSymbol::from_scopes(SymbolSpace::Value, &["id", "a"]),
             ].into_iter().collect(),
             vec![
-                (AstSymbol::from_scopes(SymbolSpace::Value, &["id"]), AstSymbol::from_scopes(SymbolSpace::Pattern, &["a"])),
                 (AstSymbol::from_scopes(SymbolSpace::Value, &["id", "#body", "0"]), AstSymbol::from_scopes(SymbolSpace::Value, &["a"])),
             ].into_iter().collect(),
         );
@@ -73,12 +73,12 @@ mod tests {
                 AstSymbol::from_scopes(SymbolSpace::Value, &["const"]),
                 AstSymbol::from_scopes(SymbolSpace::Type, &["const", "a"]),
                 AstSymbol::from_scopes(SymbolSpace::Type, &["const", "1", "b"]),
+                AstSymbol::from_scopes(SymbolSpace::Value, &["const", "a"]),
             ].into_iter().collect(),
             vec![
                 (AstSymbol::from_scopes(SymbolSpace::Value, &["const"]), AstSymbol::from_scopes(SymbolSpace::Type, &["->"])),
                 (AstSymbol::from_scopes(SymbolSpace::Value, &["const", "1"]), AstSymbol::from_scopes(SymbolSpace::Type, &["b"])),
                 (AstSymbol::from_scopes(SymbolSpace::Value, &["const", "1"]), AstSymbol::from_scopes(SymbolSpace::Type, &["->"])),
-                (AstSymbol::from_scopes(SymbolSpace::Value, &["const"]), AstSymbol::from_scopes(SymbolSpace::Pattern, &["a"])),
                 (AstSymbol::from_scopes(SymbolSpace::Value, &["const", "#body", "0"]), AstSymbol::from_scopes(SymbolSpace::Value, &["a"])),
             ].into_iter().collect(),
         );
@@ -101,13 +101,13 @@ mod tests {
                 AstSymbol::from_scopes(SymbolSpace::Value, &["map"]),
                 AstSymbol::from_scopes(SymbolSpace::Type, &["map", "a"]),
                 AstSymbol::from_scopes(SymbolSpace::Type, &["map", "b"]),
+                AstSymbol::from_scopes(SymbolSpace::Value, &["map", "f"]),
+                AstSymbol::from_scopes(SymbolSpace::Value, &["map", "#body", "0", "a"]),
             ].into_iter().collect(),
             vec![
                 (AstSymbol::from_scopes(SymbolSpace::Value, &["map"]), AstSymbol::from_scopes(SymbolSpace::Type, &["->"])),
                 (AstSymbol::from_scopes(SymbolSpace::Value, &["map"]), AstSymbol::from_scopes(SymbolSpace::Type, &["Option"])),
-                (AstSymbol::from_scopes(SymbolSpace::Value, &["map"]), AstSymbol::from_scopes(SymbolSpace::Pattern, &["f"])),
                 (AstSymbol::from_scopes(SymbolSpace::Value, &["map", "#body", "0"]), AstSymbol::from_scopes(SymbolSpace::Pattern, &["Some"])),
-                (AstSymbol::from_scopes(SymbolSpace::Value, &["map", "#body", "0"]), AstSymbol::from_scopes(SymbolSpace::Pattern, &["a"])),
                 (AstSymbol::from_scopes(SymbolSpace::Value, &["map", "#body", "0"]), AstSymbol::from_scopes(SymbolSpace::Value, &["Some"])),
                 (AstSymbol::from_scopes(SymbolSpace::Value, &["map", "#body", "0"]), AstSymbol::from_scopes(SymbolSpace::Value, &["f"])),
                 (AstSymbol::from_scopes(SymbolSpace::Value, &["map", "#body", "0"]), AstSymbol::from_scopes(SymbolSpace::Value, &["a"])),

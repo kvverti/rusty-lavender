@@ -33,8 +33,6 @@ impl ExtractSymbol for ValueExpression {
 
 #[cfg(test)]
 mod test {
-    use std::collections::HashSet;
-
     use crate::parser::token::{Token, TokenStream};
 
     use super::*;
@@ -47,15 +45,15 @@ mod test {
         let mut data = SymbolData::new();
         let ctx = SymbolContext::new();
         let expected = SymbolData::from_parts(
-            // patterns never declare anything explicitly
-            HashSet::new(),
+            vec![
+                AstSymbol::from_scopes(SymbolSpace::Value, &["1", "b"]),
+                AstSymbol::from_scopes(SymbolSpace::Value, &["1", "c"]),
+            ].into_iter().collect(),
             vec![
                 (AstSymbol::from_scopes(SymbolSpace::Value, &[]), AstSymbol::from_scopes(SymbolSpace::Value, &["a"])),
                 (AstSymbol::from_scopes(SymbolSpace::Value, &[]), AstSymbol::from_scopes(SymbolSpace::Value, &["@"])),
                 (AstSymbol::from_scopes(SymbolSpace::Value, &["1"]), AstSymbol::from_scopes(SymbolSpace::Pattern, &["Some"])),
-                (AstSymbol::from_scopes(SymbolSpace::Value, &["1"]), AstSymbol::from_scopes(SymbolSpace::Pattern, &["b"])),
                 (AstSymbol::from_scopes(SymbolSpace::Value, &["1"]), AstSymbol::from_scopes(SymbolSpace::Pattern, &[","])),
-                (AstSymbol::from_scopes(SymbolSpace::Value, &["1"]), AstSymbol::from_scopes(SymbolSpace::Pattern, &["c"])),
                 (AstSymbol::from_scopes(SymbolSpace::Value, &["1"]), AstSymbol::from_scopes(SymbolSpace::Value, &["b"])),
                 (AstSymbol::from_scopes(SymbolSpace::Value, &["1"]), AstSymbol::from_scopes(SymbolSpace::Value, &["+"])),
                 (AstSymbol::from_scopes(SymbolSpace::Value, &["1"]), AstSymbol::from_scopes(SymbolSpace::Value, &["c"])),
