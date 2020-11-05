@@ -154,6 +154,29 @@ impl SymbolData {
     pub fn declare_unbound_symbol(&mut self, scope: AstSymbol, symb: AstSymbol) {
         self.unbound_symbols.insert((scope, symb));
     }
+
+    /// Resolves an unbound symbol in some scope to a bound symbol in this symbol data.
+    pub fn resolve_symbol(&self, scope: &AstSymbol, symbol: &AstSymbol) -> Option<AstSymbol> {
+        let mut env_scopes = scope.scopes.clone();
+        let mut env_len = env_scopes.len();
+        let nspace = symbol.nspace;
+        env_scopes.extend(symbol.scopes.iter().cloned());
+        loop {
+            let candidate_symbol = AstSymbol { nspace, scopes: env_scopes };
+            if self.declared_symbols.contains(&candidate_symbol) {
+                return Some(candidate_symbol);
+            } else {
+                env_scopes = candidate_symbol.scopes;
+                if env_len == 0 {
+                    // no symbol found
+                    return None;
+                } else {
+                    env_len -= 1;
+                    env_scopes.remove(env_len);
+                }
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -168,5 +191,33 @@ mod tests {
         let symbol = AstSymbol::in_scope(SymbolSpace::Value, &scope, input);
         let result = format!("{}", symbol);
         assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_symbol_resolution() {
+        let data = SymbolData {
+            declared_symbols: vec![
+                AstSymbol::from_scopes(SymbolSpace::Value, &["a", "b", "c"]),
+                AstSymbol::from_scopes(SymbolSpace::Type, &["a", "b", "d"]),
+                AstSymbol::from_scopes(SymbolSpace::Value, &["a", "d"]),
+            ].into_iter().collect(),
+            unbound_symbols: Default::default(),
+        };
+        let scope = AstSymbol::from_scopes(SymbolSpace::Value, &["a", "b"]);
+        let sym1 = AstSymbol::new(SymbolSpace::Value, "c");
+        let sym2 = AstSymbol::new(SymbolSpace::Value, "d");
+        let sym3 = AstSymbol::from_scopes(SymbolSpace::Value, &["b", "c"]);
+        let sym_n = AstSymbol::new(SymbolSpace::Type, "c");
+        let res1 = data.resolve_symbol(&scope, &sym1);
+        let res2 = data.resolve_symbol(&scope, &sym2);
+        let res3 = data.resolve_symbol(&scope, &sym3);
+        let res_n = data.resolve_symbol(&scope, &sym_n);
+        assert!(res_n.is_none());
+        let res1 = format!("{}", res1.unwrap());
+        let res2 = format!("{}", res2.unwrap());
+        let res3 = format!("{}", res3.unwrap());
+        assert_eq!(&res1, "value/a::b::c");
+        assert_eq!(&res2, "value/a::d");
+        assert_eq!(&res3, "value/a::b::c");
     }
 }
