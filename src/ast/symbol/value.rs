@@ -13,7 +13,7 @@ impl ExtractSymbol for ValuePrimary {
             Self::Literal(_) => {}
             // scoped IDs in value expressions are unbound symbols
             Self::Identifier(id) => {
-                let symbol = AstSymbol::from_scopes(SymbolSpace::Value, &id.to_scopes());
+                let symbol = AstSymbol::from_scopes(SymbolSpace::Value, &id.value.to_scopes());
                 data.declare_unbound_symbol(ctx.enclosing_scope.clone(), symbol);
             }
             // subexpressions pass through symbols

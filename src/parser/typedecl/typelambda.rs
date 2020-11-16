@@ -94,8 +94,8 @@ mod tests {
             body: Box::new(TypeExpression::TypeApplication(BasicFixity::Infix(InfixApply {
                 func: Tagged::new(Identifier::Operator(Operator("->".to_owned()))),
                 args: vec![
-                    InfixPrimary::Primary(TypePrimary::TypeIdentifier(ScopedIdentifier::from(Identifier::Name(Name("x".to_owned()))))),
-                    InfixPrimary::Primary(TypePrimary::TypeIdentifier(ScopedIdentifier::from(Identifier::Name(Name("y".to_owned()))))),
+                    InfixPrimary::Primary(TypePrimary::TypeIdentifier(Tagged::new(ScopedIdentifier::from(Identifier::Name(Name("x".to_owned())))))),
+                    InfixPrimary::Primary(TypePrimary::TypeIdentifier(Tagged::new(ScopedIdentifier::from(Identifier::Name(Name("y".to_owned())))))),
                 ],
             }))),
         };

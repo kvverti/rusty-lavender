@@ -1,12 +1,13 @@
 use nom::branch::alt;
 use nom::bytes::complete::tag;
-use nom::combinator::{map, value};
+use nom::combinator::map;
 use nom::sequence::{delimited, preceded};
 
 use crate::parser::fixity::BasicFixity;
 use crate::parser::ParseResult;
 use crate::parser::primary::{name, Primary};
 use crate::parser::scoped::ScopedIdentifier;
+use crate::parser::tagged::{Tagged, tagged};
 use crate::parser::token::{TokenStream, TokenValue};
 use crate::parser::token::fixed::{Keyword, Separator};
 use crate::parser::token::identifier::Name;
@@ -19,11 +20,11 @@ pub mod typelambda;
 #[derive(Clone, Debug, PartialEq)]
 pub enum TypePrimary {
     /// A type name `A`.
-    TypeIdentifier(ScopedIdentifier),
+    TypeIdentifier(Tagged<ScopedIdentifier>),
     /// A type variable name `'a`.
-    TypeVariable(Name),
+    TypeVariable(Tagged<Name>),
     /// A type hole `_` (triggers explicit type inference).
-    TypeHole,
+    TypeHole(Tagged<()>),
     /// A parenthesized type expression `( a )`.
     TypeSubExpression(Box<TypeExpression>),
 }
@@ -31,12 +32,14 @@ pub enum TypePrimary {
 impl Primary for TypePrimary {
     fn parse(input: TokenStream) -> ParseResult<TokenStream, Self> {
         alt((
-            map(ScopedIdentifier::parse, Self::TypeIdentifier),
+            map(tagged(ScopedIdentifier::parse), Self::TypeIdentifier),
             map(
-                preceded(tag(TokenValue::from(Separator::Check)), name),
+                tagged(preceded(tag(TokenValue::from(Separator::Check)), name)),
                 Self::TypeVariable,
             ),
-            value(Self::TypeHole, tag(TokenValue::from(Keyword::Underscore))),
+            map(tagged(tag(TokenValue::from(Keyword::Underscore))), |t| Self::TypeHole(
+                Tagged { value: (), idx: t.idx, len: t.len }
+            )),
             map(
                 delimited(
                     tag(TokenValue::from(Separator::LeftRound)),
@@ -78,15 +81,15 @@ mod tests {
     #[test]
     fn parses() {
         let expected = TypeExpression::TypeApplication(BasicFixity::Prefix(PrefixApply {
-            func: TypePrimary::TypeIdentifier(ScopedIdentifier::from(Identifier::Name(Name("Type".to_owned())))),
+            func: TypePrimary::TypeIdentifier(Tagged::new(ScopedIdentifier::from(Identifier::Name(Name("Type".to_owned()))))),
             args: vec![
-                TypePrimary::TypeVariable(Name("a".to_owned())),
+                TypePrimary::TypeVariable(Tagged::new(Name("a".to_owned()))),
                 TypePrimary::TypeSubExpression(Box::new(
                     TypeExpression::TypeApplication(BasicFixity::Infix(InfixApply {
                         func: Tagged::new(Identifier::Operator(Operator("->".to_owned()))),
                         args: vec![
-                            InfixPrimary::Primary(TypePrimary::TypeVariable(Name("a".to_owned()))),
-                            InfixPrimary::Primary(TypePrimary::TypeHole),
+                            InfixPrimary::Primary(TypePrimary::TypeVariable(Tagged::new(Name("a".to_owned())))),
+                            InfixPrimary::Primary(TypePrimary::TypeHole(Tagged::new(()))),
                         ],
                     }))
                 )),

@@ -7,18 +7,18 @@ impl ExtractSymbol for TypePrimary {
         match self {
             // type IDs are unbound symbols (at first)
             Self::TypeIdentifier(id) => {
-                let symbol = AstSymbol::from_scopes(SymbolSpace::Type, &id.to_scopes());
+                let symbol = AstSymbol::from_scopes(SymbolSpace::Type, &id.value.to_scopes());
                 data.declare_unbound_symbol(ctx.enclosing_scope.clone(), symbol);
             }
             // type variables are bound to definition scope
             Self::TypeVariable(name) => {
-                let symbol = AstSymbol::in_scope(SymbolSpace::Type, ctx.enclosing_definition, &name.0);
+                let symbol = AstSymbol::in_scope(SymbolSpace::Type, ctx.enclosing_definition, &name.value.0);
                 data.declare_symbol(symbol);
             }
             // subexpressions pass through
             Self::TypeSubExpression(expr) => expr.extract(data, ctx),
             // a hole declares no symbols
-            Self::TypeHole => {}
+            Self::TypeHole(_) => {}
         }
     }
 }
