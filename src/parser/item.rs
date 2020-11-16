@@ -167,9 +167,21 @@ mod tests {
                             len: 1,
                         },
                         args: vec![
-                            InfixPrimary::Primary(ValuePrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("a".to_owned()))))),
-                            InfixPrimary::Primary(ValuePrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("b".to_owned()))))),
-                            InfixPrimary::Primary(ValuePrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("a".to_owned()))))),
+                            InfixPrimary::Primary(ValuePrimary::Identifier(Tagged {
+                                value: ScopedIdentifier::from(Identifier::Name(Name("a".to_owned()))),
+                                idx: input.match_indices('a').nth(1).unwrap().0,
+                                len: 1,
+                            })),
+                            InfixPrimary::Primary(ValuePrimary::Identifier(Tagged {
+                                value: ScopedIdentifier::from(Identifier::Name(Name("b".to_owned()))),
+                                idx: input.match_indices('b').nth(1).unwrap().0,
+                                len: 1,
+                            })),
+                            InfixPrimary::Primary(ValuePrimary::Identifier(Tagged {
+                                value: ScopedIdentifier::from(Identifier::Name(Name("a".to_owned()))),
+                                idx: input.match_indices('a').nth(2).unwrap().0,
+                                len: 1,
+                            })),
                         ],
                     })),
                 }
@@ -185,6 +197,11 @@ mod tests {
 
     #[test]
     fn multiple() {
+        let input = "
+            def bind f
+                ; (Some a) => f a
+                ; _ => None
+        ";
         let expected = Definition {
             name: Identifier::Name(Name("bind".to_owned())),
             fixity: Fixity::None,
@@ -199,21 +216,30 @@ mod tests {
                         }))))
                     ],
                     body: ValueExpression::Application(BasicFixity::Prefix(PrefixApply {
-                        func: ValuePrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("f".to_owned())))),
-                        args: vec![ValuePrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("a".to_owned()))))],
+                        func: ValuePrimary::Identifier(Tagged {
+                            value: ScopedIdentifier::from(Identifier::Name(Name("f".to_owned()))),
+                            idx: input.match_indices('f').nth(2).unwrap().0,
+                            len: 1,
+                        }),
+                        args: vec![ValuePrimary::Identifier(Tagged {
+                            value: ScopedIdentifier::from(Identifier::Name(Name("a".to_owned()))),
+                            idx: input.match_indices('a').nth(1).unwrap().0,
+                            len: 1,
+                        })],
                     })),
                 },
                 DefinitionBody {
                     params: vec![PatternPrimary::Blank],
-                    body: ValueExpression::Application(BasicFixity::Primary(ValuePrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("None".to_owned())))))),
+                    body: ValueExpression::Application(BasicFixity::Primary(ValuePrimary::Identifier(
+                        Tagged {
+                            value: ScopedIdentifier::from(Identifier::Name(Name("None".to_owned()))),
+                            idx: input.match_indices("None").next().unwrap().0,
+                            len: 4,
+                        }
+                    ))),
                 }
             ],
         };
-        let input = "
-            def bind f
-                ; (Some a) => f a
-                ; _ => None
-        ";
         let result = Token::parse_sequence(input);
         let result = Definition::regular(TokenStream(result.as_slice()));
         assert!(result.is_ok(), "Expected ok result, got {:?}", result);
@@ -264,7 +290,13 @@ mod tests {
             bodies: vec![
                 DefinitionBody {
                     params: vec![],
-                    body: ValueExpression::Application(BasicFixity::Primary(ValuePrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("a".to_owned())))))),
+                    body: ValueExpression::Application(BasicFixity::Primary(ValuePrimary::Identifier(
+                        Tagged {
+                            value: ScopedIdentifier::from(Identifier::Name(Name("a".to_owned()))),
+                            idx: input.match_indices('a').last().unwrap().0,
+                            len: 1,
+                        }
+                    ))),
                 }
             ],
         };

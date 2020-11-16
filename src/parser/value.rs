@@ -7,6 +7,7 @@ use crate::parser::fixity::BasicFixity;
 use crate::parser::ParseResult;
 use crate::parser::primary::{literal, Primary};
 use crate::parser::scoped::ScopedIdentifier;
+use crate::parser::tagged::{Tagged, tagged};
 use crate::parser::token::{TokenStream, TokenValue};
 use crate::parser::token::fixed::Separator;
 use crate::parser::token::literal::Literal;
@@ -21,7 +22,7 @@ pub enum ValuePrimary {
     /// A literal token `a` (such a `True` or `3`)
     Literal(Literal),
     /// A name `a` (such as `map` or `(.)`)
-    Identifier(ScopedIdentifier),
+    Identifier(Tagged<ScopedIdentifier>),
     /// A parenthesized expression `( a )`
     SubExpression(Box<ValueExpression>),
 }
@@ -41,7 +42,7 @@ impl Primary for ValuePrimary {
     fn parse(input: TokenStream) -> ParseResult<TokenStream, Self> {
         alt((
             map(literal, Self::Literal),
-            map(ScopedIdentifier::parse, Self::Identifier),
+            map(tagged(ScopedIdentifier::parse), Self::Identifier),
             map(Self::parse_subexpr, |e| Self::SubExpression(Box::new(e))),
         ))(input)
     }
@@ -84,14 +85,14 @@ mod tests {
             args: vec![
                 InfixPrimary::Primary(ValuePrimary::Literal(Literal::Int(IntLiteral(1)))),
                 InfixPrimary::Application(PrefixApply {
-                    func: ValuePrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("f".to_owned())))),
+                    func: ValuePrimary::Identifier(Tagged::new(ScopedIdentifier::from(Identifier::Name(Name("f".to_owned()))))),
                     args: vec![ValuePrimary::Literal(Literal::Int(IntLiteral(2)))],
                 }),
                 InfixPrimary::Primary(ValuePrimary::SubExpression(Box::new(
                     ValueExpression::Application(BasicFixity::Infix(InfixApply {
                         func: Tagged::new(Identifier::Operator(Operator("*".to_owned()))),
                         args: vec![
-                            InfixPrimary::Primary(ValuePrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("a".to_owned()))))),
+                            InfixPrimary::Primary(ValuePrimary::Identifier(Tagged::new(ScopedIdentifier::from(Identifier::Name(Name("a".to_owned())))))),
                             InfixPrimary::Primary(ValuePrimary::Literal(Literal::Int(IntLiteral(3)))),
                         ],
                     }))
@@ -134,15 +135,27 @@ mod tests {
                 len: 1,
             },
             args: vec![
-                InfixPrimary::Primary(ValuePrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("a".to_owned()))))),
+                InfixPrimary::Primary(ValuePrimary::Identifier(Tagged {
+                    value: ScopedIdentifier::from(Identifier::Name(Name("a".to_owned()))),
+                    idx: 0,
+                    len: 1,
+                })),
                 InfixPrimary::Primary(ValuePrimary::SubExpression(Box::new(ValueExpression::Lambda(LambdaExpression::Value {
                     params: vec![
                         PatternPrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("f".to_owned())))),
                     ],
                     body: Box::new(ValueExpression::Application(BasicFixity::Prefix(PrefixApply {
-                        func: ValuePrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("f".to_owned())))),
+                        func: ValuePrimary::Identifier(Tagged {
+                            value: ScopedIdentifier::from(Identifier::Name(Name("f".to_owned()))),
+                            idx: 12,
+                            len: 1,
+                        }),
                         args: vec![
-                            ValuePrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("a".to_owned())))),
+                            ValuePrimary::Identifier(Tagged {
+                                value: ScopedIdentifier::from(Identifier::Name(Name("a".to_owned()))),
+                                idx: 14,
+                                len: 1,
+                            }),
                         ],
                     }))),
                 }))))

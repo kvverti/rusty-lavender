@@ -105,8 +105,8 @@ mod tests {
             body: Box::new(ValueExpression::Application(BasicFixity::Infix(InfixApply {
                 func: Tagged::new(Identifier::Operator(Operator("+".to_owned()))),
                 args: vec![
-                    InfixPrimary::Primary(ValuePrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("x".to_owned()))))),
-                    InfixPrimary::Primary(ValuePrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("z".to_owned()))))),
+                    InfixPrimary::Primary(ValuePrimary::Identifier(Tagged::new(ScopedIdentifier::from(Identifier::Name(Name("x".to_owned())))))),
+                    InfixPrimary::Primary(ValuePrimary::Identifier(Tagged::new(ScopedIdentifier::from(Identifier::Name(Name("z".to_owned())))))),
                 ],
             }))),
         };
