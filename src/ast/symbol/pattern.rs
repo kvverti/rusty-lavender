@@ -23,7 +23,7 @@ impl ExtractSymbol for PatternPrimary {
                     let symbol = AstSymbol::from_scopes(SymbolSpace::Pattern, &id.value.to_scopes());
                     data.declare_unbound_symbol(ctx.enclosing_scope.clone(), symbol);
                 } else {
-                    let symbol = AstSymbol::in_scope(SymbolSpace::Value, ctx.enclosing_scope, id.value.name.value());
+                    let symbol = id.as_ref().map(|id| AstSymbol::in_scope(SymbolSpace::Value, ctx.enclosing_scope, id.name.value()));
                     data.declare_symbol(symbol);
                 }
             }
@@ -43,6 +43,7 @@ impl ExtractSymbol for Pattern {
 #[cfg(test)]
 mod tests {
     use crate::parser::primary::Primary;
+    use crate::parser::tagged::Tagged;
     use crate::parser::token::{Token, TokenStream};
 
     use super::*;
@@ -56,8 +57,8 @@ mod tests {
         let ctx = SymbolContext::new();
         let expected = SymbolData::from_parts(
             vec![
-                AstSymbol::from_scopes(SymbolSpace::Value, &["a"]),
-                AstSymbol::from_scopes(SymbolSpace::Value, &["b"]),
+                (AstSymbol::from_scopes(SymbolSpace::Value, &["a"]), Tagged { value: (), idx: 1, len: 1 }),
+                (AstSymbol::from_scopes(SymbolSpace::Value, &["b"]), Tagged { value: (), idx: 9, len: 1 }),
             ].into_iter().collect(),
             vec![
                 (AstSymbol::from_scopes(SymbolSpace::Value, &[]), AstSymbol::from_scopes(SymbolSpace::Pattern, &[","])),

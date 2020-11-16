@@ -38,7 +38,7 @@ impl Primary for TypePrimary {
                 Self::TypeVariable,
             ),
             map(tagged(tag(TokenValue::from(Keyword::Underscore))), |t| Self::TypeHole(
-                Tagged { value: (), idx: t.idx, len: t.len }
+                t.map(|_| ())
             )),
             map(
                 delimited(

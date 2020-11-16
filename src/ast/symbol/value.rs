@@ -33,6 +33,7 @@ impl ExtractSymbol for ValueExpression {
 
 #[cfg(test)]
 mod test {
+    use crate::parser::tagged::Tagged;
     use crate::parser::token::{Token, TokenStream};
 
     use super::*;
@@ -46,8 +47,8 @@ mod test {
         let ctx = SymbolContext::new();
         let expected = SymbolData::from_parts(
             vec![
-                AstSymbol::from_scopes(SymbolSpace::Value, &["1", "b"]),
-                AstSymbol::from_scopes(SymbolSpace::Value, &["1", "c"]),
+                (AstSymbol::from_scopes(SymbolSpace::Value, &["1", "b"]), Tagged { value: (), idx: 15, len: 1 }),
+                (AstSymbol::from_scopes(SymbolSpace::Value, &["1", "c"]), Tagged { value: (), idx: 18, len: 1 }),
             ].into_iter().collect(),
             vec![
                 (AstSymbol::from_scopes(SymbolSpace::Value, &[]), AstSymbol::from_scopes(SymbolSpace::Value, &["a"])),

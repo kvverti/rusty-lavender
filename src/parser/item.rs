@@ -23,7 +23,7 @@ pub enum Fixity { Left, Right, None }
 #[derive(Clone, Debug, PartialEq)]
 pub struct Definition {
     /// The name of the defined value.
-    pub name: Identifier,
+    pub name: Tagged<Identifier>,
     /// The fixity of the definition (only relevant for symbolic definitions).
     pub fixity: Fixity,
     /// The declared type of the defined value (optional).
@@ -51,19 +51,17 @@ impl Definition {
                     count(DefinitionBody::single, 1),
                 ))
             )),
-            |((fixity, Tagged { value: name, idx, len }), typ, params, bodies)| Self {
-                name,
-                fixity,
-                typ: typ.unwrap_or_else(|| {
-                    let tag = Tagged {
-                        value: (),
-                        idx,
-                        len,
-                    };
-                    TypeExpression::TypeApplication(BasicFixity::Primary(TypePrimary::TypeHole(tag)))
-                }),
-                params,
-                bodies,
+            |((fixity, name), typ, params, bodies)| {
+                let typ = typ.unwrap_or_else(||
+                    TypeExpression::TypeApplication(BasicFixity::Primary(TypePrimary::TypeHole(name.as_ref().map(|_| ()))))
+                );
+                Self {
+                    name,
+                    fixity,
+                    typ,
+                    params,
+                    bodies,
+                }
             },
         )(input)
     }
@@ -73,12 +71,12 @@ impl Definition {
     pub fn intrinsic(input: TokenStream) -> ParseResult<TokenStream, Self> {
         map(
             separated_pair(
-                preceded(tag(TokenValue::from(Keyword::Def)), name),
+                preceded(tag(TokenValue::from(Keyword::Def)), tagged(name)),
                 tag(TokenValue::from(Separator::Colon)),
                 TypeExpression::parse,
             ),
             |(name, typ)| Self {
-                name: Identifier::Name(name),
+                name: name.map(Identifier::Name),
                 fixity: Fixity::None,
                 typ,
                 params: vec![],
@@ -155,7 +153,11 @@ mod tests {
     fn single() {
         let input = "def '(@) a (Id b) => a + b + a";
         let expected = Definition {
-            name: Identifier::Operator(Operator("@".to_owned())),
+            name: Tagged {
+                value: Identifier::Operator(Operator("@".to_owned())),
+                idx: input.match_indices("(@)").next().unwrap().0,
+                len: 3,
+            },
             fixity: Fixity::Left,
             typ: TypeExpression::TypeApplication(BasicFixity::Primary(TypePrimary::TypeHole(Tagged {
                 value: (),
@@ -227,7 +229,11 @@ mod tests {
                 ; _ => None
         ";
         let expected = Definition {
-            name: Identifier::Name(Name("bind".to_owned())),
+            name: Tagged {
+                value: Identifier::Name(Name("bind".to_owned())),
+                idx: input.match_indices("bind").next().unwrap().0,
+                len: 4,
+            },
             fixity: Fixity::None,
             typ: TypeExpression::TypeApplication(BasicFixity::Primary(TypePrimary::TypeHole(Tagged {
                 value: (),
@@ -295,7 +301,11 @@ mod tests {
                 a _ => a
         ";
         let expected = Definition {
-            name: Identifier::Name(Name("const".to_owned())),
+            name: Tagged {
+                value: Identifier::Name(Name("const".to_owned())),
+                idx: input.match_indices("const").next().unwrap().0,
+                len: 5,
+            },
             fixity: Fixity::None,
             typ: TypeExpression::TypeApplication(BasicFixity::Infix(InfixApply {
                 func: Tagged {
@@ -311,7 +321,11 @@ mod tests {
                     })),
                     InfixPrimary::Primary(TypePrimary::TypeSubExpression(Box::new(
                         TypeExpression::TypeLambda(TypeLambda::Value {
-                            params: vec![Name("b".to_owned())],
+                            params: vec![Tagged {
+                                value: Name("b".to_owned()),
+                                idx: input.match_indices('b').next().unwrap().0,
+                                len: 1,
+                            }],
                             body: Box::new(TypeExpression::TypeApplication(BasicFixity::Infix(InfixApply {
                                 func: Tagged {
                                     value: Identifier::Operator(Operator("->".to_owned())),
@@ -368,7 +382,11 @@ mod tests {
     fn intrinsic() {
         let input = "def addi: Int -> Int -> Int";
         let expected = Definition {
-            name: Identifier::Name(Name("addi".to_owned())),
+            name: Tagged {
+                value: Identifier::Name(Name("addi".to_owned())),
+                idx: input.match_indices("addi").next().unwrap().0,
+                len: 4,
+            },
             fixity: Fixity::None,
             typ: TypeExpression::TypeApplication(BasicFixity::Infix(InfixApply {
                 func: Tagged {

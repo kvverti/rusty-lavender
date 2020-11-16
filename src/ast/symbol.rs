@@ -1,6 +1,10 @@
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
 
+use nom::lib::std::collections::HashMap;
+
+use crate::parser::tagged::Tagged;
+
 mod definition;
 mod fixity;
 mod pattern;
@@ -125,7 +129,7 @@ impl<'a> SymbolContext<'a> {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SymbolData {
     /// The declared symbols in the tree.
-    declared_symbols: HashSet<AstSymbol>,
+    declared_symbols: HashMap<AstSymbol, Tagged<()>>,
     /// The yet unbound symbols in the tree, which will be resolved against the declared
     /// symbols.
     unbound_symbols: HashSet<(AstSymbol, AstSymbol)>,
@@ -134,20 +138,21 @@ pub struct SymbolData {
 impl SymbolData {
     pub fn new() -> Self {
         SymbolData {
-            declared_symbols: HashSet::new(),
+            declared_symbols: HashMap::new(),
             unbound_symbols: HashSet::new(),
         }
     }
 
     /// Constructs a semantic data from parts, used in unit testing.
     #[cfg(test)]
-    pub(crate) fn from_parts(declared_symbols: HashSet<AstSymbol>, unbound_symbols: HashSet<(AstSymbol, AstSymbol)>) -> Self {
+    pub(crate) fn from_parts(declared_symbols: HashMap<AstSymbol, Tagged<()>>, unbound_symbols: HashSet<(AstSymbol, AstSymbol)>) -> Self {
         Self { declared_symbols, unbound_symbols }
     }
 
-    /// Declares a symbol.
-    pub fn declare_symbol(&mut self, symb: AstSymbol) {
-        self.declared_symbols.insert(symb);
+    /// Declares a symbol. If the symbol has been previously declared, no action is taken.
+    pub fn declare_symbol(&mut self, symb: Tagged<AstSymbol>) {
+        let Tagged { value, idx, len } = symb;
+        self.declared_symbols.entry(value).or_insert(Tagged { value: (), idx, len });
     }
 
     /// Marks an unbound symbol found in the given scope.
@@ -163,7 +168,7 @@ impl SymbolData {
         env_scopes.extend(symbol.scopes.iter().cloned());
         loop {
             let candidate_symbol = AstSymbol { nspace, scopes: env_scopes };
-            if self.declared_symbols.contains(&candidate_symbol) {
+            if self.declared_symbols.contains_key(&candidate_symbol) {
                 return Some(candidate_symbol);
             } else {
                 env_scopes = candidate_symbol.scopes;
@@ -197,9 +202,9 @@ mod tests {
     fn test_symbol_resolution() {
         let data = SymbolData {
             declared_symbols: vec![
-                AstSymbol::from_scopes(SymbolSpace::Value, &["a", "b", "c"]),
-                AstSymbol::from_scopes(SymbolSpace::Type, &["a", "b", "d"]),
-                AstSymbol::from_scopes(SymbolSpace::Value, &["a", "d"]),
+                (AstSymbol::from_scopes(SymbolSpace::Value, &["a", "b", "c"]), Tagged::new(())),
+                (AstSymbol::from_scopes(SymbolSpace::Type, &["a", "b", "d"]), Tagged::new(())),
+                (AstSymbol::from_scopes(SymbolSpace::Value, &["a", "d"]), Tagged::new(())),
             ].into_iter().collect(),
             unbound_symbols: Default::default(),
         };

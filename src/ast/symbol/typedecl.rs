@@ -12,7 +12,7 @@ impl ExtractSymbol for TypePrimary {
             }
             // type variables are bound to definition scope
             Self::TypeVariable(name) => {
-                let symbol = AstSymbol::in_scope(SymbolSpace::Type, ctx.enclosing_definition, &name.value.0);
+                let symbol = name.as_ref().map(|name| AstSymbol::in_scope(SymbolSpace::Type, ctx.enclosing_definition, &name.0));
                 data.declare_symbol(symbol);
             }
             // subexpressions pass through
@@ -38,6 +38,7 @@ impl ExtractSymbol for TypeExpression {
 
 #[cfg(test)]
 mod tests {
+    use crate::parser::tagged::Tagged;
     use crate::parser::token::{Token, TokenStream};
 
     use super::*;
@@ -51,8 +52,8 @@ mod tests {
         let ctx = SymbolContext::new();
         let expected = SymbolData::from_parts(
             vec![
-                AstSymbol::from_scopes(SymbolSpace::Type, &["a"]),
-                AstSymbol::from_scopes(SymbolSpace::Type, &["1", "b"]),
+                (AstSymbol::from_scopes(SymbolSpace::Type, &["a"]), Tagged { value: (), idx: 0, len: 2 }),
+                (AstSymbol::from_scopes(SymbolSpace::Type, &["1", "b"]), Tagged { value: (), idx: 11, len: 1 }),
             ].into_iter().collect(),
             vec![
                 (AstSymbol::from_scopes(SymbolSpace::Value, &[]), AstSymbol::from_scopes(SymbolSpace::Type, &["->"])),
@@ -73,9 +74,9 @@ mod tests {
         let ctx = SymbolContext::new();
         let expected = SymbolData::from_parts(
             vec![
-                AstSymbol::from_scopes(SymbolSpace::Type, &["a"]),
-                AstSymbol::from_scopes(SymbolSpace::Type, &["0", "b"]),
-                AstSymbol::from_scopes(SymbolSpace::Type, &["1", "b"]),
+                (AstSymbol::from_scopes(SymbolSpace::Type, &["a"]), Tagged { value: (), idx: 13, len: 2 }),
+                (AstSymbol::from_scopes(SymbolSpace::Type, &["0", "b"]), Tagged { value: (), idx: 5, len: 1 }),
+                (AstSymbol::from_scopes(SymbolSpace::Type, &["1", "b"]), Tagged { value: (), idx: 25, len: 1 }),
             ].into_iter().collect(),
             vec![
                 (AstSymbol::from_scopes(SymbolSpace::Value, &[]), AstSymbol::from_scopes(SymbolSpace::Type, &["->"])),
@@ -98,9 +99,9 @@ mod tests {
         let ctx = SymbolContext::new();
         let expected = SymbolData::from_parts(
             vec![
-                AstSymbol::from_scopes(SymbolSpace::Type, &["a"]),
-                AstSymbol::from_scopes(SymbolSpace::Type, &["0", "b"]),
-                AstSymbol::from_scopes(SymbolSpace::Type, &["1", "b"]),
+                (AstSymbol::from_scopes(SymbolSpace::Type, &["a"]), Tagged { value: (), idx: 13, len: 2 }),
+                (AstSymbol::from_scopes(SymbolSpace::Type, &["0", "b"]), Tagged { value: (), idx: 5, len: 1 }),
+                (AstSymbol::from_scopes(SymbolSpace::Type, &["1", "b"]), Tagged { value: (), idx: 22, len: 1 }),
             ].into_iter().collect(),
             vec![
                 (AstSymbol::from_scopes(SymbolSpace::Value, &["0"]), AstSymbol::from_scopes(SymbolSpace::Type, &["->"])),
