@@ -1,7 +1,5 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
-
-use nom::lib::std::collections::HashMap;
 
 use crate::parser::tagged::Tagged;
 
