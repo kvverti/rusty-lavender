@@ -14,16 +14,16 @@ impl ExtractSymbol for PatternPrimary {
             // identifiers declare unbound (at first) symbols
             Self::Identifier(id) => {
                 // patterns are scoped identifiers or begin with an uppercase letter
-                let is_pattern = !id.scopes.is_empty() || id.name.value()
+                let is_pattern = !id.value.scopes.is_empty() || id.value.name.value()
                     .chars()
                     .next()
                     .expect("Expected nonempty name")
                     .is_uppercase();
                 if is_pattern {
-                    let symbol = AstSymbol::from_scopes(SymbolSpace::Pattern, &id.to_scopes());
+                    let symbol = AstSymbol::from_scopes(SymbolSpace::Pattern, &id.value.to_scopes());
                     data.declare_unbound_symbol(ctx.enclosing_scope.clone(), symbol);
                 } else {
-                    let symbol = AstSymbol::in_scope(SymbolSpace::Value, ctx.enclosing_scope, id.name.value());
+                    let symbol = AstSymbol::in_scope(SymbolSpace::Value, ctx.enclosing_scope, id.value.name.value());
                     data.declare_symbol(symbol);
                 }
             }

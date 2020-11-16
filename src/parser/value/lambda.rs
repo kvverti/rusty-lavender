@@ -93,12 +93,12 @@ mod tests {
     fn parses() {
         let expected = LambdaExpression::Value {
             params: vec![
-                PatternPrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("x".to_owned())))),
-                PatternPrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("y".to_owned())))),
+                PatternPrimary::Identifier(Tagged::new(ScopedIdentifier::from(Identifier::Name(Name("x".to_owned()))))),
+                PatternPrimary::Identifier(Tagged::new(ScopedIdentifier::from(Identifier::Name(Name("y".to_owned()))))),
                 PatternPrimary::SubPattern(Box::new(Pattern::Application(BasicFixity::Prefix(PrefixApply {
-                    func: PatternPrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("Id".to_owned())))),
+                    func: PatternPrimary::Identifier(Tagged::new(ScopedIdentifier::from(Identifier::Name(Name("Id".to_owned()))))),
                     args: vec![
-                        PatternPrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("z".to_owned())))),
+                        PatternPrimary::Identifier(Tagged::new(ScopedIdentifier::from(Identifier::Name(Name("z".to_owned()))))),
                     ],
                 }))))
             ],

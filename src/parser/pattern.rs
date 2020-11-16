@@ -7,6 +7,7 @@ use crate::parser::fixity::BasicFixity;
 use crate::parser::ParseResult;
 use crate::parser::primary::{literal, Primary};
 use crate::parser::scoped::ScopedIdentifier;
+use crate::parser::tagged::{Tagged, tagged};
 use crate::parser::token::{TokenStream, TokenValue};
 use crate::parser::token::fixed::{Keyword, Separator};
 use crate::parser::token::literal::Literal;
@@ -20,7 +21,7 @@ pub enum PatternPrimary {
     Blank,
     /// An identifier like `a::b` or `Some`, which may introduce
     /// a binding or refer to a constructor.
-    Identifier(ScopedIdentifier),
+    Identifier(Tagged<ScopedIdentifier>),
     /// A parenthesized pattern `( a )`.
     SubPattern(Box<Pattern>),
 }
@@ -30,7 +31,7 @@ impl Primary for PatternPrimary {
         alt((
             map(literal, Self::Literal),
             value(Self::Blank, tag(TokenValue::from(Keyword::Underscore))),
-            map(ScopedIdentifier::parse, Self::Identifier),
+            map(tagged(ScopedIdentifier::parse), Self::Identifier),
             map(delimited(
                 tag(TokenValue::from(Separator::LeftRound)),
                 Pattern::parse,
@@ -70,12 +71,12 @@ mod tests {
                 func: Tagged::new(Identifier::Operator(Operator("!".to_owned()))),
                 args: vec![
                     InfixPrimary::Application(PrefixApply {
-                        func: PatternPrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("Some".to_owned())))),
+                        func: PatternPrimary::Identifier(Tagged::new(ScopedIdentifier::from(Identifier::Name(Name("Some".to_owned()))))),
                         args: vec![
                             PatternPrimary::Blank,
                         ],
                     }),
-                    InfixPrimary::Primary(PatternPrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("a".to_owned()))))),
+                    InfixPrimary::Primary(PatternPrimary::Identifier(Tagged::new(ScopedIdentifier::from(Identifier::Name(Name("a".to_owned())))))),
                 ],
             })
             )));

@@ -142,7 +142,11 @@ mod tests {
                 })),
                 InfixPrimary::Primary(ValuePrimary::SubExpression(Box::new(ValueExpression::Lambda(LambdaExpression::Value {
                     params: vec![
-                        PatternPrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("f".to_owned())))),
+                        PatternPrimary::Identifier(Tagged {
+                            value: ScopedIdentifier::from(Identifier::Name(Name("f".to_owned()))),
+                            idx: input.match_indices('f').next().unwrap().0,
+                            len: 1,
+                        }),
                     ],
                     body: Box::new(ValueExpression::Application(BasicFixity::Prefix(PrefixApply {
                         func: ValuePrimary::Identifier(Tagged {

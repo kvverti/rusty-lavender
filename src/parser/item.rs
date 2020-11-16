@@ -163,10 +163,22 @@ mod tests {
                 len: 3,
             }))),
             params: vec![
-                PatternPrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("a".to_owned())))),
+                PatternPrimary::Identifier(Tagged {
+                    value: ScopedIdentifier::from(Identifier::Name(Name("a".to_owned()))),
+                    idx: input.match_indices('a').next().unwrap().0,
+                    len: 1,
+                }),
                 PatternPrimary::SubPattern(Box::new(Pattern::Application(BasicFixity::Prefix(PrefixApply {
-                    func: PatternPrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("Id".to_owned())))),
-                    args: vec![PatternPrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("b".to_owned()))))],
+                    func: PatternPrimary::Identifier(Tagged {
+                        value: ScopedIdentifier::from(Identifier::Name(Name("Id".to_owned()))),
+                        idx: input.match_indices("Id").next().unwrap().0,
+                        len: 2,
+                    }),
+                    args: vec![PatternPrimary::Identifier(Tagged {
+                        value: ScopedIdentifier::from(Identifier::Name(Name("b".to_owned()))),
+                        idx: input.match_indices('b').next().unwrap().0,
+                        len: 1,
+                    })],
                 }))))
             ],
             bodies: vec![
@@ -222,13 +234,25 @@ mod tests {
                 idx: input.match_indices("bind").next().unwrap().0,
                 len: 4,
             }))),
-            params: vec![PatternPrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("f".to_owned()))))],
+            params: vec![PatternPrimary::Identifier(Tagged {
+                value: ScopedIdentifier::from(Identifier::Name(Name("f".to_owned()))),
+                idx: input.match_indices('f').nth(1).unwrap().0,
+                len: 1,
+            })],
             bodies: vec![
                 DefinitionBody {
                     params: vec![
                         PatternPrimary::SubPattern(Box::new(Pattern::Application(BasicFixity::Prefix(PrefixApply {
-                            func: PatternPrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("Some".to_owned())))),
-                            args: vec![PatternPrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("a".to_owned()))))],
+                            func: PatternPrimary::Identifier(Tagged {
+                                value: ScopedIdentifier::from(Identifier::Name(Name("Some".to_owned()))),
+                                idx: input.match_indices("Some").next().unwrap().0,
+                                len: 4,
+                            }),
+                            args: vec![PatternPrimary::Identifier(Tagged {
+                                value: ScopedIdentifier::from(Identifier::Name(Name("a".to_owned()))),
+                                idx: input.match_indices('a').next().unwrap().0,
+                                len: 1,
+                            })],
                         }))))
                     ],
                     body: ValueExpression::Application(BasicFixity::Prefix(PrefixApply {
@@ -312,7 +336,11 @@ mod tests {
                 ],
             })),
             params: vec![
-                PatternPrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("a".to_owned())))),
+                PatternPrimary::Identifier(Tagged {
+                    value: ScopedIdentifier::from(Identifier::Name(Name("a".to_owned()))),
+                    idx: input.match_indices('a').nth(2).unwrap().0,
+                    len: 1,
+                }),
                 PatternPrimary::Blank,
             ],
             bodies: vec![
