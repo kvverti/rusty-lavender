@@ -92,4 +92,24 @@ mod tests {
         let ast = input.construct_ast(&data, SymbolContext::new());
         assert_eq!(ast, expected);
     }
+
+    #[test]
+    fn unresolved() {
+        let input = "(Some x)";
+        let x = AstSymbol::new(SymbolSpace::Value, "x");
+        let mut data = SymbolData::new();
+        let expected = AstPatternExpression::Application(
+            Box::new(AstPatternExpression::Error(Tagged {
+                value: "Cannot resolve symbol",
+                idx: 1,
+                len: 4,
+            })),
+            Box::new(AstPatternExpression::Symbol(&x)),
+        );
+        let input = Token::parse_sequence(input);
+        let input = PatternPrimary::parse(TokenStream(&input)).unwrap().1;
+        input.extract(&mut data, SymbolContext::new());
+        let ast = input.construct_ast(&data, SymbolContext::new());
+        assert_eq!(ast, expected);
+    }
 }
