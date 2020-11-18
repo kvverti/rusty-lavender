@@ -17,6 +17,7 @@ use crate::parser::token::literal::Literal;
 mod pattern;
 mod fixity;
 mod typedecl;
+mod value;
 
 /// Trait implemented on parse tree nodes to construct the corresponding AST.
 pub trait ExtractAstNode<'a> {

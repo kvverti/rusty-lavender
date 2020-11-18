@@ -19,7 +19,7 @@ impl<'a> ExtractAstNode<'a> for PatternPrimary {
                 let symbol = AstSymbol::from_scopes(nspace, &id.value.to_scopes());
                 data.resolve_symbol(ctx.enclosing_scope, symbol)
                     .map(|(s, _)| AstPatternExpression::Symbol(s))
-                    .unwrap_or_else(|| AstPatternExpression::Error(id.map(|_| "Cannot resolve symbol")))
+                    .unwrap_or_else(|| AstPatternExpression::Error(id.map(|_| "Cannot resolve pattern symbol")))
             }
             Self::Literal(lit) => AstPatternExpression::Constant(lit),
             Self::Blank => AstPatternExpression::Blank,
@@ -100,7 +100,7 @@ mod tests {
         let mut data = SymbolData::new();
         let expected = AstPatternExpression::Application(
             Box::new(AstPatternExpression::Error(Tagged {
-                value: "Cannot resolve symbol",
+                value: "Cannot resolve pattern symbol",
                 idx: 1,
                 len: 4,
             })),
