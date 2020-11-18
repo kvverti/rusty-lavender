@@ -55,7 +55,7 @@ impl<'a, P: Primary + ExtractAstNode<'a> + InfixNamespace> ExtractAstNode<'a> fo
     type Node = P::Node;
 
     fn construct_ast(self, data: &'a SymbolData, ctx: SymbolContext<'_>) -> Self::Node {
-        let Self { func, mut args } = self;
+        let Self { func, args } = self;
         let func_symbol = AstSymbol::new(P::NAMESPACE, func.value.value());
         let (func_node, fixity) = data.resolve_symbol(ctx.enclosing_scope, func_symbol)
             .map(|(s, f)| (Self::Node::symbol(s), f))
@@ -65,13 +65,15 @@ impl<'a, P: Primary + ExtractAstNode<'a> + InfixNamespace> ExtractAstNode<'a> fo
             // must have exactly two arguments
             Self::Node::error(func.as_ref().map(|_| "Chained expression with a non-associative operator"))
         } else {
-            // reverse order if right associative
-            if fixity == Fixity::Right {
-                args.reverse()
-            }
             let mut args = args.into_iter()
                 .enumerate()
-                .map(|(idx, arg)| arg.construct_ast(data, ctx.with_scope_idx(ctx.scope_idx + idx as u32)));
+                .map(|(idx, arg)| arg.construct_ast(data, ctx.with_scope_idx(ctx.scope_idx + idx as u32)))
+                .collect::<Vec<_>>();
+            // reverse order if right associative
+            if fixity == Fixity::Right {
+                args.reverse();
+            }
+            let mut args = args.into_iter();
             let mut acc = args.next().expect("Empty infix arguments");
             for arg in args {
                 // (1 + 2) + 3 or 1 + (2 + 3)

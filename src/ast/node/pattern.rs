@@ -43,17 +43,17 @@ impl<'a> ExtractAstNode<'a> for Pattern {
 
 #[cfg(test)]
 mod tests {
-    use crate::ast::node::{AstPatternExpression, ExtractAstNode};
-    use crate::ast::symbol::{AstSymbol, ExtractSymbol, SymbolContext, SymbolData, SymbolSpace};
+    use crate::ast::symbol::ExtractSymbol;
     use crate::parser::item::Fixity;
-    use crate::parser::pattern::PatternPrimary;
     use crate::parser::primary::Primary;
     use crate::parser::tagged::Tagged;
     use crate::parser::token::{Token, TokenStream};
     use crate::parser::token::literal::{IntLiteral, Literal};
 
+    use super::*;
+
     #[test]
-    fn resolves() {
+    fn constructs() {
         let input = "(Some x ~> list::Nil 3 ~> _)";
         let some = AstSymbol::from_scopes(SymbolSpace::Pattern, &["Some"]);
         let arrow = AstSymbol::from_scopes(SymbolSpace::Pattern, &["~>"]);

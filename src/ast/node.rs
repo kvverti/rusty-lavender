@@ -16,6 +16,7 @@ use crate::parser::token::literal::Literal;
 
 mod pattern;
 mod fixity;
+mod typedecl;
 
 /// Trait implemented on parse tree nodes to construct the corresponding AST.
 pub trait ExtractAstNode<'a> {
@@ -28,31 +29,59 @@ pub trait ExtractAstNode<'a> {
 
 /// The AST representation of value expressions.
 #[derive(Clone, Debug, PartialEq)]
-pub enum AstValueExpression {
+pub enum AstValueExpression<'a> {
     /// Literal value
     Constant(Literal),
     /// Symbol (an identifier)
-    Symbol(AstSymbol),
+    Symbol(&'a AstSymbol),
     /// Function application
     Application(Box<Self>, Box<Self>),
     /// Lambda expression
-    Abstraction(Vec<AstPatternExpression<'static>>, Box<Self>),
+    Abstraction(Vec<AstPatternExpression<'a>>, Box<Self>),
     /// Error node
     Error(Tagged<&'static str>),
 }
 
-#[derive(Clone, Debug, PartialEq)]
-pub enum AstTypeExpression {
+impl<'a> AstApply<'a> for AstValueExpression<'a> {
+    fn symbol(symb: &'a AstSymbol) -> Self {
+        Self::Symbol(symb)
+    }
+
+    fn apply(f: Self, a: Self) -> Self {
+        Self::Application(Box::new(f), Box::new(a))
+    }
+
+    fn error(msg: Tagged<&'static str>) -> Self {
+        Self::Error(msg)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum AstTypeExpression<'a> {
     /// Explicit type inference
     Hole,
     /// Use of a type
-    Symbol(AstSymbol),
+    Symbol(&'a AstSymbol),
     /// Type constructor application
     Application(Box<Self>, Box<Self>),
     /// Type lambda
-    Abstraction(Vec<AstSymbol>, Box<Self>),
+    Abstraction(Vec<&'a AstSymbol>, Box<Self>),
     /// Error node
     Error(Tagged<&'static str>),
+}
+
+impl<'a> AstApply<'a> for AstTypeExpression<'a> {
+    fn symbol(symb: &'a AstSymbol) -> Self {
+        Self::Symbol(symb)
+    }
+
+    fn apply(f: Self, a: Self) -> Self {
+        Self::Application(Box::new(f), Box::new(a))
+    }
+
+    fn error(msg: Tagged<&'static str>) -> Self {
+        Self::Error(msg)
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
