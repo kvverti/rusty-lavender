@@ -1,5 +1,4 @@
 use crate::ast::symbol::{AstSymbol, ExtractSymbol, SymbolContext, SymbolData, SymbolSpace};
-use crate::ast::symbol::fixity::InfixNamespace;
 use crate::parser::typedecl::{TypeExpression, TypePrimary};
 
 impl ExtractSymbol for TypePrimary {
@@ -23,10 +22,6 @@ impl ExtractSymbol for TypePrimary {
     }
 }
 
-impl InfixNamespace for TypePrimary {
-    const NAMESPACE: SymbolSpace = SymbolSpace::Type;
-}
-
 impl ExtractSymbol for TypeExpression {
     fn extract(&self, data: &mut SymbolData, ctx: SymbolContext) {
         match self {
@@ -38,6 +33,7 @@ impl ExtractSymbol for TypeExpression {
 
 #[cfg(test)]
 mod tests {
+    use crate::parser::item::Fixity;
     use crate::parser::tagged::Tagged;
     use crate::parser::token::{Token, TokenStream};
 
@@ -52,8 +48,8 @@ mod tests {
         let ctx = SymbolContext::new();
         let expected = SymbolData::from_parts(
             vec![
-                (AstSymbol::from_scopes(SymbolSpace::Type, &["a"]), Tagged { value: (), idx: 0, len: 2 }),
-                (AstSymbol::from_scopes(SymbolSpace::Type, &["1", "b"]), Tagged { value: (), idx: 11, len: 1 }),
+                (AstSymbol::from_scopes(SymbolSpace::Type, &["a"]), Tagged { value: Fixity::None, idx: 0, len: 2 }),
+                (AstSymbol::from_scopes(SymbolSpace::Type, &["1", "b"]), Tagged { value: Fixity::None, idx: 11, len: 1 }),
             ].into_iter().collect(),
             vec![
                 (AstSymbol::from_scopes(SymbolSpace::Value, &[]), AstSymbol::from_scopes(SymbolSpace::Type, &["->"])),
@@ -74,9 +70,9 @@ mod tests {
         let ctx = SymbolContext::new();
         let expected = SymbolData::from_parts(
             vec![
-                (AstSymbol::from_scopes(SymbolSpace::Type, &["a"]), Tagged { value: (), idx: 13, len: 2 }),
-                (AstSymbol::from_scopes(SymbolSpace::Type, &["0", "b"]), Tagged { value: (), idx: 5, len: 1 }),
-                (AstSymbol::from_scopes(SymbolSpace::Type, &["1", "b"]), Tagged { value: (), idx: 25, len: 1 }),
+                (AstSymbol::from_scopes(SymbolSpace::Type, &["a"]), Tagged { value: Fixity::None, idx: 13, len: 2 }),
+                (AstSymbol::from_scopes(SymbolSpace::Type, &["0", "b"]), Tagged { value: Fixity::None, idx: 5, len: 1 }),
+                (AstSymbol::from_scopes(SymbolSpace::Type, &["1", "b"]), Tagged { value: Fixity::None, idx: 25, len: 1 }),
             ].into_iter().collect(),
             vec![
                 (AstSymbol::from_scopes(SymbolSpace::Value, &[]), AstSymbol::from_scopes(SymbolSpace::Type, &["->"])),
@@ -99,9 +95,9 @@ mod tests {
         let ctx = SymbolContext::new();
         let expected = SymbolData::from_parts(
             vec![
-                (AstSymbol::from_scopes(SymbolSpace::Type, &["a"]), Tagged { value: (), idx: 13, len: 2 }),
-                (AstSymbol::from_scopes(SymbolSpace::Type, &["0", "b"]), Tagged { value: (), idx: 5, len: 1 }),
-                (AstSymbol::from_scopes(SymbolSpace::Type, &["1", "b"]), Tagged { value: (), idx: 22, len: 1 }),
+                (AstSymbol::from_scopes(SymbolSpace::Type, &["a"]), Tagged { value: Fixity::None, idx: 13, len: 2 }),
+                (AstSymbol::from_scopes(SymbolSpace::Type, &["0", "b"]), Tagged { value: Fixity::None, idx: 5, len: 1 }),
+                (AstSymbol::from_scopes(SymbolSpace::Type, &["1", "b"]), Tagged { value: Fixity::None, idx: 22, len: 1 }),
             ].into_iter().collect(),
             vec![
                 (AstSymbol::from_scopes(SymbolSpace::Value, &["0"]), AstSymbol::from_scopes(SymbolSpace::Type, &["->"])),

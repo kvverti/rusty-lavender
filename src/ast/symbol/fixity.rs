@@ -1,13 +1,8 @@
-use crate::ast::symbol::{AstSymbol, ExtractSymbol, SymbolContext, SymbolData, SymbolSpace};
+use crate::ast::symbol::{ExtractSymbol, SymbolContext, SymbolData};
 use crate::parser::fixity::{BasicFixity, InfixApply, InfixPrimary, PrefixApply};
 use crate::parser::primary::Primary;
 
-/// Trait for determining which infix namespace to use.
-pub trait InfixNamespace {
-    const NAMESPACE: SymbolSpace;
-}
-
-impl<P: Primary + ExtractSymbol + InfixNamespace> ExtractSymbol for BasicFixity<P> {
+impl<P: Primary + ExtractSymbol> ExtractSymbol for BasicFixity<P> {
     /// Extract from the inner value.
     fn extract(&self, data: &mut SymbolData, ctx: SymbolContext) {
         match self {
@@ -28,11 +23,9 @@ impl<P: Primary + ExtractSymbol> ExtractSymbol for InfixPrimary<P> {
     }
 }
 
-impl<P: Primary + ExtractSymbol + InfixNamespace> ExtractSymbol for InfixApply<P> {
+impl<P: Primary + ExtractSymbol> ExtractSymbol for InfixApply<P> {
     /// Extract the function name as unbound and extract the arguments.
     fn extract(&self, data: &mut SymbolData, ctx: SymbolContext) {
-        let func_symbol = AstSymbol::new(P::NAMESPACE, self.func.value.value());
-        data.declare_unbound_symbol(ctx.enclosing_scope.clone(), func_symbol);
         for (idx, primary) in self.args.iter().enumerate() {
             primary.extract(data, ctx.with_scope_idx(ctx.scope_idx + idx as u32));
         }

@@ -1,6 +1,7 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 
+use crate::parser::item::Fixity;
 use crate::parser::tagged::Tagged;
 
 mod definition;
@@ -127,47 +128,45 @@ impl<'a> SymbolContext<'a> {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SymbolData {
     /// The declared symbols in the tree.
-    declared_symbols: HashMap<AstSymbol, Tagged<()>>,
-    /// The yet unbound symbols in the tree, which will be resolved against the declared
-    /// symbols.
-    unbound_symbols: HashSet<(AstSymbol, AstSymbol)>,
+    declared_symbols: HashMap<AstSymbol, Tagged<Fixity>>,
 }
 
 impl SymbolData {
     pub fn new() -> Self {
         SymbolData {
             declared_symbols: HashMap::new(),
-            unbound_symbols: HashSet::new(),
         }
     }
 
     /// Constructs a semantic data from parts, used in unit testing.
     #[cfg(test)]
-    pub(crate) fn from_parts(declared_symbols: HashMap<AstSymbol, Tagged<()>>, unbound_symbols: HashSet<(AstSymbol, AstSymbol)>) -> Self {
-        Self { declared_symbols, unbound_symbols }
+    pub(crate) fn from_parts(declared_symbols: HashMap<AstSymbol, Tagged<Fixity>>, _unbound_symbols: std::collections::HashSet<(AstSymbol, AstSymbol)>) -> Self {
+        Self { declared_symbols }
     }
 
     /// Declares a symbol. If the symbol has been previously declared, no action is taken.
     pub fn declare_symbol(&mut self, symb: Tagged<AstSymbol>) {
+        self.declare_symbol_with_fixity(symb, Fixity::None);
+    }
+
+    pub fn declare_symbol_with_fixity(&mut self, symb: Tagged<AstSymbol>, fixity: Fixity) {
         let Tagged { value, idx, len } = symb;
-        self.declared_symbols.entry(value).or_insert(Tagged { value: (), idx, len });
+        self.declared_symbols.entry(value).or_insert(Tagged { value: fixity, idx, len });
     }
 
     /// Marks an unbound symbol found in the given scope.
-    pub fn declare_unbound_symbol(&mut self, scope: AstSymbol, symb: AstSymbol) {
-        self.unbound_symbols.insert((scope, symb));
-    }
+    pub fn declare_unbound_symbol(&mut self, _scope: AstSymbol, _symb: AstSymbol) {}
 
     /// Resolves an unbound symbol in some scope to a bound symbol in this symbol data.
-    pub fn resolve_symbol(&self, scope: &AstSymbol, symbol: &AstSymbol) -> Option<AstSymbol> {
+    pub fn resolve_symbol(&self, scope: &AstSymbol, symbol: AstSymbol) -> Option<(&AstSymbol, Fixity)> {
         let mut env_scopes = scope.scopes.clone();
         let mut env_len = env_scopes.len();
         let nspace = symbol.nspace;
         env_scopes.extend(symbol.scopes.iter().cloned());
         loop {
             let candidate_symbol = AstSymbol { nspace, scopes: env_scopes };
-            if self.declared_symbols.contains_key(&candidate_symbol) {
-                return Some(candidate_symbol);
+            if let Some((symb, fixity)) = self.declared_symbols.get_key_value(&candidate_symbol) {
+                return Some((symb, fixity.value));
             } else {
                 env_scopes = candidate_symbol.scopes;
                 if env_len == 0 {
@@ -200,25 +199,24 @@ mod tests {
     fn test_symbol_resolution() {
         let data = SymbolData {
             declared_symbols: vec![
-                (AstSymbol::from_scopes(SymbolSpace::Value, &["a", "b", "c"]), Tagged::new(())),
-                (AstSymbol::from_scopes(SymbolSpace::Type, &["a", "b", "d"]), Tagged::new(())),
-                (AstSymbol::from_scopes(SymbolSpace::Value, &["a", "d"]), Tagged::new(())),
+                (AstSymbol::from_scopes(SymbolSpace::Value, &["a", "b", "c"]), Tagged::new(Fixity::None)),
+                (AstSymbol::from_scopes(SymbolSpace::Type, &["a", "b", "d"]), Tagged::new(Fixity::None)),
+                (AstSymbol::from_scopes(SymbolSpace::Value, &["a", "d"]), Tagged::new(Fixity::None)),
             ].into_iter().collect(),
-            unbound_symbols: Default::default(),
         };
         let scope = AstSymbol::from_scopes(SymbolSpace::Value, &["a", "b"]);
         let sym1 = AstSymbol::new(SymbolSpace::Value, "c");
         let sym2 = AstSymbol::new(SymbolSpace::Value, "d");
         let sym3 = AstSymbol::from_scopes(SymbolSpace::Value, &["b", "c"]);
         let sym_n = AstSymbol::new(SymbolSpace::Type, "c");
-        let res1 = data.resolve_symbol(&scope, &sym1);
-        let res2 = data.resolve_symbol(&scope, &sym2);
-        let res3 = data.resolve_symbol(&scope, &sym3);
-        let res_n = data.resolve_symbol(&scope, &sym_n);
+        let res1 = data.resolve_symbol(&scope, sym1);
+        let res2 = data.resolve_symbol(&scope, sym2);
+        let res3 = data.resolve_symbol(&scope, sym3);
+        let res_n = data.resolve_symbol(&scope, sym_n);
         assert!(res_n.is_none());
-        let res1 = format!("{}", res1.unwrap());
-        let res2 = format!("{}", res2.unwrap());
-        let res3 = format!("{}", res3.unwrap());
+        let res1 = format!("{}", res1.unwrap().0);
+        let res2 = format!("{}", res2.unwrap().0);
+        let res3 = format!("{}", res3.unwrap().0);
         assert_eq!(&res1, "value/a::b::c");
         assert_eq!(&res2, "value/a::d");
         assert_eq!(&res3, "value/a::b::c");

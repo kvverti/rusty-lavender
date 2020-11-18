@@ -20,7 +20,7 @@ impl ExtractSymbol for Definition {
     fn extract(&self, data: &mut SymbolData, ctx: SymbolContext<'_>) {
         let name = self.name.as_ref().map(Identifier::value);
         let name_scope = name.map(|name| AstSymbol::in_scope(SymbolSpace::Value, ctx.enclosing_scope, name));
-        data.declare_symbol(name_scope.clone());
+        data.declare_symbol_with_fixity(name_scope.clone(), self.fixity);
         let function_ctx = ctx.with_enclosing_scope(&name_scope.value)
             .with_enclosing_definition(&name_scope.value);
         self.typ.extract(data, function_ctx);
@@ -38,6 +38,7 @@ impl ExtractSymbol for Definition {
 
 #[cfg(test)]
 mod tests {
+    use crate::parser::item::Fixity;
     use crate::parser::tagged::Tagged;
     use crate::parser::token::{Token, TokenStream};
 
@@ -45,18 +46,18 @@ mod tests {
 
     #[test]
     fn extracts_symbols_from_simple() {
-        let input = "def id a => a";
+        let input = "def ($)' a => a";
         let input = Token::parse_sequence(input);
         let input = Definition::regular(TokenStream(&input)).unwrap().1;
         let mut data = SymbolData::new();
         let ctx = SymbolContext::new();
         let expected = SymbolData::from_parts(
             vec![
-                (AstSymbol::from_scopes(SymbolSpace::Value, &["id"]), Tagged { value: (), idx: 4, len: 2 }),
-                (AstSymbol::from_scopes(SymbolSpace::Value, &["id", "a"]), Tagged { value: (), idx: 7, len: 1 }),
+                (AstSymbol::from_scopes(SymbolSpace::Value, &["$"]), Tagged { value: Fixity::Right, idx: 4, len: 3 }),
+                (AstSymbol::from_scopes(SymbolSpace::Value, &["$", "a"]), Tagged { value: Fixity::None, idx: 9, len: 1 }),
             ].into_iter().collect(),
             vec![
-                (AstSymbol::from_scopes(SymbolSpace::Value, &["id", "#body", "0"]), AstSymbol::from_scopes(SymbolSpace::Value, &["a"])),
+                (AstSymbol::from_scopes(SymbolSpace::Value, &["$", "#body", "0"]), AstSymbol::from_scopes(SymbolSpace::Value, &["a"])),
             ].into_iter().collect(),
         );
         input.extract(&mut data, ctx);
@@ -72,10 +73,10 @@ mod tests {
         let ctx = SymbolContext::new();
         let expected = SymbolData::from_parts(
             vec![
-                (AstSymbol::from_scopes(SymbolSpace::Value, &["const"]), Tagged { value: (), idx: 4, len: 5 }),
-                (AstSymbol::from_scopes(SymbolSpace::Type, &["const", "a"]), Tagged { value: (), idx: 11, len: 2 }),
-                (AstSymbol::from_scopes(SymbolSpace::Type, &["const", "1", "b"]), Tagged { value: (), idx: 22, len: 1 }),
-                (AstSymbol::from_scopes(SymbolSpace::Value, &["const", "a"]), Tagged { value: (), idx: 35, len: 1 }),
+                (AstSymbol::from_scopes(SymbolSpace::Value, &["const"]), Tagged { value: Fixity::None, idx: 4, len: 5 }),
+                (AstSymbol::from_scopes(SymbolSpace::Type, &["const", "a"]), Tagged { value: Fixity::None, idx: 11, len: 2 }),
+                (AstSymbol::from_scopes(SymbolSpace::Type, &["const", "1", "b"]), Tagged { value: Fixity::None, idx: 22, len: 1 }),
+                (AstSymbol::from_scopes(SymbolSpace::Value, &["const", "a"]), Tagged { value: Fixity::None, idx: 35, len: 1 }),
             ].into_iter().collect(),
             vec![
                 (AstSymbol::from_scopes(SymbolSpace::Value, &["const"]), AstSymbol::from_scopes(SymbolSpace::Type, &["->"])),
@@ -101,27 +102,27 @@ mod tests {
         let expected = SymbolData::from_parts(
             vec![
                 (AstSymbol::from_scopes(SymbolSpace::Value, &["map"]), Tagged {
-                    value: (),
+                    value: Fixity::None,
                     idx: input_str.match_indices("map").next().unwrap().0,
                     len: 3,
                 }),
                 (AstSymbol::from_scopes(SymbolSpace::Type, &["map", "a"]), Tagged {
-                    value: (),
+                    value: Fixity::None,
                     idx: input_str.match_indices("'a").next().unwrap().0,
                     len: 2,
                 }),
                 (AstSymbol::from_scopes(SymbolSpace::Type, &["map", "b"]), Tagged {
-                    value: (),
+                    value: Fixity::None,
                     idx: input_str.match_indices("'b").next().unwrap().0,
                     len: 2,
                 }),
                 (AstSymbol::from_scopes(SymbolSpace::Value, &["map", "f"]), Tagged {
-                    value: (),
+                    value: Fixity::None,
                     idx: input_str.match_indices('f').nth(1).unwrap().0,
                     len: 1,
                 }),
                 (AstSymbol::from_scopes(SymbolSpace::Value, &["map", "#body", "0", "a"]), Tagged {
-                    value: (),
+                    value: Fixity::None,
                     idx: input_str.match_indices('a').nth(3).unwrap().0,
                     len: 1,
                 }),

@@ -1,10 +1,5 @@
 use crate::ast::symbol::{AstSymbol, ExtractSymbol, SymbolContext, SymbolData, SymbolSpace};
-use crate::ast::symbol::fixity::InfixNamespace;
 use crate::parser::pattern::{Pattern, PatternPrimary};
-
-impl InfixNamespace for PatternPrimary {
-    const NAMESPACE: SymbolSpace = SymbolSpace::Pattern;
-}
 
 impl ExtractSymbol for PatternPrimary {
     fn extract(&self, data: &mut SymbolData, ctx: SymbolContext) {
@@ -42,6 +37,7 @@ impl ExtractSymbol for Pattern {
 
 #[cfg(test)]
 mod tests {
+    use crate::parser::item::Fixity;
     use crate::parser::primary::Primary;
     use crate::parser::tagged::Tagged;
     use crate::parser::token::{Token, TokenStream};
@@ -57,8 +53,8 @@ mod tests {
         let ctx = SymbolContext::new();
         let expected = SymbolData::from_parts(
             vec![
-                (AstSymbol::from_scopes(SymbolSpace::Value, &["a"]), Tagged { value: (), idx: 1, len: 1 }),
-                (AstSymbol::from_scopes(SymbolSpace::Value, &["b"]), Tagged { value: (), idx: 9, len: 1 }),
+                (AstSymbol::from_scopes(SymbolSpace::Value, &["a"]), Tagged { value: Fixity::None, idx: 1, len: 1 }),
+                (AstSymbol::from_scopes(SymbolSpace::Value, &["b"]), Tagged { value: Fixity::None, idx: 9, len: 1 }),
             ].into_iter().collect(),
             vec![
                 (AstSymbol::from_scopes(SymbolSpace::Value, &[]), AstSymbol::from_scopes(SymbolSpace::Pattern, &[","])),
