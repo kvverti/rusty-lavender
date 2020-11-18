@@ -14,6 +14,7 @@ use crate::ast::symbol::{AstSymbol, SymbolContext, SymbolData};
 use crate::parser::tagged::Tagged;
 use crate::parser::token::literal::Literal;
 
+mod definition;
 mod pattern;
 mod fixity;
 mod typedecl;
@@ -111,4 +112,18 @@ impl<'a> AstApply<'a> for AstPatternExpression<'a> {
     fn error(msg: Tagged<&'static str>) -> Self {
         Self::Error(msg)
     }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct AstDefinition<'a> {
+    pub name: &'a AstSymbol,
+    pub typ: AstTypeExpression<'a>,
+    pub params: Vec<AstPatternExpression<'a>>,
+    pub bodies: Vec<AstDefinitionBody<'a>>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct AstDefinitionBody<'a> {
+    pub params: Vec<AstPatternExpression<'a>>,
+    pub body: AstValueExpression<'a>,
 }
