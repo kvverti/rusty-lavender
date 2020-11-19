@@ -38,6 +38,8 @@ impl ExtractSymbol for Definition {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashSet;
+
     use crate::parser::item::Fixity;
     use crate::parser::tagged::Tagged;
     use crate::parser::token::{Token, TokenStream};
@@ -56,9 +58,7 @@ mod tests {
                 (AstSymbol::from_scopes(SymbolSpace::Value, &["$"]), Tagged { value: Fixity::Right, idx: 4, len: 3 }),
                 (AstSymbol::from_scopes(SymbolSpace::Value, &["$", "a"]), Tagged { value: Fixity::None, idx: 9, len: 1 }),
             ].into_iter().collect(),
-            vec![
-                (AstSymbol::from_scopes(SymbolSpace::Value, &["$", "#body", "0"]), AstSymbol::from_scopes(SymbolSpace::Value, &["a"])),
-            ].into_iter().collect(),
+            HashSet::new(),
         );
         input.extract(&mut data, ctx);
         assert_eq!(data, expected);
@@ -78,12 +78,7 @@ mod tests {
                 (AstSymbol::from_scopes(SymbolSpace::Type, &["const", "1", "b"]), Tagged { value: Fixity::None, idx: 22, len: 1 }),
                 (AstSymbol::from_scopes(SymbolSpace::Value, &["const", "a"]), Tagged { value: Fixity::None, idx: 35, len: 1 }),
             ].into_iter().collect(),
-            vec![
-                (AstSymbol::from_scopes(SymbolSpace::Value, &["const"]), AstSymbol::from_scopes(SymbolSpace::Type, &["->"])),
-                (AstSymbol::from_scopes(SymbolSpace::Value, &["const", "1"]), AstSymbol::from_scopes(SymbolSpace::Type, &["b"])),
-                (AstSymbol::from_scopes(SymbolSpace::Value, &["const", "1"]), AstSymbol::from_scopes(SymbolSpace::Type, &["->"])),
-                (AstSymbol::from_scopes(SymbolSpace::Value, &["const", "#body", "0"]), AstSymbol::from_scopes(SymbolSpace::Value, &["a"])),
-            ].into_iter().collect(),
+            HashSet::new(),
         );
         input.extract(&mut data, ctx);
         assert_eq!(data, expected);
@@ -127,16 +122,7 @@ mod tests {
                     len: 1,
                 }),
             ].into_iter().collect(),
-            vec![
-                (AstSymbol::from_scopes(SymbolSpace::Value, &["map"]), AstSymbol::from_scopes(SymbolSpace::Type, &["->"])),
-                (AstSymbol::from_scopes(SymbolSpace::Value, &["map"]), AstSymbol::from_scopes(SymbolSpace::Type, &["Option"])),
-                (AstSymbol::from_scopes(SymbolSpace::Value, &["map", "#body", "0"]), AstSymbol::from_scopes(SymbolSpace::Pattern, &["Some"])),
-                (AstSymbol::from_scopes(SymbolSpace::Value, &["map", "#body", "0"]), AstSymbol::from_scopes(SymbolSpace::Value, &["Some"])),
-                (AstSymbol::from_scopes(SymbolSpace::Value, &["map", "#body", "0"]), AstSymbol::from_scopes(SymbolSpace::Value, &["f"])),
-                (AstSymbol::from_scopes(SymbolSpace::Value, &["map", "#body", "0"]), AstSymbol::from_scopes(SymbolSpace::Value, &["a"])),
-                (AstSymbol::from_scopes(SymbolSpace::Value, &["map", "#body", "1"]), AstSymbol::from_scopes(SymbolSpace::Pattern, &["None"])),
-                (AstSymbol::from_scopes(SymbolSpace::Value, &["map", "#body", "1"]), AstSymbol::from_scopes(SymbolSpace::Value, &["None"])),
-            ].into_iter().collect(),
+            HashSet::new(),
         );
         input.extract(&mut data, ctx);
         assert_eq!(data, expected);

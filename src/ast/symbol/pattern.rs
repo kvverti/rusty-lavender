@@ -14,10 +14,7 @@ impl ExtractSymbol for PatternPrimary {
                     .next()
                     .expect("Expected nonempty name")
                     .is_uppercase();
-                if is_pattern {
-                    let symbol = AstSymbol::from_scopes(SymbolSpace::Pattern, &id.value.to_scopes());
-                    data.declare_unbound_symbol(ctx.enclosing_scope.clone(), symbol);
-                } else {
+                if !is_pattern {
                     let symbol = id.as_ref().map(|id| AstSymbol::in_scope(SymbolSpace::Value, ctx.enclosing_scope, id.name.value()));
                     data.declare_symbol(symbol);
                 }
@@ -37,6 +34,8 @@ impl ExtractSymbol for Pattern {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashSet;
+
     use crate::parser::item::Fixity;
     use crate::parser::primary::Primary;
     use crate::parser::tagged::Tagged;
@@ -56,11 +55,7 @@ mod tests {
                 (AstSymbol::from_scopes(SymbolSpace::Value, &["a"]), Tagged { value: Fixity::None, idx: 1, len: 1 }),
                 (AstSymbol::from_scopes(SymbolSpace::Value, &["b"]), Tagged { value: Fixity::None, idx: 9, len: 1 }),
             ].into_iter().collect(),
-            vec![
-                (AstSymbol::from_scopes(SymbolSpace::Value, &[]), AstSymbol::from_scopes(SymbolSpace::Pattern, &[","])),
-                (AstSymbol::from_scopes(SymbolSpace::Value, &[]), AstSymbol::from_scopes(SymbolSpace::Pattern, &["Some"])),
-                (AstSymbol::from_scopes(SymbolSpace::Value, &[]), AstSymbol::from_scopes(SymbolSpace::Pattern, &["c", "d"])),
-            ].into_iter().collect(),
+            HashSet::new(),
         );
         input.extract(&mut result, ctx);
         assert_eq!(result, expected);

@@ -1,3 +1,5 @@
+#[cfg(test)]
+use std::{cell::RefCell, collections::HashSet};
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 
@@ -124,24 +126,54 @@ impl<'a> SymbolContext<'a> {
     }
 }
 
+/// Struct to use in AST construction / symbol resolution tests.
+#[cfg(test)]
+#[derive(Clone, Default, Debug, Eq, PartialEq)]
+pub(crate) struct SymbolTally {
+    /// Symbols expected to be resolved when constructing the AST.
+    expected_symbols: HashSet<(AstSymbol, AstSymbol)>,
+    /// Symbols that are erroneously passed to be resolved.
+    erroneous_symbols: Vec<(AstSymbol, AstSymbol)>,
+}
+
+#[cfg(test)]
+impl SymbolTally {
+    /// Asserts the expected symbol resolution took place.
+    pub(crate) fn assert_resolved(&self) {
+        assert!(self.expected_symbols.is_empty(), "Unresolved symbols: {:#?}", self.expected_symbols);
+        assert!(self.erroneous_symbols.is_empty(), "Unexpected symbols: {:#?}", self.erroneous_symbols);
+    }
+}
+
 /// Semantic data extracted from the parse tree and associated with the AST.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SymbolData {
     /// The declared symbols in the tree.
     declared_symbols: HashMap<AstSymbol, Tagged<Fixity>>,
+    /// Symbols expected to be resolved when constructing the AST.
+    #[cfg(test)]
+    tally: RefCell<SymbolTally>,
 }
 
 impl SymbolData {
     pub fn new() -> Self {
         SymbolData {
             declared_symbols: HashMap::new(),
+            #[cfg(test)]
+            tally: RefCell::default(),
         }
     }
 
     /// Constructs a semantic data from parts, used in unit testing.
     #[cfg(test)]
-    pub(crate) fn from_parts(declared_symbols: HashMap<AstSymbol, Tagged<Fixity>>, _unbound_symbols: std::collections::HashSet<(AstSymbol, AstSymbol)>) -> Self {
-        Self { declared_symbols }
+    pub(crate) fn from_parts(declared_symbols: HashMap<AstSymbol, Tagged<Fixity>>, expected_symbols: std::collections::HashSet<(AstSymbol, AstSymbol)>) -> Self {
+        Self {
+            declared_symbols,
+            tally: RefCell::new(SymbolTally {
+                expected_symbols,
+                erroneous_symbols: vec![],
+            }),
+        }
     }
 
     /// Declares a symbol. If the symbol has been previously declared, no action is taken.
@@ -155,14 +187,23 @@ impl SymbolData {
     }
 
     /// Marks an unbound symbol found in the given scope.
+    #[deprecated]
     pub fn declare_unbound_symbol(&mut self, _scope: AstSymbol, _symb: AstSymbol) {}
 
     /// Resolves an unbound symbol in some scope to a bound symbol in this symbol data.
     pub fn resolve_symbol(&self, scope: &AstSymbol, symbol: AstSymbol) -> Option<(&AstSymbol, Fixity)> {
+        #[cfg(test)] {
+            // tally resolved symbols to make sure they are expected
+            let mut tally = self.tally.borrow_mut();
+            let tup = (scope.clone(), symbol.clone());
+            if !tally.expected_symbols.remove(&tup) {
+                tally.erroneous_symbols.push(tup);
+            }
+        }
         let mut env_scopes = scope.scopes.clone();
         let mut env_len = env_scopes.len();
         let nspace = symbol.nspace;
-        env_scopes.extend(symbol.scopes.iter().cloned());
+        env_scopes.extend(symbol.scopes);
         loop {
             let candidate_symbol = AstSymbol { nspace, scopes: env_scopes };
             if let Some((symb, fixity)) = self.declared_symbols.get_key_value(&candidate_symbol) {
@@ -197,18 +238,24 @@ mod tests {
 
     #[test]
     fn test_symbol_resolution() {
-        let data = SymbolData {
-            declared_symbols: vec![
-                (AstSymbol::from_scopes(SymbolSpace::Value, &["a", "b", "c"]), Tagged::new(Fixity::None)),
-                (AstSymbol::from_scopes(SymbolSpace::Type, &["a", "b", "d"]), Tagged::new(Fixity::None)),
-                (AstSymbol::from_scopes(SymbolSpace::Value, &["a", "d"]), Tagged::new(Fixity::None)),
-            ].into_iter().collect(),
-        };
         let scope = AstSymbol::from_scopes(SymbolSpace::Value, &["a", "b"]);
         let sym1 = AstSymbol::new(SymbolSpace::Value, "c");
         let sym2 = AstSymbol::new(SymbolSpace::Value, "d");
         let sym3 = AstSymbol::from_scopes(SymbolSpace::Value, &["b", "c"]);
         let sym_n = AstSymbol::new(SymbolSpace::Type, "c");
+        let data = SymbolData::from_parts(
+            vec![
+                (AstSymbol::from_scopes(SymbolSpace::Value, &["a", "b", "c"]), Tagged::new(Fixity::None)),
+                (AstSymbol::from_scopes(SymbolSpace::Type, &["a", "b", "d"]), Tagged::new(Fixity::None)),
+                (AstSymbol::from_scopes(SymbolSpace::Value, &["a", "d"]), Tagged::new(Fixity::None)),
+            ].into_iter().collect(),
+            vec![
+                (scope.clone(), sym1.clone()),
+                (scope.clone(), sym2.clone()),
+                (scope.clone(), sym3.clone()),
+                (scope.clone(), sym_n.clone()),
+            ].into_iter().collect(),
+        );
         let res1 = data.resolve_symbol(&scope, sym1);
         let res2 = data.resolve_symbol(&scope, sym2);
         let res3 = data.resolve_symbol(&scope, sym3);
@@ -220,5 +267,6 @@ mod tests {
         assert_eq!(&res1, "value/a::b::c");
         assert_eq!(&res2, "value/a::d");
         assert_eq!(&res3, "value/a::b::c");
+        data.tally.borrow().assert_resolved();
     }
 }

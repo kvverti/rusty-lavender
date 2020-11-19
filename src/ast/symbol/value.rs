@@ -1,16 +1,11 @@
-use crate::ast::symbol::{AstSymbol, ExtractSymbol, SymbolContext, SymbolData, SymbolSpace};
+use crate::ast::symbol::{ExtractSymbol, SymbolContext, SymbolData};
 use crate::parser::value::{ValueExpression, ValuePrimary};
 
 impl ExtractSymbol for ValuePrimary {
     fn extract(&self, data: &mut SymbolData, ctx: SymbolContext) {
         match self {
-            // literals declare no symbols
-            Self::Literal(_) => {}
-            // scoped IDs in value expressions are unbound symbols
-            Self::Identifier(id) => {
-                let symbol = AstSymbol::from_scopes(SymbolSpace::Value, &id.value.to_scopes());
-                data.declare_unbound_symbol(ctx.enclosing_scope.clone(), symbol);
-            }
+            // literals and scoped IDs declare no symbols
+            Self::Literal(_) | Self::Identifier(_) => {}
             // subexpressions pass through symbols
             Self::SubExpression(expr) => expr.extract(data, ctx),
         }
@@ -28,6 +23,9 @@ impl ExtractSymbol for ValueExpression {
 
 #[cfg(test)]
 mod test {
+    use std::collections::HashSet;
+
+    use crate::ast::symbol::{AstSymbol, SymbolSpace};
     use crate::parser::item::Fixity;
     use crate::parser::tagged::Tagged;
     use crate::parser::token::{Token, TokenStream};
@@ -46,16 +44,7 @@ mod test {
                 (AstSymbol::from_scopes(SymbolSpace::Value, &["1", "b"]), Tagged { value: Fixity::None, idx: 15, len: 1 }),
                 (AstSymbol::from_scopes(SymbolSpace::Value, &["1", "c"]), Tagged { value: Fixity::None, idx: 18, len: 1 }),
             ].into_iter().collect(),
-            vec![
-                (AstSymbol::from_scopes(SymbolSpace::Value, &[]), AstSymbol::from_scopes(SymbolSpace::Value, &["a"])),
-                (AstSymbol::from_scopes(SymbolSpace::Value, &[]), AstSymbol::from_scopes(SymbolSpace::Value, &["@"])),
-                (AstSymbol::from_scopes(SymbolSpace::Value, &["1"]), AstSymbol::from_scopes(SymbolSpace::Pattern, &["Some"])),
-                (AstSymbol::from_scopes(SymbolSpace::Value, &["1"]), AstSymbol::from_scopes(SymbolSpace::Pattern, &[","])),
-                (AstSymbol::from_scopes(SymbolSpace::Value, &["1"]), AstSymbol::from_scopes(SymbolSpace::Value, &["b"])),
-                (AstSymbol::from_scopes(SymbolSpace::Value, &["1"]), AstSymbol::from_scopes(SymbolSpace::Value, &["+"])),
-                (AstSymbol::from_scopes(SymbolSpace::Value, &["1"]), AstSymbol::from_scopes(SymbolSpace::Value, &["c"])),
-                (AstSymbol::from_scopes(SymbolSpace::Value, &["1", "3"]), AstSymbol::from_scopes(SymbolSpace::Value, &["a"])),
-            ].into_iter().collect(),
+            HashSet::new(),
         );
         expr.extract(&mut data, ctx);
         assert_eq!(data, expected);
