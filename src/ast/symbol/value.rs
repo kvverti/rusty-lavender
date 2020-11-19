@@ -23,8 +23,6 @@ impl ExtractSymbol for ValueExpression {
 
 #[cfg(test)]
 mod test {
-    use std::collections::HashSet;
-
     use crate::ast::symbol::{AstSymbol, SymbolSpace};
     use crate::parser::item::Fixity;
     use crate::parser::tagged::Tagged;
@@ -44,7 +42,7 @@ mod test {
                 (AstSymbol::from_scopes(SymbolSpace::Value, &["1", "b"]), Tagged { value: Fixity::None, idx: 15, len: 1 }),
                 (AstSymbol::from_scopes(SymbolSpace::Value, &["1", "c"]), Tagged { value: Fixity::None, idx: 18, len: 1 }),
             ].into_iter().collect(),
-            HashSet::new(),
+            vec![],
         );
         expr.extract(&mut data, ctx);
         assert_eq!(data, expected);

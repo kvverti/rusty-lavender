@@ -15,11 +15,15 @@ impl<'a> ExtractAstNode<'a> for PatternPrimary {
                     .next()
                     .expect("Expected nonempty name")
                     .is_uppercase();
-                let nspace = if is_pattern { SymbolSpace::Pattern } else { SymbolSpace::Value };
-                let symbol = AstSymbol::from_scopes(nspace, &id.value.to_scopes());
-                data.resolve_symbol(ctx.enclosing_scope, symbol)
-                    .map(|(s, _)| AstPatternExpression::Symbol(s))
-                    .unwrap_or_else(|| AstPatternExpression::Error(id.map(|_| "Cannot resolve pattern symbol")))
+                if is_pattern {
+                    let symbol = AstSymbol::from_scopes(SymbolSpace::Pattern, &id.value.to_scopes());
+                    data.resolve_symbol(ctx.enclosing_scope, symbol)
+                        .map(|(s, _)| AstPatternExpression::Symbol(s))
+                        .unwrap_or_else(|| AstPatternExpression::Error(id.map(|_| "Cannot resolve pattern symbol")))
+                } else {
+                    let symbol = AstSymbol::in_scope(SymbolSpace::Value, ctx.enclosing_scope, id.value.name.value());
+                    AstPatternExpression::Symbol(data.get_declared_symbol(symbol))
+                }
             }
             Self::Literal(lit) => AstPatternExpression::Constant(lit),
             Self::Blank => AstPatternExpression::Blank,
@@ -43,7 +47,9 @@ impl<'a> ExtractAstNode<'a> for Pattern {
 
 #[cfg(test)]
 mod tests {
-    use crate::ast::symbol::ExtractSymbol;
+    use nom::lib::std::collections::HashMap;
+
+    use crate::ast::symbol::{ExtractSymbol, GLOBAL_SCOPE};
     use crate::parser::item::Fixity;
     use crate::parser::primary::Primary;
     use crate::parser::tagged::Tagged;
@@ -65,7 +71,11 @@ mod tests {
                 (arrow.clone(), Tagged::new(Fixity::Right)),
                 (list_nil.clone(), Tagged::new(Fixity::None)),
             ].into_iter().collect(),
-            Default::default(),
+            vec![
+                (GLOBAL_SCOPE.clone(), some.clone()),
+                (GLOBAL_SCOPE.clone(), arrow.clone()),
+                (GLOBAL_SCOPE.clone(), list_nil.clone()),
+            ],
         );
         let expected = AstPatternExpression::Application(
             Box::new(AstPatternExpression::Application(
@@ -90,6 +100,7 @@ mod tests {
         let input = PatternPrimary::parse(TokenStream(&input)).unwrap().1;
         input.extract(&mut data, SymbolContext::new());
         let ast = input.construct_ast(&data, SymbolContext::new());
+        data.assert_resolved();
         assert_eq!(ast, expected);
     }
 
@@ -97,7 +108,12 @@ mod tests {
     fn unresolved() {
         let input = "(Some x)";
         let x = AstSymbol::new(SymbolSpace::Value, "x");
-        let mut data = SymbolData::new();
+        let mut data = SymbolData::from_parts(
+            HashMap::new(),
+            vec![
+                (GLOBAL_SCOPE.clone(), AstSymbol::new(SymbolSpace::Pattern, "Some"))
+            ],
+        );
         let expected = AstPatternExpression::Application(
             Box::new(AstPatternExpression::Error(Tagged {
                 value: "Cannot resolve pattern symbol",
@@ -110,6 +126,7 @@ mod tests {
         let input = PatternPrimary::parse(TokenStream(&input)).unwrap().1;
         input.extract(&mut data, SymbolContext::new());
         let ast = input.construct_ast(&data, SymbolContext::new());
+        data.assert_resolved();
         assert_eq!(ast, expected);
     }
 }

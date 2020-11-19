@@ -56,8 +56,10 @@ impl<'a> ExtractAstNode<'a> for ValueExpression {
 
 #[cfg(test)]
 mod tests {
+    use nom::lib::std::collections::HashMap;
+
     use crate::ast::node::{AstPatternExpression, AstValueExpression, ExtractAstNode};
-    use crate::ast::symbol::{AstSymbol, ExtractSymbol, SymbolContext, SymbolData, SymbolSpace};
+    use crate::ast::symbol::{AstSymbol, ExtractSymbol, GLOBAL_SCOPE, SymbolContext, SymbolData, SymbolSpace};
     use crate::parser::item::Fixity;
     use crate::parser::tagged::Tagged;
     use crate::parser::token::{Token, TokenStream};
@@ -82,7 +84,16 @@ mod tests {
                 (some.clone(), Tagged::new(Fixity::None)),
                 (comma.clone(), Tagged::new(Fixity::None)),
             ].into_iter().collect(),
-            Default::default(),
+            vec![
+                (GLOBAL_SCOPE.clone(), a.clone()),
+                (GLOBAL_SCOPE.clone(), at.clone()),
+                (AstSymbol::from_scopes(SymbolSpace::Value, &["1"]), some.clone()),
+                (AstSymbol::from_scopes(SymbolSpace::Value, &["1"]), comma.clone()),
+                (AstSymbol::from_scopes(SymbolSpace::Value, &["1"]), AstSymbol::from_scopes(SymbolSpace::Value, &["b"])),
+                (AstSymbol::from_scopes(SymbolSpace::Value, &["1"]), AstSymbol::from_scopes(SymbolSpace::Value, &["c"])),
+                (AstSymbol::from_scopes(SymbolSpace::Value, &["1"]), plus.clone()),
+                (AstSymbol::from_scopes(SymbolSpace::Value, &["1", "2"]), a.clone()),
+            ],
         );
         let expected = AstValueExpression::Application(
             Box::new(AstValueExpression::Application(
@@ -122,13 +133,20 @@ mod tests {
         let input = ValueExpression::parse(TokenStream(&input)).unwrap().1;
         input.extract(&mut data, SymbolContext::new());
         let ast = input.construct_ast(&data, SymbolContext::new());
+        data.assert_resolved();
         assert_eq!(ast, expected);
     }
 
     #[test]
     fn unresolved() {
         let input = "a @ 3";
-        let mut data = SymbolData::new();
+        let mut data = SymbolData::from_parts(
+            HashMap::new(),
+            vec![
+                (GLOBAL_SCOPE.clone(), AstSymbol::from_scopes(SymbolSpace::Value, &["a"])),
+                (GLOBAL_SCOPE.clone(), AstSymbol::from_scopes(SymbolSpace::Value, &["@"])),
+            ],
+        );
         let expected = AstValueExpression::Application(
             Box::new(AstValueExpression::Application(
                 Box::new(AstValueExpression::Error(Tagged {
@@ -148,6 +166,7 @@ mod tests {
         let input = ValueExpression::parse(TokenStream(&input)).unwrap().1;
         input.extract(&mut data, SymbolContext::new());
         let ast = input.construct_ast(&data, SymbolContext::new());
+        data.assert_resolved();
         assert_eq!(ast, expected);
     }
 }

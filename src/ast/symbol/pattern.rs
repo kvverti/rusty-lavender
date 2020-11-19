@@ -34,8 +34,6 @@ impl ExtractSymbol for Pattern {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashSet;
-
     use crate::parser::item::Fixity;
     use crate::parser::primary::Primary;
     use crate::parser::tagged::Tagged;
@@ -55,7 +53,7 @@ mod tests {
                 (AstSymbol::from_scopes(SymbolSpace::Value, &["a"]), Tagged { value: Fixity::None, idx: 1, len: 1 }),
                 (AstSymbol::from_scopes(SymbolSpace::Value, &["b"]), Tagged { value: Fixity::None, idx: 9, len: 1 }),
             ].into_iter().collect(),
-            HashSet::new(),
+            vec![],
         );
         input.extract(&mut result, ctx);
         assert_eq!(result, expected);

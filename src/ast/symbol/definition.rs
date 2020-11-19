@@ -38,8 +38,6 @@ impl ExtractSymbol for Definition {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashSet;
-
     use crate::parser::item::Fixity;
     use crate::parser::tagged::Tagged;
     use crate::parser::token::{Token, TokenStream};
@@ -58,7 +56,7 @@ mod tests {
                 (AstSymbol::from_scopes(SymbolSpace::Value, &["$"]), Tagged { value: Fixity::Right, idx: 4, len: 3 }),
                 (AstSymbol::from_scopes(SymbolSpace::Value, &["$", "a"]), Tagged { value: Fixity::None, idx: 9, len: 1 }),
             ].into_iter().collect(),
-            HashSet::new(),
+            vec![],
         );
         input.extract(&mut data, ctx);
         assert_eq!(data, expected);
@@ -78,7 +76,7 @@ mod tests {
                 (AstSymbol::from_scopes(SymbolSpace::Type, &["const", "1", "b"]), Tagged { value: Fixity::None, idx: 22, len: 1 }),
                 (AstSymbol::from_scopes(SymbolSpace::Value, &["const", "a"]), Tagged { value: Fixity::None, idx: 35, len: 1 }),
             ].into_iter().collect(),
-            HashSet::new(),
+            vec![],
         );
         input.extract(&mut data, ctx);
         assert_eq!(data, expected);
@@ -122,7 +120,7 @@ mod tests {
                     len: 1,
                 }),
             ].into_iter().collect(),
-            HashSet::new(),
+            vec![],
         );
         input.extract(&mut data, ctx);
         assert_eq!(data, expected);

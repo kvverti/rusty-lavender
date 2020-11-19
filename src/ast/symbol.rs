@@ -1,5 +1,5 @@
 #[cfg(test)]
-use std::{cell::RefCell, collections::HashSet};
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 
@@ -131,18 +131,9 @@ impl<'a> SymbolContext<'a> {
 #[derive(Clone, Default, Debug, Eq, PartialEq)]
 pub(crate) struct SymbolTally {
     /// Symbols expected to be resolved when constructing the AST.
-    expected_symbols: HashSet<(AstSymbol, AstSymbol)>,
+    expected_symbols: Vec<(AstSymbol, AstSymbol)>,
     /// Symbols that are erroneously passed to be resolved.
     erroneous_symbols: Vec<(AstSymbol, AstSymbol)>,
-}
-
-#[cfg(test)]
-impl SymbolTally {
-    /// Asserts the expected symbol resolution took place.
-    pub(crate) fn assert_resolved(&self) {
-        assert!(self.expected_symbols.is_empty(), "Unresolved symbols: {:#?}", self.expected_symbols);
-        assert!(self.erroneous_symbols.is_empty(), "Unexpected symbols: {:#?}", self.erroneous_symbols);
-    }
 }
 
 /// Semantic data extracted from the parse tree and associated with the AST.
@@ -166,7 +157,7 @@ impl SymbolData {
 
     /// Constructs a semantic data from parts, used in unit testing.
     #[cfg(test)]
-    pub(crate) fn from_parts(declared_symbols: HashMap<AstSymbol, Tagged<Fixity>>, expected_symbols: std::collections::HashSet<(AstSymbol, AstSymbol)>) -> Self {
+    pub(crate) fn from_parts(declared_symbols: HashMap<AstSymbol, Tagged<Fixity>>, expected_symbols: Vec<(AstSymbol, AstSymbol)>) -> Self {
         Self {
             declared_symbols,
             tally: RefCell::new(SymbolTally {
@@ -174,6 +165,14 @@ impl SymbolData {
                 erroneous_symbols: vec![],
             }),
         }
+    }
+
+    /// Asserts the expected symbol resolution took place.
+    #[cfg(test)]
+    pub(crate) fn assert_resolved(&self) {
+        let tally = self.tally.borrow();
+        assert!(tally.erroneous_symbols.is_empty(), "Unexpected symbols: {:#?}", tally.erroneous_symbols);
+        assert!(tally.expected_symbols.is_empty(), "Expected symbols: {:#?}", tally.expected_symbols);
     }
 
     /// Declares a symbol. If the symbol has been previously declared, no action is taken.
@@ -190,14 +189,22 @@ impl SymbolData {
     #[deprecated]
     pub fn declare_unbound_symbol(&mut self, _scope: AstSymbol, _symb: AstSymbol) {}
 
+    /// Asserts and returns a symbol previously declared.
+    pub fn get_declared_symbol(&self, symbol: AstSymbol) -> &AstSymbol {
+        self.declared_symbols.get_key_value(&symbol).expect("Declared symbol not bound").0
+    }
+
     /// Resolves an unbound symbol in some scope to a bound symbol in this symbol data.
     pub fn resolve_symbol(&self, scope: &AstSymbol, symbol: AstSymbol) -> Option<(&AstSymbol, Fixity)> {
         #[cfg(test)] {
             // tally resolved symbols to make sure they are expected
             let mut tally = self.tally.borrow_mut();
-            let tup = (scope.clone(), symbol.clone());
-            if !tally.expected_symbols.remove(&tup) {
-                tally.erroneous_symbols.push(tup);
+            let removed = tally.expected_symbols.iter()
+                .position(|(sc, sy)| sc == scope && sy == &symbol);
+            if let Some(idx) = removed {
+                tally.expected_symbols.remove(idx);
+            } else {
+                tally.erroneous_symbols.push((scope.clone(), symbol.clone()));
             }
         }
         let mut env_scopes = scope.scopes.clone();
@@ -267,6 +274,6 @@ mod tests {
         assert_eq!(&res1, "value/a::b::c");
         assert_eq!(&res2, "value/a::d");
         assert_eq!(&res3, "value/a::b::c");
-        data.tally.borrow().assert_resolved();
+        data.assert_resolved();
     }
 }
