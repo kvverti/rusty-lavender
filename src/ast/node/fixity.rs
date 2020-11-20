@@ -101,3 +101,77 @@ impl<'a, P: Primary + ExtractAstNode<'a> + InfixNamespace> ExtractAstNode<'a> fo
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::ast::node::{AstPatternExpression, AstValueExpression, ExtractAstNode};
+    use crate::ast::symbol::{AstSymbol, ExtractSymbol, GLOBAL_SCOPE, SymbolContext, SymbolData, SymbolSpace};
+    use crate::parser::item::Fixity;
+    use crate::parser::tagged::Tagged;
+    use crate::parser::token::{Token, TokenStream};
+    use crate::parser::value::ValueExpression;
+
+    #[test]
+    fn proper_inner_scopes() {
+        let input =
+            "(a (lam a. a)) (lam a. a) `a` (lam a. (lam a. a) a (lam a. a))";
+        //    *         1           2   *                3,0  3       3,2
+        let a = AstSymbol::from_scopes(SymbolSpace::Value, &["a"]);
+        let a1 = AstSymbol::from_scopes(SymbolSpace::Value, &["1", "a"]);
+        let a2 = AstSymbol::from_scopes(SymbolSpace::Value, &["2", "a"]);
+        let a3 = AstSymbol::from_scopes(SymbolSpace::Value, &["3", "a"]);
+        let a30 = AstSymbol::from_scopes(SymbolSpace::Value, &["3", "0", "a"]);
+        let a32 = AstSymbol::from_scopes(SymbolSpace::Value, &["3", "2", "a"]);
+        let mut data = SymbolData::from_parts(
+            vec![
+                (a.clone(), Tagged::new(Fixity::None)),
+            ].into_iter().collect(),
+            vec![
+                (GLOBAL_SCOPE.clone(), a.clone()),
+                (GLOBAL_SCOPE.clone(), a.clone()),
+                (AstSymbol::from_scopes(SymbolSpace::Value, &["1"]), a.clone()),
+                (AstSymbol::from_scopes(SymbolSpace::Value, &["2"]), a.clone()),
+                (AstSymbol::from_scopes(SymbolSpace::Value, &["3"]), a.clone()),
+                (AstSymbol::from_scopes(SymbolSpace::Value, &["3", "0"]), a.clone()),
+                (AstSymbol::from_scopes(SymbolSpace::Value, &["3", "2"]), a.clone()),
+            ],
+        );
+        let expected = AstValueExpression::Application(
+            Box::new(AstValueExpression::Application(
+                Box::new(AstValueExpression::Symbol(&a)),
+                Box::new(AstValueExpression::Abstraction(
+                    vec![AstPatternExpression::Symbol(&a1)],
+                    Box::new(AstValueExpression::Application(
+                        Box::new(AstValueExpression::Symbol(&a1)),
+                        Box::new(AstValueExpression::Abstraction(
+                            vec![AstPatternExpression::Symbol(&a2)],
+                            Box::new(AstValueExpression::Symbol(&a2)),
+                        )),
+                    )),
+                )),
+            )),
+            Box::new(AstValueExpression::Abstraction(
+                vec![AstPatternExpression::Symbol(&a3)],
+                Box::new(AstValueExpression::Application(
+                    Box::new(AstValueExpression::Application(
+                        Box::new(AstValueExpression::Abstraction(
+                            vec![AstPatternExpression::Symbol(&a30)],
+                            Box::new(AstValueExpression::Symbol(&a30)),
+                        )),
+                        Box::new(AstValueExpression::Symbol(&a3)),
+                    )),
+                    Box::new(AstValueExpression::Abstraction(
+                        vec![AstPatternExpression::Symbol(&a32)],
+                        Box::new(AstValueExpression::Symbol(&a32)),
+                    )),
+                )),
+            )),
+        );
+        let input = Token::parse_sequence(input);
+        let input = ValueExpression::parse(TokenStream(&input)).unwrap().1;
+        input.extract(&mut data, SymbolContext::new());
+        let ast = input.construct_ast(&data, SymbolContext::new());
+        data.assert_resolved();
+        assert_eq!(ast, expected);
+    }
+}
