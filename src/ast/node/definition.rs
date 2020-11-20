@@ -7,11 +7,15 @@ impl<'a> ExtractAstNode<'a> for DefinitionBody {
 
     fn construct_ast(self, data: &'a SymbolData, ctx: SymbolContext<'_>) -> Self::Node {
         let Self { params, body } = self;
-        let inner_scope = AstSymbol::in_scope(SymbolSpace::Value, ctx.enclosing_scope, &ctx.scope_idx.to_string());
-        let inner_ctx = ctx.with_enclosing_scope(&inner_scope);
+        let inner_scope = AstSymbol::in_scope(
+            SymbolSpace::Value,
+            ctx.enclosing_scope,
+            &ctx.implicit_scope.as_scopes().join("/"));
+        let inner_ctx = ctx.with_enclosing_scope(&inner_scope)
+            .with_implicit_scope(&GLOBAL_SCOPE);
         let params = params.into_iter()
             .map(|param| param.construct_ast(data, inner_ctx));
-        let body = body.construct_ast(data, ctx);
+        let body = body.construct_ast(data, inner_ctx);
         AstDefinitionBody { params: params.collect(), body }
     }
 }
@@ -32,7 +36,10 @@ impl<'a> ExtractAstNode<'a> for Definition {
         let body_ctx = def_ctx.with_enclosing_scope(&body_scope);
         let bodies = bodies.into_iter()
             .enumerate()
-            .map(|(idx, body)| body.construct_ast(data, body_ctx.with_scope_idx(ctx.scope_idx + idx as u32)));
+            .map(|(idx, body)| {
+                let implicit = AstSymbol::in_scope(SymbolSpace::Value, ctx.implicit_scope, &idx.to_string());
+                body.construct_ast(data, body_ctx.with_implicit_scope(&implicit))
+            });
         AstDefinition {
             name,
             typ,
@@ -45,9 +52,9 @@ impl<'a> ExtractAstNode<'a> for Definition {
 #[cfg(test)]
 mod tests {
     use crate::ast::node::{AstDefinition, AstDefinitionBody, AstPatternExpression, AstTypeExpression, AstValueExpression, ExtractAstNode};
-    use crate::ast::symbol::{AstSymbol, SymbolData, SymbolSpace, ExtractSymbol, SymbolContext};
-    use crate::parser::token::{Token, TokenStream};
+    use crate::ast::symbol::{AstSymbol, ExtractSymbol, SymbolContext, SymbolData, SymbolSpace};
     use crate::parser::item::Definition;
+    use crate::parser::token::{Token, TokenStream};
 
     #[test]
     fn constructs() {

@@ -1,7 +1,7 @@
 use nom::bytes::complete::tag;
 use nom::multi::many1;
 
-use crate::ast::symbol::{AstSymbol, ExtractSymbol, SymbolContext, SymbolData, SymbolSpace};
+use crate::ast::symbol::{AstSymbol, ExtractSymbol, SymbolContext, SymbolData, SymbolSpace, GLOBAL_SCOPE};
 use crate::parser::{ParseResult, until_next_sync_point};
 use crate::parser::primary::name;
 use crate::parser::tagged::{tagged, Tagged};
@@ -62,12 +62,18 @@ impl ExtractSymbol for TypeLambda {
     /// Extract the lambda names and anything in the body
     fn extract(&self, data: &mut SymbolData, ctx: SymbolContext) {
         if let Self::Value { params, body } = self {
-            let inner_scope = AstSymbol::in_scope(SymbolSpace::Value, ctx.enclosing_scope, &ctx.scope_idx.to_string());
+            let inner_scope = AstSymbol::in_scope(
+                SymbolSpace::Value,
+                ctx.enclosing_scope,
+                &ctx.implicit_scope.as_scopes().join("/"),
+            );
             for name in params {
                 let symbol = name.as_ref().map(|name| AstSymbol::in_scope(SymbolSpace::Type, &inner_scope, &name.0));
                 data.declare_symbol(symbol);
             }
-            body.extract(data, ctx.with_enclosing_scope(&inner_scope));
+            let ctx = ctx.with_enclosing_scope(&inner_scope)
+                .with_implicit_scope(&GLOBAL_SCOPE);
+            body.extract(data, ctx);
         } else {
             unreachable!();
         }

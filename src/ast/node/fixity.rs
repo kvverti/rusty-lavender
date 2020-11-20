@@ -28,10 +28,14 @@ impl<'a, P: Primary + ExtractAstNode<'a>> ExtractAstNode<'a> for PrefixApply<P>
     type Node = P::Node;
 
     fn construct_ast(self, data: &'a SymbolData, ctx: SymbolContext<'_>) -> Self::Node {
-        let func_node = self.func.construct_ast(data, ctx);
+        let implicit = AstSymbol::in_scope(SymbolSpace::Value, ctx.implicit_scope, "0");
+        let func_node = self.func.construct_ast(data, ctx.with_implicit_scope(&implicit));
         // left fold args: f a b c -> ((f a) b) c
         self.args.into_iter().enumerate()
-            .map(|(idx, arg)| arg.construct_ast(data, ctx.with_scope_idx(ctx.scope_idx + 1 + idx as u32)))
+            .map(|(idx, arg)| {
+                let implicit = AstSymbol::in_scope(SymbolSpace::Value, ctx.implicit_scope, &(1 + idx).to_string());
+                arg.construct_ast(data, ctx.with_implicit_scope(&implicit))
+            })
             .fold(func_node, AstApply::apply)
     }
 }
@@ -67,7 +71,10 @@ impl<'a, P: Primary + ExtractAstNode<'a> + InfixNamespace> ExtractAstNode<'a> fo
         } else {
             let mut args = args.into_iter()
                 .enumerate()
-                .map(|(idx, arg)| arg.construct_ast(data, ctx.with_scope_idx(ctx.scope_idx + idx as u32)))
+                .map(|(idx, arg)| {
+                    let implicit = AstSymbol::in_scope(SymbolSpace::Value, ctx.implicit_scope, &idx.to_string());
+                    arg.construct_ast(data, ctx.with_implicit_scope(&implicit))
+                })
                 .collect::<Vec<_>>();
             // reverse order if right associative
             if fixity == Fixity::Right {
@@ -115,13 +122,13 @@ mod tests {
     fn proper_inner_scopes() {
         let input =
             "(a (lam a. a)) (lam a. a) `a` (lam a. (lam a. a) a (lam a. a))";
-        //    *         1           2   *                3,0  3       3,2
+        //    *       0/0/1        0/1  *                 1,0 1        1,2
         let a = AstSymbol::from_scopes(SymbolSpace::Value, &["a"]);
+        let a001 = AstSymbol::from_scopes(SymbolSpace::Value, &["0/0/1", "a"]);
+        let a01 = AstSymbol::from_scopes(SymbolSpace::Value, &["0/1", "a"]);
         let a1 = AstSymbol::from_scopes(SymbolSpace::Value, &["1", "a"]);
-        let a2 = AstSymbol::from_scopes(SymbolSpace::Value, &["2", "a"]);
-        let a3 = AstSymbol::from_scopes(SymbolSpace::Value, &["3", "a"]);
-        let a30 = AstSymbol::from_scopes(SymbolSpace::Value, &["3", "0", "a"]);
-        let a32 = AstSymbol::from_scopes(SymbolSpace::Value, &["3", "2", "a"]);
+        let a10 = AstSymbol::from_scopes(SymbolSpace::Value, &["1", "0", "a"]);
+        let a12 = AstSymbol::from_scopes(SymbolSpace::Value, &["1", "2", "a"]);
         let mut data = SymbolData::from_parts(
             vec![
                 (a.clone(), Tagged::new(Fixity::None)),
@@ -129,40 +136,43 @@ mod tests {
             vec![
                 (GLOBAL_SCOPE.clone(), a.clone()),
                 (GLOBAL_SCOPE.clone(), a.clone()),
+                (AstSymbol::from_scopes(SymbolSpace::Value, &["0/0/1"]), a.clone()),
+                (AstSymbol::from_scopes(SymbolSpace::Value, &["0/1"]), a.clone()),
                 (AstSymbol::from_scopes(SymbolSpace::Value, &["1"]), a.clone()),
-                (AstSymbol::from_scopes(SymbolSpace::Value, &["2"]), a.clone()),
-                (AstSymbol::from_scopes(SymbolSpace::Value, &["3"]), a.clone()),
-                (AstSymbol::from_scopes(SymbolSpace::Value, &["3", "0"]), a.clone()),
-                (AstSymbol::from_scopes(SymbolSpace::Value, &["3", "2"]), a.clone()),
+                (AstSymbol::from_scopes(SymbolSpace::Value, &["1", "0"]), a.clone()),
+                (AstSymbol::from_scopes(SymbolSpace::Value, &["1", "2"]), a.clone()),
             ],
         );
         let expected = AstValueExpression::Application(
             Box::new(AstValueExpression::Application(
                 Box::new(AstValueExpression::Symbol(&a)),
-                Box::new(AstValueExpression::Abstraction(
-                    vec![AstPatternExpression::Symbol(&a1)],
+                Box::new(AstValueExpression::Application(
                     Box::new(AstValueExpression::Application(
-                        Box::new(AstValueExpression::Symbol(&a1)),
+                        Box::new(AstValueExpression::Symbol(&a)),
                         Box::new(AstValueExpression::Abstraction(
-                            vec![AstPatternExpression::Symbol(&a2)],
-                            Box::new(AstValueExpression::Symbol(&a2)),
+                            vec![AstPatternExpression::Symbol(&a001)],
+                            Box::new(AstValueExpression::Symbol(&a001)),
                         )),
+                    )),
+                    Box::new(AstValueExpression::Abstraction(
+                        vec![AstPatternExpression::Symbol(&a01)],
+                        Box::new(AstValueExpression::Symbol(&a01)),
                     )),
                 )),
             )),
             Box::new(AstValueExpression::Abstraction(
-                vec![AstPatternExpression::Symbol(&a3)],
+                vec![AstPatternExpression::Symbol(&a1)],
                 Box::new(AstValueExpression::Application(
                     Box::new(AstValueExpression::Application(
                         Box::new(AstValueExpression::Abstraction(
-                            vec![AstPatternExpression::Symbol(&a30)],
-                            Box::new(AstValueExpression::Symbol(&a30)),
+                            vec![AstPatternExpression::Symbol(&a10)],
+                            Box::new(AstValueExpression::Symbol(&a10)),
                         )),
-                        Box::new(AstValueExpression::Symbol(&a3)),
+                        Box::new(AstValueExpression::Symbol(&a1)),
                     )),
                     Box::new(AstValueExpression::Abstraction(
-                        vec![AstPatternExpression::Symbol(&a32)],
-                        Box::new(AstValueExpression::Symbol(&a32)),
+                        vec![AstPatternExpression::Symbol(&a12)],
+                        Box::new(AstValueExpression::Symbol(&a12)),
                     )),
                 )),
             )),

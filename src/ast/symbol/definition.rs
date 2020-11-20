@@ -1,4 +1,4 @@
-use crate::ast::symbol::{AstSymbol, ExtractSymbol, SymbolContext, SymbolData, SymbolSpace};
+use crate::ast::symbol::{AstSymbol, ExtractSymbol, GLOBAL_SCOPE, SymbolContext, SymbolData, SymbolSpace};
 use crate::parser::item::{Definition, DefinitionBody};
 use crate::parser::token::identifier::Identifier;
 
@@ -6,8 +6,12 @@ impl ExtractSymbol for DefinitionBody {
     /// Extract symbols from the patterns and the expression body. The passed context
     /// is already contained in the function's scope.
     fn extract(&self, data: &mut SymbolData, ctx: SymbolContext<'_>) {
-        let inner_scope = AstSymbol::in_scope(SymbolSpace::Value, ctx.enclosing_scope, &ctx.scope_idx.to_string());
-        let inner_ctx = ctx.with_enclosing_scope(&inner_scope);
+        let inner_scope = AstSymbol::in_scope(
+            SymbolSpace::Value,
+            ctx.enclosing_scope,
+            &ctx.implicit_scope.as_scopes().join("/"));
+        let inner_ctx = ctx.with_enclosing_scope(&inner_scope)
+            .with_implicit_scope(&GLOBAL_SCOPE);
         for param in &self.params {
             param.extract(data, inner_ctx);
         }
@@ -31,7 +35,8 @@ impl ExtractSymbol for Definition {
         let body_scope = AstSymbol::in_scope(SymbolSpace::Value, &name_scope.value, "#body");
         let body_ctx = function_ctx.with_enclosing_scope(&body_scope);
         for (idx, body) in self.bodies.iter().enumerate() {
-            body.extract(data, body_ctx.with_scope_idx(ctx.scope_idx + idx as u32));
+            let implicit = AstSymbol::in_scope(SymbolSpace::Value, &ctx.implicit_scope, &idx.to_string());
+            body.extract(data, body_ctx.with_implicit_scope(&implicit));
         }
     }
 }

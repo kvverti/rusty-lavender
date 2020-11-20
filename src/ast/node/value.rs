@@ -1,6 +1,6 @@
 use crate::ast::node::{AstValueExpression, ExtractAstNode};
 use crate::ast::node::fixity::InfixNamespace;
-use crate::ast::symbol::{AstSymbol, SymbolContext, SymbolData, SymbolSpace};
+use crate::ast::symbol::{AstSymbol, GLOBAL_SCOPE, SymbolContext, SymbolData, SymbolSpace};
 use crate::parser::value::{ValueExpression, ValuePrimary};
 use crate::parser::value::lambda::LambdaExpression;
 
@@ -11,8 +11,12 @@ impl<'a> ExtractAstNode<'a> for LambdaExpression {
         match self {
             Self::Error { .. } => unreachable!(),
             Self::Value { params, body } => {
-                let inner_scope = AstSymbol::in_scope(SymbolSpace::Value, ctx.enclosing_scope, &ctx.scope_idx.to_string());
-                let inner_ctx = ctx.with_enclosing_scope(&inner_scope);
+                let inner_scope = AstSymbol::in_scope(
+                    SymbolSpace::Value,
+                    ctx.enclosing_scope,
+                    &ctx.implicit_scope.as_scopes().join("/"));
+                let inner_ctx = ctx.with_enclosing_scope(&inner_scope)
+                    .with_implicit_scope(&GLOBAL_SCOPE);
                 let params = params.into_iter()
                     .map(|pattern| pattern.construct_ast(data, inner_ctx));
                 let body_node = body.construct_ast(data, inner_ctx);

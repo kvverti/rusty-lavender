@@ -68,6 +68,11 @@ impl AstSymbol {
             scopes: scopes.iter().map(|&s| s.into()).collect(),
         }
     }
+
+    /// Returns the list of scopes, from outermost to innermost.
+    pub fn as_scopes(&self) -> &[String] {
+        &self.scopes
+    }
 }
 
 impl Display for AstSymbol {
@@ -94,7 +99,7 @@ pub struct SymbolContext<'a> {
     /// The closest enclosing definition. The namespace will always be Value.
     pub enclosing_definition: &'a AstSymbol,
     /// An index used for anonymous scopes (such as in lambdas)
-    pub scope_idx: u32,
+    pub implicit_scope: &'a AstSymbol,
 }
 
 impl<'a> SymbolContext<'a> {
@@ -103,7 +108,7 @@ impl<'a> SymbolContext<'a> {
         Self {
             enclosing_scope: &GLOBAL_SCOPE,
             enclosing_definition: &GLOBAL_SCOPE,
-            scope_idx: 0,
+            implicit_scope: &GLOBAL_SCOPE,
         }
     }
 
@@ -120,8 +125,8 @@ impl<'a> SymbolContext<'a> {
     }
 
     /// Returns a new context with the scope index replaced.
-    pub fn with_scope_idx(mut self, scope_idx: u32) -> Self {
-        self.scope_idx = scope_idx;
+    pub fn with_implicit_scope(mut self, implicit_scope: &'a AstSymbol) -> Self {
+        self.implicit_scope = implicit_scope;
         self
     }
 }
