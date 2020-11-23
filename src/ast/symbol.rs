@@ -190,10 +190,6 @@ impl SymbolData {
         self.declared_symbols.entry(value).or_insert(Tagged { value: fixity, idx, len });
     }
 
-    /// Marks an unbound symbol found in the given scope.
-    #[deprecated]
-    pub fn declare_unbound_symbol(&mut self, _scope: AstSymbol, _symb: AstSymbol) {}
-
     /// Asserts and returns a symbol previously declared.
     pub fn get_declared_symbol(&self, symbol: AstSymbol) -> &AstSymbol {
         self.declared_symbols.get_key_value(&symbol).expect("Declared symbol not bound").0
