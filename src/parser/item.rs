@@ -8,6 +8,7 @@ use crate::parser::fixity::{BasicFixity, prefix_operator};
 use crate::parser::ParseResult;
 use crate::parser::pattern::PatternPrimary;
 use crate::parser::primary::{name, Primary};
+use crate::parser::tagged::{tagged, Tagged};
 use crate::parser::token::{TokenStream, TokenValue};
 use crate::parser::token::fixed::{Keyword, Separator};
 use crate::parser::token::identifier::Identifier;
@@ -22,7 +23,7 @@ pub enum Fixity { Left, Right, None }
 #[derive(Clone, Debug, PartialEq)]
 pub struct Definition {
     /// The name of the defined value.
-    pub name: Identifier,
+    pub name: Tagged<Identifier>,
     /// The fixity of the definition (only relevant for symbolic definitions).
     pub fixity: Fixity,
     /// The declared type of the defined value (optional).
@@ -50,12 +51,17 @@ impl Definition {
                     count(DefinitionBody::single, 1),
                 ))
             )),
-            |((fixity, name), typ, params, bodies)| Self {
-                name,
-                fixity,
-                typ: typ.unwrap_or(TypeExpression::TypeApplication(BasicFixity::Primary(TypePrimary::TypeHole))),
-                params,
-                bodies,
+            |((fixity, name), typ, params, bodies)| {
+                let typ = typ.unwrap_or_else(||
+                    TypeExpression::TypeApplication(BasicFixity::Primary(TypePrimary::TypeHole(name.as_ref().map(|_| ()))))
+                );
+                Self {
+                    name,
+                    fixity,
+                    typ,
+                    params,
+                    bodies,
+                }
             },
         )(input)
     }
@@ -65,12 +71,12 @@ impl Definition {
     pub fn intrinsic(input: TokenStream) -> ParseResult<TokenStream, Self> {
         map(
             separated_pair(
-                preceded(tag(TokenValue::from(Keyword::Def)), name),
+                preceded(tag(TokenValue::from(Keyword::Def)), tagged(name)),
                 tag(TokenValue::from(Separator::Colon)),
                 TypeExpression::parse,
             ),
             |(name, typ)| Self {
-                name: Identifier::Name(name),
+                name: name.map(Identifier::Name),
                 fixity: Fixity::None,
                 typ,
                 params: vec![],
@@ -79,18 +85,18 @@ impl Definition {
         )(input)
     }
 
-    fn definition_name(input: TokenStream) -> ParseResult<TokenStream, (Fixity, Identifier)> {
+    fn definition_name(input: TokenStream) -> ParseResult<TokenStream, (Fixity, Tagged<Identifier>)> {
         use Identifier::Operator;
         map_res(
             tuple((
                 opt(tag(TokenValue::from(Separator::Check))),
-                prefix_operator,
+                tagged(prefix_operator),
                 opt(tag(TokenValue::from(Separator::Check))),
             )),
             |tup| {
                 match tup {
-                    (Some(_), op @ Operator(_), None) => Ok((Fixity::Left, op)),
-                    (None, op @ Operator(_), Some(_)) => Ok((Fixity::Right, op)),
+                    (Some(_), op @ Tagged { value: Operator(_), .. }, None) => Ok((Fixity::Left, op)),
+                    (None, op @ Tagged { value: Operator(_), .. }, Some(_)) => Ok((Fixity::Right, op)),
                     (None, op, None) => Ok((Fixity::None, op)),
                     _ => Err("Invalid fixity"),
                 }
@@ -147,14 +153,34 @@ mod tests {
     fn single() {
         let input = "def '(@) a (Id b) => a + b + a";
         let expected = Definition {
-            name: Identifier::Operator(Operator("@".to_owned())),
+            name: Tagged {
+                value: Identifier::Operator(Operator("@".to_owned())),
+                idx: input.match_indices("(@)").next().unwrap().0,
+                len: 3,
+            },
             fixity: Fixity::Left,
-            typ: TypeExpression::TypeApplication(BasicFixity::Primary(TypePrimary::TypeHole)),
+            typ: TypeExpression::TypeApplication(BasicFixity::Primary(TypePrimary::TypeHole(Tagged {
+                value: (),
+                idx: input.match_indices("(@)").next().unwrap().0,
+                len: 3,
+            }))),
             params: vec![
-                PatternPrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("a".to_owned())))),
+                PatternPrimary::Identifier(Tagged {
+                    value: ScopedIdentifier::from(Identifier::Name(Name("a".to_owned()))),
+                    idx: input.match_indices('a').next().unwrap().0,
+                    len: 1,
+                }),
                 PatternPrimary::SubPattern(Box::new(Pattern::Application(BasicFixity::Prefix(PrefixApply {
-                    func: PatternPrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("Id".to_owned())))),
-                    args: vec![PatternPrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("b".to_owned()))))],
+                    func: PatternPrimary::Identifier(Tagged {
+                        value: ScopedIdentifier::from(Identifier::Name(Name("Id".to_owned()))),
+                        idx: input.match_indices("Id").next().unwrap().0,
+                        len: 2,
+                    }),
+                    args: vec![PatternPrimary::Identifier(Tagged {
+                        value: ScopedIdentifier::from(Identifier::Name(Name("b".to_owned()))),
+                        idx: input.match_indices('b').next().unwrap().0,
+                        len: 1,
+                    })],
                 }))))
             ],
             bodies: vec![
@@ -167,9 +193,21 @@ mod tests {
                             len: 1,
                         },
                         args: vec![
-                            InfixPrimary::Primary(ValuePrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("a".to_owned()))))),
-                            InfixPrimary::Primary(ValuePrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("b".to_owned()))))),
-                            InfixPrimary::Primary(ValuePrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("a".to_owned()))))),
+                            InfixPrimary::Primary(ValuePrimary::Identifier(Tagged {
+                                value: ScopedIdentifier::from(Identifier::Name(Name("a".to_owned()))),
+                                idx: input.match_indices('a').nth(1).unwrap().0,
+                                len: 1,
+                            })),
+                            InfixPrimary::Primary(ValuePrimary::Identifier(Tagged {
+                                value: ScopedIdentifier::from(Identifier::Name(Name("b".to_owned()))),
+                                idx: input.match_indices('b').nth(1).unwrap().0,
+                                len: 1,
+                            })),
+                            InfixPrimary::Primary(ValuePrimary::Identifier(Tagged {
+                                value: ScopedIdentifier::from(Identifier::Name(Name("a".to_owned()))),
+                                idx: input.match_indices('a').nth(2).unwrap().0,
+                                len: 1,
+                            })),
                         ],
                     })),
                 }
@@ -185,35 +223,69 @@ mod tests {
 
     #[test]
     fn multiple() {
-        let expected = Definition {
-            name: Identifier::Name(Name("bind".to_owned())),
-            fixity: Fixity::None,
-            typ: TypeExpression::TypeApplication(BasicFixity::Primary(TypePrimary::TypeHole)),
-            params: vec![PatternPrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("f".to_owned()))))],
-            bodies: vec![
-                DefinitionBody {
-                    params: vec![
-                        PatternPrimary::SubPattern(Box::new(Pattern::Application(BasicFixity::Prefix(PrefixApply {
-                            func: PatternPrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("Some".to_owned())))),
-                            args: vec![PatternPrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("a".to_owned()))))],
-                        }))))
-                    ],
-                    body: ValueExpression::Application(BasicFixity::Prefix(PrefixApply {
-                        func: ValuePrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("f".to_owned())))),
-                        args: vec![ValuePrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("a".to_owned()))))],
-                    })),
-                },
-                DefinitionBody {
-                    params: vec![PatternPrimary::Blank],
-                    body: ValueExpression::Application(BasicFixity::Primary(ValuePrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("None".to_owned())))))),
-                }
-            ],
-        };
         let input = "
             def bind f
                 ; (Some a) => f a
                 ; _ => None
         ";
+        let expected = Definition {
+            name: Tagged {
+                value: Identifier::Name(Name("bind".to_owned())),
+                idx: input.match_indices("bind").next().unwrap().0,
+                len: 4,
+            },
+            fixity: Fixity::None,
+            typ: TypeExpression::TypeApplication(BasicFixity::Primary(TypePrimary::TypeHole(Tagged {
+                value: (),
+                idx: input.match_indices("bind").next().unwrap().0,
+                len: 4,
+            }))),
+            params: vec![PatternPrimary::Identifier(Tagged {
+                value: ScopedIdentifier::from(Identifier::Name(Name("f".to_owned()))),
+                idx: input.match_indices('f').nth(1).unwrap().0,
+                len: 1,
+            })],
+            bodies: vec![
+                DefinitionBody {
+                    params: vec![
+                        PatternPrimary::SubPattern(Box::new(Pattern::Application(BasicFixity::Prefix(PrefixApply {
+                            func: PatternPrimary::Identifier(Tagged {
+                                value: ScopedIdentifier::from(Identifier::Name(Name("Some".to_owned()))),
+                                idx: input.match_indices("Some").next().unwrap().0,
+                                len: 4,
+                            }),
+                            args: vec![PatternPrimary::Identifier(Tagged {
+                                value: ScopedIdentifier::from(Identifier::Name(Name("a".to_owned()))),
+                                idx: input.match_indices('a').next().unwrap().0,
+                                len: 1,
+                            })],
+                        }))))
+                    ],
+                    body: ValueExpression::Application(BasicFixity::Prefix(PrefixApply {
+                        func: ValuePrimary::Identifier(Tagged {
+                            value: ScopedIdentifier::from(Identifier::Name(Name("f".to_owned()))),
+                            idx: input.match_indices('f').nth(2).unwrap().0,
+                            len: 1,
+                        }),
+                        args: vec![ValuePrimary::Identifier(Tagged {
+                            value: ScopedIdentifier::from(Identifier::Name(Name("a".to_owned()))),
+                            idx: input.match_indices('a').nth(1).unwrap().0,
+                            len: 1,
+                        })],
+                    })),
+                },
+                DefinitionBody {
+                    params: vec![PatternPrimary::Blank],
+                    body: ValueExpression::Application(BasicFixity::Primary(ValuePrimary::Identifier(
+                        Tagged {
+                            value: ScopedIdentifier::from(Identifier::Name(Name("None".to_owned()))),
+                            idx: input.match_indices("None").next().unwrap().0,
+                            len: 4,
+                        }
+                    ))),
+                }
+            ],
+        };
         let result = Token::parse_sequence(input);
         let result = Definition::regular(TokenStream(result.as_slice()));
         assert!(result.is_ok(), "Expected ok result, got {:?}", result);
@@ -229,7 +301,11 @@ mod tests {
                 a _ => a
         ";
         let expected = Definition {
-            name: Identifier::Name(Name("const".to_owned())),
+            name: Tagged {
+                value: Identifier::Name(Name("const".to_owned())),
+                idx: input.match_indices("const").next().unwrap().0,
+                len: 5,
+            },
             fixity: Fixity::None,
             typ: TypeExpression::TypeApplication(BasicFixity::Infix(InfixApply {
                 func: Tagged {
@@ -238,10 +314,18 @@ mod tests {
                     len: 2,
                 },
                 args: vec![
-                    InfixPrimary::Primary(TypePrimary::TypeVariable(Name("a".to_owned()))),
+                    InfixPrimary::Primary(TypePrimary::TypeVariable(Tagged {
+                        value: Name("a".to_owned()),
+                        idx: input.match_indices("'a").next().unwrap().0,
+                        len: 2,
+                    })),
                     InfixPrimary::Primary(TypePrimary::TypeSubExpression(Box::new(
                         TypeExpression::TypeLambda(TypeLambda::Value {
-                            params: vec![Name("b".to_owned())],
+                            params: vec![Tagged {
+                                value: Name("b".to_owned()),
+                                idx: input.match_indices('b').next().unwrap().0,
+                                len: 1,
+                            }],
                             body: Box::new(TypeExpression::TypeApplication(BasicFixity::Infix(InfixApply {
                                 func: Tagged {
                                     value: Identifier::Operator(Operator("->".to_owned())),
@@ -249,8 +333,16 @@ mod tests {
                                     len: 2,
                                 },
                                 args: vec![
-                                    InfixPrimary::Primary(TypePrimary::TypeIdentifier(ScopedIdentifier::from(Identifier::Name(Name("b".to_owned()))))),
-                                    InfixPrimary::Primary(TypePrimary::TypeVariable(Name("a".to_owned()))),
+                                    InfixPrimary::Primary(TypePrimary::TypeIdentifier(Tagged {
+                                        value: ScopedIdentifier::from(Identifier::Name(Name("b".to_owned()))),
+                                        idx: input.match_indices('b').nth(1).unwrap().0,
+                                        len: 1,
+                                    })),
+                                    InfixPrimary::Primary(TypePrimary::TypeVariable(Tagged {
+                                        value: Name("a".to_owned()),
+                                        idx: input.match_indices("'a").nth(1).unwrap().0,
+                                        len: 2,
+                                    })),
                                 ],
                             }))),
                         })
@@ -258,13 +350,23 @@ mod tests {
                 ],
             })),
             params: vec![
-                PatternPrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("a".to_owned())))),
+                PatternPrimary::Identifier(Tagged {
+                    value: ScopedIdentifier::from(Identifier::Name(Name("a".to_owned()))),
+                    idx: input.match_indices('a').nth(2).unwrap().0,
+                    len: 1,
+                }),
                 PatternPrimary::Blank,
             ],
             bodies: vec![
                 DefinitionBody {
                     params: vec![],
-                    body: ValueExpression::Application(BasicFixity::Primary(ValuePrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("a".to_owned())))))),
+                    body: ValueExpression::Application(BasicFixity::Primary(ValuePrimary::Identifier(
+                        Tagged {
+                            value: ScopedIdentifier::from(Identifier::Name(Name("a".to_owned()))),
+                            idx: input.match_indices('a').last().unwrap().0,
+                            len: 1,
+                        }
+                    ))),
                 }
             ],
         };
@@ -280,7 +382,11 @@ mod tests {
     fn intrinsic() {
         let input = "def addi: Int -> Int -> Int";
         let expected = Definition {
-            name: Identifier::Name(Name("addi".to_owned())),
+            name: Tagged {
+                value: Identifier::Name(Name("addi".to_owned())),
+                idx: input.match_indices("addi").next().unwrap().0,
+                len: 4,
+            },
             fixity: Fixity::None,
             typ: TypeExpression::TypeApplication(BasicFixity::Infix(InfixApply {
                 func: Tagged {
@@ -289,9 +395,21 @@ mod tests {
                     len: 2,
                 },
                 args: vec![
-                    InfixPrimary::Primary(TypePrimary::TypeIdentifier(ScopedIdentifier::from(Identifier::Name(Name("Int".to_owned()))))),
-                    InfixPrimary::Primary(TypePrimary::TypeIdentifier(ScopedIdentifier::from(Identifier::Name(Name("Int".to_owned()))))),
-                    InfixPrimary::Primary(TypePrimary::TypeIdentifier(ScopedIdentifier::from(Identifier::Name(Name("Int".to_owned()))))),
+                    InfixPrimary::Primary(TypePrimary::TypeIdentifier(Tagged {
+                        value: ScopedIdentifier::from(Identifier::Name(Name("Int".to_owned()))),
+                        idx: input.match_indices("Int").next().unwrap().0,
+                        len: 3,
+                    })),
+                    InfixPrimary::Primary(TypePrimary::TypeIdentifier(Tagged {
+                        value: ScopedIdentifier::from(Identifier::Name(Name("Int".to_owned()))),
+                        idx: input.match_indices("Int").nth(1).unwrap().0,
+                        len: 3,
+                    })),
+                    InfixPrimary::Primary(TypePrimary::TypeIdentifier(Tagged {
+                        value: ScopedIdentifier::from(Identifier::Name(Name("Int".to_owned()))),
+                        idx: input.match_indices("Int").nth(2).unwrap().0,
+                        len: 3,
+                    })),
                 ],
             })),
             params: vec![],

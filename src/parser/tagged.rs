@@ -4,7 +4,7 @@ use crate::parser::{ParseResult, with_len};
 use crate::parser::primary::Primary;
 use crate::parser::token::TokenStream;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct Tagged<T> {
     pub value: T,
     pub idx: usize,
@@ -14,6 +14,21 @@ pub struct Tagged<T> {
 impl<T> Tagged<T> {
     pub fn new(value: T) -> Self {
         Self { value, idx: 0, len: 0 }
+    }
+
+    pub fn map<U, F>(self, f: F) -> Tagged<U>
+        where F: FnOnce(T) -> U
+    {
+        let Tagged { value, idx, len } = self;
+        Tagged { value: f(value), idx, len }
+    }
+
+    pub fn as_ref(&self) -> Tagged<&T> {
+        Tagged {
+            value: &self.value,
+            idx: self.idx,
+            len: self.len,
+        }
     }
 }
 

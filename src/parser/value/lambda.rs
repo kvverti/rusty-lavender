@@ -1,6 +1,7 @@
 use nom::bytes::complete::tag;
 use nom::multi::many1;
 
+use crate::ast::symbol::{AstSymbol, ExtractSymbol, SymbolContext, SymbolData, SymbolSpace, GLOBAL_SCOPE};
 use crate::parser::{ParseResult, until_next_sync_point};
 use crate::parser::pattern::PatternPrimary;
 use crate::parser::primary::Primary;
@@ -59,6 +60,27 @@ impl LambdaExpression {
     }
 }
 
+impl ExtractSymbol for LambdaExpression {
+    /// Extract the lambda names and anything in the body
+    fn extract(&self, data: &mut SymbolData, ctx: SymbolContext) {
+        if let Self::Value { params, body } = self {
+            let inner_scope = AstSymbol::in_scope(
+                SymbolSpace::Value,
+                ctx.enclosing_scope,
+                &ctx.implicit_scope.as_scopes().join("/"),
+            );
+            let inner_ctx = ctx.with_enclosing_scope(&inner_scope)
+                .with_implicit_scope(&GLOBAL_SCOPE);
+            for param in params {
+                param.extract(data, inner_ctx);
+            }
+            body.extract(data, inner_ctx);
+        } else {
+            unreachable!();
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::parser::fixity::{BasicFixity, InfixApply, InfixPrimary, PrefixApply};
@@ -76,20 +98,20 @@ mod tests {
     fn parses() {
         let expected = LambdaExpression::Value {
             params: vec![
-                PatternPrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("x".to_owned())))),
-                PatternPrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("y".to_owned())))),
+                PatternPrimary::Identifier(Tagged::new(ScopedIdentifier::from(Identifier::Name(Name("x".to_owned()))))),
+                PatternPrimary::Identifier(Tagged::new(ScopedIdentifier::from(Identifier::Name(Name("y".to_owned()))))),
                 PatternPrimary::SubPattern(Box::new(Pattern::Application(BasicFixity::Prefix(PrefixApply {
-                    func: PatternPrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("Id".to_owned())))),
+                    func: PatternPrimary::Identifier(Tagged::new(ScopedIdentifier::from(Identifier::Name(Name("Id".to_owned()))))),
                     args: vec![
-                        PatternPrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("z".to_owned())))),
+                        PatternPrimary::Identifier(Tagged::new(ScopedIdentifier::from(Identifier::Name(Name("z".to_owned()))))),
                     ],
                 }))))
             ],
             body: Box::new(ValueExpression::Application(BasicFixity::Infix(InfixApply {
                 func: Tagged::new(Identifier::Operator(Operator("+".to_owned()))),
                 args: vec![
-                    InfixPrimary::Primary(ValuePrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("x".to_owned()))))),
-                    InfixPrimary::Primary(ValuePrimary::Identifier(ScopedIdentifier::from(Identifier::Name(Name("z".to_owned()))))),
+                    InfixPrimary::Primary(ValuePrimary::Identifier(Tagged::new(ScopedIdentifier::from(Identifier::Name(Name("x".to_owned())))))),
+                    InfixPrimary::Primary(ValuePrimary::Identifier(Tagged::new(ScopedIdentifier::from(Identifier::Name(Name("z".to_owned())))))),
                 ],
             }))),
         };

@@ -1,9 +1,10 @@
 use nom::bytes::complete::tag;
 use nom::multi::many1;
 
+use crate::ast::symbol::{AstSymbol, ExtractSymbol, SymbolContext, SymbolData, SymbolSpace, GLOBAL_SCOPE};
 use crate::parser::{ParseResult, until_next_sync_point};
 use crate::parser::primary::name;
-use crate::parser::tagged::Tagged;
+use crate::parser::tagged::{tagged, Tagged};
 use crate::parser::token::{TokenStream, TokenValue};
 use crate::parser::token::fixed::Keyword;
 use crate::parser::token::identifier::{Identifier, Name, Operator};
@@ -14,7 +15,7 @@ use crate::parser::typedecl::TypeExpression;
 pub enum TypeLambda {
     Value {
         /// The declared type parameters.
-        params: Vec<Name>,
+        params: Vec<Tagged<Name>>,
         /// The type body.
         body: Box<TypeExpression>,
     },
@@ -47,13 +48,35 @@ macro_rules! next {
 impl TypeLambda {
     pub fn parse(input: TokenStream) -> ParseResult<TokenStream, Self> {
         let (input, _) = tag(TokenValue::from(Keyword::For))(input)?;
-        let (input, params) = next!("Expected type parameters", many1(name), input);
+        let (input, params) = next!("Expected type parameters", many1(tagged(name)), input);
         let (input, _) = next!("Expected '.'", tag(TokenValue::from(Identifier::Operator(Operator(".".to_owned())))), input);
         let (input, body) = next!("Expected type", TypeExpression::parse, input);
         Ok((input, Self::Value {
             params,
             body: Box::new(body),
         }))
+    }
+}
+
+impl ExtractSymbol for TypeLambda {
+    /// Extract the lambda names and anything in the body
+    fn extract(&self, data: &mut SymbolData, ctx: SymbolContext) {
+        if let Self::Value { params, body } = self {
+            let inner_scope = AstSymbol::in_scope(
+                SymbolSpace::Value,
+                ctx.enclosing_scope,
+                &ctx.implicit_scope.as_scopes().join("/"),
+            );
+            for name in params {
+                let symbol = name.as_ref().map(|name| AstSymbol::in_scope(SymbolSpace::Type, &inner_scope, &name.0));
+                data.declare_symbol(symbol);
+            }
+            let ctx = ctx.with_enclosing_scope(&inner_scope)
+                .with_implicit_scope(&GLOBAL_SCOPE);
+            body.extract(data, ctx);
+        } else {
+            unreachable!();
+        }
     }
 }
 
@@ -71,14 +94,14 @@ mod tests {
     fn parses() {
         let expected = TypeLambda::Value {
             params: vec![
-                Name("x".to_owned()),
-                Name("y".to_owned()),
+                Tagged::new(Name("x".to_owned())),
+                Tagged::new(Name("y".to_owned())),
             ],
             body: Box::new(TypeExpression::TypeApplication(BasicFixity::Infix(InfixApply {
                 func: Tagged::new(Identifier::Operator(Operator("->".to_owned()))),
                 args: vec![
-                    InfixPrimary::Primary(TypePrimary::TypeIdentifier(ScopedIdentifier::from(Identifier::Name(Name("x".to_owned()))))),
-                    InfixPrimary::Primary(TypePrimary::TypeIdentifier(ScopedIdentifier::from(Identifier::Name(Name("y".to_owned()))))),
+                    InfixPrimary::Primary(TypePrimary::TypeIdentifier(Tagged::new(ScopedIdentifier::from(Identifier::Name(Name("x".to_owned())))))),
+                    InfixPrimary::Primary(TypePrimary::TypeIdentifier(Tagged::new(ScopedIdentifier::from(Identifier::Name(Name("y".to_owned())))))),
                 ],
             }))),
         };
