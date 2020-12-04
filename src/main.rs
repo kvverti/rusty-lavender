@@ -5,9 +5,11 @@ use std::iter::FromIterator;
 
 use nom::error::VerboseErrorKind;
 
-use crate::parser::item::Definition;
+use crate::ast::node::ExtractAstNode;
+use crate::ast::symbol::{AstSymbol, ExtractSymbol, SymbolContext, SymbolData, SymbolSpace};
+use crate::parser::item::{Definition, Fixity};
+use crate::parser::tagged::Tagged;
 use crate::parser::token::{Token, TokenStream, TokenValue};
-use nom::multi::many1;
 
 mod ast;
 mod code;
@@ -59,10 +61,17 @@ fn main() {
             }
             return;
         }
-        let parser = many1(Definition::regular);
+        let parser = Definition::regular;
         match parser(TokenStream(&tokens)) {
-            Ok((_, items)) => {
-                println!("{:?}", items);
+            Ok((_, item)) => {
+                let mut data = SymbolData::new();
+                data.declare_symbol_with_fixity(
+                    Tagged::new(AstSymbol::new(SymbolSpace::Type, "->")),
+                    Fixity::Right,
+                );
+                item.extract(&mut data, SymbolContext::new());
+                let ast = item.construct_ast(&data, SymbolContext::new());
+                println!("{:#?}", ast);
             }
             Err(err) => match err {
                 nom::Err::Error(err) => {

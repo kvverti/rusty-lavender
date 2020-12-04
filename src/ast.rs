@@ -4,6 +4,6 @@
 //! inlining and optimizations. The AST is then used to generate bytecode which can be executed
 //! by the runtime.
 
-mod node;
+pub mod node;
 pub mod symbol;
 pub mod types;
