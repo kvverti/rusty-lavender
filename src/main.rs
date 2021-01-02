@@ -20,11 +20,9 @@ mod value;
 /// Creates a vector of (begin source index, length) for lines,
 /// not including the line terminator.
 fn create_line_mapping(source: &str) -> Vec<(usize, usize)> {
-    let lines = source.split('\n')
-        .collect::<Vec<_>>();
     let mut res = Vec::new();
     let mut col = 0usize;
-    for line in lines {
+    for line in source.split('\n') {
         res.push((col, line.len()));
         col += 1 + line.len();
     }
