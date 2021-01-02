@@ -23,6 +23,12 @@ pub enum SymbolSpace {
     Pattern,
 }
 
+impl Default for SymbolSpace {
+    fn default() -> Self {
+        Self::Value
+    }
+}
+
 impl Display for SymbolSpace {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -37,7 +43,7 @@ impl Display for SymbolSpace {
 pub static GLOBAL_SCOPE: AstSymbol = AstSymbol { nspace: SymbolSpace::Value, scopes: vec![] };
 
 /// A symbol is a scoped name associated with a value or type.
-#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+#[derive(Clone, Debug, Default, Eq, PartialEq, Hash)]
 pub struct AstSymbol {
     /// The namespace of symbols this symbol is in.
     nspace: SymbolSpace,
@@ -131,6 +137,12 @@ impl<'a> SymbolContext<'a> {
     }
 }
 
+impl<'a> Default for SymbolContext<'a> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// Struct to use in AST construction / symbol resolution tests.
 #[cfg(test)]
 #[derive(Clone, Default, Debug, Eq, PartialEq)]
@@ -142,7 +154,7 @@ pub(crate) struct SymbolTally {
 }
 
 /// Semantic data extracted from the parse tree and associated with the AST.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Default, Debug, Eq, PartialEq)]
 pub struct SymbolData {
     /// The declared symbols in the tree.
     declared_symbols: HashMap<AstSymbol, Tagged<Fixity>>,
