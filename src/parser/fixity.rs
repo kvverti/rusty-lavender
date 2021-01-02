@@ -13,7 +13,7 @@ use crate::parser::token::identifier::Identifier;
 
 /// Prefix function application `a b c ...`, where all of `a`, `b`, `c` are primaries.
 #[derive(Clone, Debug, PartialEq)]
-pub struct PrefixApply<P: Primary> {
+pub struct PrefixApply<P> {
     /// The function expression.
     pub func: P,
     /// The function arguments. Nonempty.
@@ -22,7 +22,7 @@ pub struct PrefixApply<P: Primary> {
 
 /// The primary expression type for infix application.
 #[derive(Clone, Debug, PartialEq)]
-pub enum InfixPrimary<P: Primary> {
+pub enum InfixPrimary<P> {
     Application(PrefixApply<P>),
     Primary(P),
 }
@@ -48,7 +48,7 @@ impl<P: Primary> InfixPrimary<P> {
 /// and `@` is a single operator (which may be left or right associative - we don't decide that
 /// here).
 #[derive(Clone, Debug, PartialEq)]
-pub struct InfixApply<P: Primary> {
+pub struct InfixApply<P> {
     /// The name of the function.
     pub func: Tagged<Identifier>,
     /// The arguments. At least two.
@@ -57,7 +57,7 @@ pub struct InfixApply<P: Primary> {
 
 /// A prefix expression `a b c ...` or infix expression `a @ b @ c ...` or primary expression `a`.
 #[derive(Clone, Debug, PartialEq)]
-pub enum BasicFixity<P: Primary> {
+pub enum BasicFixity<P> {
     Primary(P),
     Prefix(PrefixApply<P>),
     Infix(InfixApply<P>),

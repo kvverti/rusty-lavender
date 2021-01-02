@@ -2,7 +2,6 @@ use crate::ast::node::ExtractAstNode;
 use crate::ast::symbol::{AstSymbol, SymbolContext, SymbolData, SymbolSpace};
 use crate::parser::fixity::{BasicFixity, InfixApply, InfixPrimary, PrefixApply};
 use crate::parser::item::Fixity;
-use crate::parser::primary::Primary;
 use crate::parser::tagged::Tagged;
 
 /// Implemented om primaries to define the symbol namespace an infix symbol should be part of.
@@ -22,7 +21,7 @@ pub trait AstApply<'a> {
     fn error(msg: Tagged<&'static str>) -> Self;
 }
 
-impl<'a, P: Primary + ExtractAstNode<'a>> ExtractAstNode<'a> for PrefixApply<P>
+impl<'a, P: ExtractAstNode<'a>> ExtractAstNode<'a> for PrefixApply<P>
     where P::Node: AstApply<'a>
 {
     type Node = P::Node;
@@ -40,7 +39,7 @@ impl<'a, P: Primary + ExtractAstNode<'a>> ExtractAstNode<'a> for PrefixApply<P>
     }
 }
 
-impl<'a, P: Primary + ExtractAstNode<'a>> ExtractAstNode<'a> for InfixPrimary<P>
+impl<'a, P: ExtractAstNode<'a>> ExtractAstNode<'a> for InfixPrimary<P>
     where P::Node: AstApply<'a>
 {
     type Node = P::Node;
@@ -53,7 +52,7 @@ impl<'a, P: Primary + ExtractAstNode<'a>> ExtractAstNode<'a> for InfixPrimary<P>
     }
 }
 
-impl<'a, P: Primary + ExtractAstNode<'a> + InfixNamespace> ExtractAstNode<'a> for InfixApply<P>
+impl<'a, P: ExtractAstNode<'a> + InfixNamespace> ExtractAstNode<'a> for InfixApply<P>
     where P::Node: AstApply<'a> + Clone
 {
     type Node = P::Node;
@@ -95,7 +94,7 @@ impl<'a, P: Primary + ExtractAstNode<'a> + InfixNamespace> ExtractAstNode<'a> fo
     }
 }
 
-impl<'a, P: Primary + ExtractAstNode<'a> + InfixNamespace> ExtractAstNode<'a> for BasicFixity<P>
+impl<'a, P: ExtractAstNode<'a> + InfixNamespace> ExtractAstNode<'a> for BasicFixity<P>
     where P::Node: AstApply<'a> + Clone
 {
     type Node = P::Node;
