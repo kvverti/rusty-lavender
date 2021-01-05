@@ -34,7 +34,7 @@ pub type TypeArena<'sym, 'arena> = Arena<RefCell<AstType<'sym, 'arena>>>;
 
 /// A bound type variable for use in a type schema. These may be user defined or inferred by
 /// the type checker.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum BoundVariable<'a> {
     /// A variable declared in the source code.
     Declared(&'a AstSymbol),
@@ -73,9 +73,14 @@ pub enum AstType<'sym, 'arena> {
         param: TypeRef<'sym, 'arena>,
         result: TypeRef<'sym, 'arena>,
     },
+    /// Type application.
+    Application {
+        ctor: TypeRef<'sym, 'arena>,
+        arg: TypeRef<'sym, 'arena>,
+    },
     /// A type universally quantified over a set of bound variables.
     Schema {
-        vars: Vec<TypeRef<'sym, 'arena>>,
+        vars: Vec<BoundVariable<'sym>>,
         inner: TypeRef<'sym, 'arena>,
     },
     /// A type equal to it's inner type. References to this should be replaced with
@@ -90,9 +95,8 @@ impl Display for AstType<'_, '_> {
             AstType::FreeVariable(idx) => write!(f, "#{}", idx),
             AstType::BoundVariable(v) => write!(f, "{}", v),
             AstType::Atom(symb) => write!(f, "{}", symb.as_scopes().join("::")),
-            AstType::Function { param, result } => {
-                write!(f, "({}) -> {}", param, result)
-            }
+            AstType::Function { param, result } => write!(f, "({}) -> {}", param, result),
+            AstType::Application { ctor, arg } => write!(f, "{} ({})", ctor, arg),
             AstType::Schema { vars, inner } => {
                 let mut ret = f.write_str("for");
                 for v in vars {
@@ -130,8 +134,12 @@ mod tests {
             param: free_0,
             result: bound_0,
         });
+        let app = TypeRef::new_in(&arena, AstType::Application {
+            ctor: free_0,
+            arg: bound_d,
+        });
         let schema = TypeRef::new_in(&arena, AstType::Schema {
-            vars: vec![bound_0],
+            vars: vec![BoundVariable::Inferred(0)],
             inner: func,
         });
         let uni = TypeRef::new_in(&arena, AstType::Unification(schema));
@@ -141,6 +149,7 @@ mod tests {
             "'a",
             "sys::intrinsic::Int",
             "(#0) -> '0",
+            "#0 ('a)",
             "for '0. (#0) -> '0",
             "for '0. (#0) -> '0",
         ];
@@ -150,6 +159,7 @@ mod tests {
             bound_d,
             atom,
             func,
+            app,
             schema,
             uni,
         ].into_iter().map(|r| format!("{}", r)).collect::<Vec<_>>();
