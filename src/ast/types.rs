@@ -1,31 +1,13 @@
 //! Contains the intermediate type representations. These types are resolved during type
 //! inference.
 
+use std::cell::RefCell;
 use std::fmt::{Display, Formatter};
 
 use crate::ast::symbol::AstSymbol;
 
 /// A reference to an `AstType` in the context of some arena.
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Default)]
-pub struct TypeRef(usize);
-
-impl TypeRef {
-    /// Formats a [`TypeRef`] according to its referent type, while handling recursion,
-    /// if it should ever happen.
-    fn format(self, f: &mut Formatter<'_>, ctx: &[AstType<'_>], seen: &mut Vec<TypeRef>) -> std::fmt::Result {
-        if seen.contains(&self) {
-            // recursive
-            write!(f, "...")
-        } else {
-            seen.push(self);
-            let typ = &ctx[self.0];
-            let result = typ.format(f, ctx, seen);
-            let last = seen.pop();
-            assert_eq!(last.expect("Expected to pop this reference"), self);
-            result
-        }
-    }
-}
+pub type TypeRef<'sym, 'arena> = &'arena RefCell<AstType<'sym, 'arena>>;
 
 /// A bound type variable for use in a type schema. These may be user defined or inferred by
 /// the type checker.
@@ -56,81 +38,72 @@ impl Display for BoundVariable<'_> {
 /// Note: It's very important that values of `AstType` are not copied accidentally, since the type
 /// inference algorithm is very identity-sensitive.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub enum AstType<'a> {
+pub enum AstType<'sym, 'arena> {
     /// A free variable which must be inferred.
     FreeVariable(u64),
     /// A bound variable which may be captured.
-    BoundVariable(BoundVariable<'a>),
+    BoundVariable(BoundVariable<'sym>),
     /// A plain concrete type such as `Int`.
-    Atom(&'a AstSymbol),
+    Atom(&'sym AstSymbol),
     /// A function type.
     Function {
-        param: TypeRef,
-        result: TypeRef,
+        param: TypeRef<'sym, 'arena>,
+        result: TypeRef<'sym, 'arena>,
     },
     /// A type universally quantified over a set of bound variables.
     Schema {
-        vars: Vec<TypeRef>,
-        inner: TypeRef,
+        vars: Vec<TypeRef<'sym, 'arena>>,
+        inner: TypeRef<'sym, 'arena>,
     },
     /// A type equal to it's inner type. References to this should be replaced with
     /// references to the inner type.
-    Unification(TypeRef),
+    Unification(TypeRef<'sym, 'arena>),
 }
 
-impl<'a> AstType<'a> {
-    /// Creates a displayable type given context of all other types.
-    pub fn with_context<'b>(&'b self, ctx: &'b [Self]) -> TypeFormattingContext<'a, 'b> {
-        TypeFormattingContext {
-            ctx,
-            typ: self,
-        }
-    }
-
+impl Display for AstType<'_, '_> {
     /// Format an [`AstType`], handling recursive references.
-    fn format(&self, f: &mut Formatter<'_>, ctx: &[Self], seen: &mut Vec<TypeRef>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        fn write_type_ref(f: &mut Formatter<'_>, type_ref: TypeRef<'_, '_>) -> std::fmt::Result {
+            // if we don't have unique access, we are in a cycle
+            // we shouldn't have a cycle anyway...
+            if let Ok(typ) = type_ref.try_borrow_mut() {
+                write!(f, "{}", typ)
+            } else {
+                f.write_str("...")
+            }
+        }
         match self {
             AstType::FreeVariable(idx) => write!(f, "#{}", idx),
             AstType::BoundVariable(v) => write!(f, "{}", v),
             AstType::Atom(symb) => write!(f, "{}", symb.as_scopes().join("::")),
             AstType::Function { param, result } => {
                 f.write_str("(")
-                    .and_then(|_| param.format(f, ctx, seen))
+                    .and_then(|_| write_type_ref(f, param))
                     .and_then(|_| f.write_str(") -> "))
-                    .and_then(|_| result.format(f, ctx, seen))
+                    .and_then(|_| write_type_ref(f, result))
             }
             AstType::Schema { vars, inner } => {
                 let mut ret = f.write_str("for");
                 for v in vars {
                     ret = ret
                         .and_then(|_| f.write_str(" "))
-                        .and_then(|_| v.format(f, ctx, seen));
+                        .and_then(|_| write_type_ref(f, v));
                 }
-                let ret = ret.and_then(|_| f.write_str(". "));
-                ret.and_then(|_| inner.format(f, ctx, seen))
+                ret
+                    .and_then(|_| f.write_str(". "))
+                    .and_then(|_| write_type_ref(f, inner))
             }
             AstType::Unification(type_ref) => {
-                type_ref.format(f, ctx, seen)
+                write_type_ref(f, type_ref)
             }
         }
     }
 }
 
-/// Display helper for [`AstType`].
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub struct TypeFormattingContext<'a, 'b> {
-    ctx: &'b [AstType<'a>],
-    typ: &'b AstType<'a>,
-}
-
-impl Display for TypeFormattingContext<'_, '_> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        self.typ.format(f, self.ctx, &mut Vec::new())
-    }
-}
-
 #[cfg(test)]
 mod tests {
+    use typed_arena::Arena;
+
     use crate::ast::symbol::SymbolSpace;
 
     use super::*;
@@ -139,21 +112,20 @@ mod tests {
     fn test_basic_format() {
         let int = AstSymbol::from_scopes(SymbolSpace::Type, &["sys", "intrinsic", "Int"]);
         let a = AstSymbol::from_scopes(SymbolSpace::Type, &["f", "a"]);
-        let types = [
-            AstType::FreeVariable(0),
-            AstType::BoundVariable(BoundVariable::Inferred(0)),
-            AstType::BoundVariable(BoundVariable::Declared(&a)),
-            AstType::Atom(&int),
-            AstType::Function {
-                param: TypeRef(0),
-                result: TypeRef(1),
-            },
-            AstType::Schema {
-                vars: vec![TypeRef(1)],
-                inner: TypeRef(4),
-            },
-            AstType::Unification(TypeRef(5)),
-        ];
+        let type_arena = Arena::new();
+        let free_0: TypeRef = type_arena.alloc(RefCell::new(AstType::FreeVariable(0)));
+        let bound_0: TypeRef = type_arena.alloc(RefCell::new(AstType::BoundVariable(BoundVariable::Inferred(0))));
+        let bound_d: TypeRef = type_arena.alloc(RefCell::new(AstType::BoundVariable(BoundVariable::Declared(&a))));
+        let atom: TypeRef = type_arena.alloc(RefCell::new(AstType::Atom(&int)));
+        let func: TypeRef = type_arena.alloc(RefCell::new(AstType::Function {
+            param: free_0,
+            result: bound_0,
+        }));
+        let schema: TypeRef = type_arena.alloc(RefCell::new(AstType::Schema {
+            vars: vec![bound_0],
+            inner: func,
+        }));
+        let uni: TypeRef = type_arena.alloc(RefCell::new(AstType::Unification(schema)));
         let expected = vec![
             "#0",
             "'0",
@@ -163,20 +135,25 @@ mod tests {
             "for '0. (#0) -> '0",
             "for '0. (#0) -> '0",
         ];
-        let formatting_types = types.iter()
-            .map(|typ| typ.with_context(&types))
-            .map(|type_ctx| format!("{}", type_ctx))
-            .collect::<Vec<_>>();
-        assert_eq!(formatting_types, expected);
+        let types = vec![
+            free_0,
+            bound_0,
+            bound_d,
+            atom,
+            func,
+            schema,
+            uni,
+        ].into_iter().map(|r| format!("{}", r.borrow())).collect::<Vec<_>>();
+        assert_eq!(types, expected);
     }
 
     #[test]
     fn test_recursive() {
-        let types = [
-            AstType::Unification(TypeRef(0))
-        ];
+        let type_arena = Arena::new();
+        let type_ref: TypeRef = type_arena.alloc(RefCell::new(AstType::FreeVariable(0)));
+        *type_ref.borrow_mut() = AstType::Unification(type_ref);
         let expected = "...";
-        let result = format!("{}", types[0].with_context(&types));
+        let result = format!("{}", type_ref.borrow());
         assert_eq!(result, expected);
     }
 }
