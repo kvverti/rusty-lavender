@@ -130,16 +130,65 @@ impl<'sym, 'arena> TypeRef<'sym, 'arena> {
                 Self::new_in(arena, typ)
             }
             AstType::Schema { vars: inner_vars, inner } => {
-                let filtered_vars = vars.iter()
-                    .filter(|(v, _)| !inner_vars.contains(v))
-                    .copied()
-                    .collect::<Vec<_>>();
+                assert!(vars.iter().all(|(v, _)| !inner_vars.contains(v)),
+                        "Duplicate bound variable in nested schema");
                 let typ = AstType::Schema {
                     vars: inner_vars.clone(),
-                    inner: inner.instantiate(arena, &filtered_vars),
+                    inner: inner.instantiate(arena, vars),
                 };
                 Self::new_in(arena, typ)
             }
+        }
+    }
+
+    /// Unifies the given types, or returns an error if they cannot be unified.
+    pub fn unify(self,
+                 arena: &'arena TypeArena<'sym, 'arena>,
+                 bindings: &[(BoundVariable<'sym>, BoundVariable<'sym>)],
+                 other: Self) -> Result<Self, ()>
+    {
+        match (&*self.0.borrow(), &*other.0.borrow()) {
+            // free vars unify with everything
+            (_, AstType::FreeVariable(_)) => Ok(self),
+            (AstType::FreeVariable(_), _) => Ok(other),
+            // unifications unify like their referents
+            (_, &AstType::Unification(type_ref)) => self.unify(arena, bindings, type_ref),
+            (&AstType::Unification(type_ref), _) => type_ref.unify(arena, bindings, other),
+            // bound variables are unified according to the given bindings
+            // (we choose the left binding always)
+            (&AstType::BoundVariable(b1),
+                &AstType::BoundVariable(b2)) if bindings.contains(&(b1, b2)) => Ok(self),
+            // equality short circuit
+            (typ, other) if typ == other => Ok(self),
+            (&AstType::Function { param: p1, result: r1 },
+                &AstType::Function { param: p2, result: r2 }) => {
+                let unified = AstType::Function {
+                    param: p1.unify(arena, bindings, p2)?,
+                    result: r1.unify(arena, bindings, r2)?,
+                };
+                Ok(Self::new_in(arena, unified))
+            }
+            (&AstType::Application { ctor: c1, arg: a1 },
+                &AstType::Application { ctor: c2, arg: a2 }) => {
+                let unified = AstType::Application {
+                    ctor: c1.unify(arena, bindings, c2)?,
+                    arg: a1.unify(arena, bindings, a2)?,
+                };
+                Ok(Self::new_in(arena, unified))
+            }
+            // schemas (we choose the left bindings always)
+            (&AstType::Schema { vars: ref v1, inner: i1 },
+                &AstType::Schema { vars: ref v2, inner: i2 }) => {
+                assert!(bindings.iter().all(|(l, r)| !v1.contains(l) && !v2.contains(r)),
+                        "Duplicate bound variable in nested schema");
+                let unified = AstType::Schema {
+                    vars: v1.clone(),
+                    inner: i1.unify(arena, bindings, i2)?,
+                };
+                Ok(Self::new_in(arena, unified))
+            }
+            // everything else does not unify
+            _ => Err(())
         }
     }
 }
@@ -222,23 +271,34 @@ mod tests {
     #[test]
     fn instantiation() {
         let a = AstSymbol::from_scopes(SymbolSpace::Type, &["a"]);
+        let b = AstSymbol::from_scopes(SymbolSpace::Type, &["b"]);
         let foo_s = AstSymbol::from_scopes(SymbolSpace::Type, &["Foo"]);
         let a = BoundVariable::Declared(&a);
+        let b = BoundVariable::Declared(&b);
         let arena = Arena::new();
         let atom_foo = TypeRef::new_in(&arena, AstType::Atom(&foo_s));
-        let free = TypeRef::new_in(&arena, AstType::FreeVariable(0));
         let bound = TypeRef::new_in(&arena, AstType::BoundVariable(a));
-        let free_a = TypeRef::new_in(&arena, AstType::Application { ctor: free, arg: bound });
-        let schema_inner = TypeRef::new_in(&arena, AstType::Schema { vars: vec![a], inner: free_a });
+        let bound_b = TypeRef::new_in(&arena, AstType::BoundVariable(b));
+        let b_a = TypeRef::new_in(&arena, AstType::Application { ctor: bound_b, arg: bound });
+        let schema_inner = TypeRef::new_in(&arena, AstType::Schema { vars: vec![b], inner: b_a });
         let foo_a = TypeRef::new_in(&arena, AstType::Application { ctor: atom_foo, arg: bound });
         let uni = TypeRef::new_in(&arena, AstType::Unification(foo_a));
         let func_inner = TypeRef::new_in(&arena, AstType::Function { param: uni, result: schema_inner });
         let func = TypeRef::new_in(&arena, AstType::Function { param: bound, result: func_inner });
         let schema = TypeRef::new_in(&arena, AstType::Schema { vars: vec![a], inner: func });
-        assert_eq!(format!("{}", schema), "(for 'a. ('a) -> (Foo ('a)) -> (for 'a. #0 ('a)))");
+        assert_eq!(format!("{}", schema), "(for 'a. ('a) -> (Foo ('a)) -> (for 'b. 'b ('a)))");
         let value = TypeRef::new_in(&arena, AstType::FreeVariable(1));
         let replace = vec![(a, value)];
         let inst = func.instantiate(&arena, &replace);
-        assert_eq!(format!("{}", inst), "(#1) -> (Foo (#1)) -> (for 'a. #0 ('a))");
+        assert_eq!(format!("{}", inst), "(#1) -> (Foo (#1)) -> (for 'b. 'b (#1))");
+    }
+
+    #[test]
+    fn unification() {
+        let arena = Arena::new();
+        let free0 = TypeRef::new_in(&arena, AstType::FreeVariable(0));
+        let free1 = TypeRef::new_in(&arena, AstType::FreeVariable(1));
+        assert_eq!(free0.unify(&arena, &[], free1).unwrap(), free0);
+        // todo: more tests
     }
 }
