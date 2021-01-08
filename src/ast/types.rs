@@ -281,7 +281,9 @@ mod tests {
         let foo_s = AstSymbol::from_scopes(SymbolSpace::Type, &["Foo"]);
         let a = BoundVariable::Declared(&a);
         let b = BoundVariable::Declared(&b);
+
         let arena = Arena::new();
+        let free = TypeRef::new_in(&arena, AstType::FreeVariable(0));
         let atom_foo = TypeRef::new_in(&arena, AstType::Atom(&foo_s));
         let bound = TypeRef::new_in(&arena, AstType::BoundVariable(a));
         let bound_b = TypeRef::new_in(&arena, AstType::BoundVariable(b));
@@ -290,14 +292,20 @@ mod tests {
         let foo_a = TypeRef::new_in(&arena, AstType::Application { ctor: atom_foo, arg: bound });
         let uni = TypeRef::new_in(&arena, AstType::Unification(foo_a));
         let func_inner = TypeRef::new_in(&arena, AstType::Function { param: uni, result: schema_inner });
-        let func = TypeRef::new_in(&arena, AstType::Function { param: bound, result: func_inner });
+        let foo_0 = TypeRef::new_in(&arena, AstType::Application { ctor: atom_foo, arg: free });
+        let func = TypeRef::new_in(&arena, AstType::Function { param: foo_0, result: func_inner });
         let schema = TypeRef::new_in(&arena, AstType::Schema { vars: vec![a], inner: func });
-        assert_eq!(format!("{}", schema), "(for 'a. ('a) -> (Foo ('a)) -> (for 'b. 'b ('a)))");
+        assert_eq!(format!("{}", schema), "(for 'a. (Foo (#0)) -> (Foo ('a)) -> (for 'b. 'b ('a)))");
+
         let value = TypeRef::new_in(&arena, AstType::FreeVariable(1));
         let replace = vec![(a, value)];
         let mut visitor = InstantiationVisitor { arena: &arena, vars: replace };
+
+        let old_len = arena.len();
         let inst = func.accept(&mut visitor, ());
-        assert_eq!(format!("{}", inst), "(#1) -> (Foo (#1)) -> (for 'b. 'b (#1))");
+        let new_len = arena.len();
+        assert_eq!(format!("{}", inst), "(Foo (#0)) -> (Foo (#1)) -> (for 'b. 'b (#1))");
+        assert_eq!(new_len - old_len, 5);
     }
 
     #[derive(Copy, Clone, Debug, Eq, PartialEq)]

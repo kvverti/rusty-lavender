@@ -19,8 +19,8 @@ impl<'sym, 'arena> TypeVisitor<'sym, 'arena> for InstantiationVisitor<'sym, 'are
 
     fn visit_bound(&mut self, var: BoundVariable<'sym>, typ: TypeRef<'sym, 'arena>, _: Self::Input) -> Self::Output {
         let tp = self.vars.iter().find(|(v, _)| *v == var);
-        if let Some((_, value)) = tp {
-            *value
+        if let Some(&(_, value)) = tp {
+            value
         } else {
             typ
         }
@@ -30,29 +30,34 @@ impl<'sym, 'arena> TypeVisitor<'sym, 'arena> for InstantiationVisitor<'sym, 'are
         typ
     }
 
-    fn visit_func(&mut self, param: TypeRef<'sym, 'arena>, result: TypeRef<'sym, 'arena>, _typ: TypeRef<'sym, 'arena>, _: Self::Input) -> Self::Output {
-        let typ = AstType::Function {
-            param: param.accept(self, ()),
-            result: result.accept(self, ()),
-        };
-        TypeRef::new_in(self.arena, typ)
+    fn visit_func(&mut self, param: TypeRef<'sym, 'arena>, result: TypeRef<'sym, 'arena>, typ: TypeRef<'sym, 'arena>, _: Self::Input) -> Self::Output {
+        let param1 = param.accept(self, ());
+        let result1 = result.accept(self, ());
+        if param.identity_eq(param1) && result.identity_eq(result1) {
+            typ
+        } else {
+            TypeRef::new_in(self.arena, AstType::Function { param: param1, result: result1 })
+        }
     }
 
-    fn visit_apply(&mut self, ctor: TypeRef<'sym, 'arena>, par: TypeRef<'sym, 'arena>, _typ: TypeRef<'sym, 'arena>, _: Self::Input) -> Self::Output {
-        let typ = AstType::Application {
-            ctor: ctor.accept(self, ()),
-            arg: par.accept(self, ()),
-        };
-        TypeRef::new_in(self.arena, typ)
+    fn visit_apply(&mut self, ctor: TypeRef<'sym, 'arena>, par: TypeRef<'sym, 'arena>, typ: TypeRef<'sym, 'arena>, _: Self::Input) -> Self::Output {
+        let ctor1 = ctor.accept(self, ());
+        let arg1 = par.accept(self, ());
+        if ctor.identity_eq(ctor1) && par.identity_eq(arg1) {
+            typ
+        } else {
+            TypeRef::new_in(self.arena, AstType::Application { ctor: ctor1, arg: arg1 })
+        }
     }
 
-    fn visit_schema(&mut self, vars: &[BoundVariable<'sym>], inner: TypeRef<'sym, 'arena>, _typ: TypeRef<'sym, 'arena>, _: Self::Input) -> Self::Output {
+    fn visit_schema(&mut self, vars: &[BoundVariable<'sym>], inner: TypeRef<'sym, 'arena>, typ: TypeRef<'sym, 'arena>, _: Self::Input) -> Self::Output {
         assert!(self.vars.iter().all(|(v, _)| !vars.contains(v)),
                 "Duplicate bound variable in nested schema");
-        let typ = AstType::Schema {
-            vars: vars.to_vec(),
-            inner: inner.accept(self, ()),
-        };
-        TypeRef::new_in(self.arena, typ)
+        let inner1 = inner.accept(self, ());
+        if inner.identity_eq(inner1) {
+            typ
+        } else {
+            TypeRef::new_in(self.arena, AstType::Schema { vars: vars.to_vec(), inner: inner1 })
+        }
     }
 }
