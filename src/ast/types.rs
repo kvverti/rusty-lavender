@@ -8,7 +8,34 @@ use typed_arena::Arena;
 
 use crate::ast::symbol::AstSymbol;
 
+mod instantiation;
+
 pub type TypeArena<'sym, 'arena> = Arena<RefCell<AstType<'sym, 'arena>>>;
+
+/// Visitor for AST types.
+pub trait TypeVisitor<'sym, 'arena> {
+    type Input;
+    type Output;
+
+    fn visit_free(&mut self, v: u64, typ: TypeRef<'sym, 'arena>, arg: Self::Input) -> Self::Output;
+    fn visit_bound(&mut self, v: BoundVariable<'sym>, typ: TypeRef<'sym, 'arena>, arg: Self::Input) -> Self::Output;
+    fn visit_atom(&mut self, sym: &'sym AstSymbol, typ: TypeRef<'sym, 'arena>, arg: Self::Input) -> Self::Output;
+    fn visit_func(&mut self,
+                  param: TypeRef<'sym, 'arena>,
+                  result: TypeRef<'sym, 'arena>,
+                  typ: TypeRef<'sym, 'arena>,
+                  arg: Self::Input) -> Self::Output;
+    fn visit_apply(&mut self,
+                   ctor: TypeRef<'sym, 'arena>,
+                   par: TypeRef<'sym, 'arena>,
+                   typ: TypeRef<'sym, 'arena>,
+                   arg: Self::Input) -> Self::Output;
+    fn visit_schema(&mut self,
+                    vars: &[BoundVariable<'sym>],
+                    inner: TypeRef<'sym, 'arena>,
+                    typ: TypeRef<'sym, 'arena>,
+                    arg: Self::Input) -> Self::Output;
+}
 
 /// A bound type variable for use in a type schema. These may be user defined or inferred by
 /// the type checker.
@@ -101,43 +128,21 @@ impl<'sym, 'arena> TypeRef<'sym, 'arena> {
         TypeRef(arena.alloc(RefCell::new(typ)))
     }
 
-    /// Applies the given bound variable replacements to this type.
-    pub fn instantiate(self, arena: &'arena TypeArena<'sym, 'arena>, vars: &[(BoundVariable<'sym>, Self)]) -> Self {
+    /// Whether both of these references refer to the same type.
+    pub fn identity_eq(self, other: Self) -> bool {
+        std::ptr::eq(self.0, other.0)
+    }
+
+    pub fn accept<V: TypeVisitor<'sym, 'arena>>(self, visitor: &mut V, arg: V::Input) -> V::Output {
         let typ = self.0.borrow();
-        match &*typ {
-            AstType::FreeVariable(_) | AstType::Atom(_) => self,
-            AstType::Unification(type_ref) => type_ref.instantiate(arena, vars),
-            AstType::BoundVariable(var) => {
-                let tp = vars.iter().find(|(v, _)| v == var);
-                if let Some((_, value)) = tp {
-                    *value
-                } else {
-                    self
-                }
-            }
-            AstType::Application { ctor, arg } => {
-                let typ = AstType::Application {
-                    ctor: ctor.instantiate(arena, vars),
-                    arg: arg.instantiate(arena, vars),
-                };
-                Self::new_in(arena, typ)
-            }
-            AstType::Function { param, result } => {
-                let typ = AstType::Function {
-                    param: param.instantiate(arena, vars),
-                    result: result.instantiate(arena, vars),
-                };
-                Self::new_in(arena, typ)
-            }
-            AstType::Schema { vars: inner_vars, inner } => {
-                assert!(vars.iter().all(|(v, _)| !inner_vars.contains(v)),
-                        "Duplicate bound variable in nested schema");
-                let typ = AstType::Schema {
-                    vars: inner_vars.clone(),
-                    inner: inner.instantiate(arena, vars),
-                };
-                Self::new_in(arena, typ)
-            }
+        match *typ {
+            AstType::FreeVariable(v) => visitor.visit_free(v, self, arg),
+            AstType::BoundVariable(v) => visitor.visit_bound(v, self, arg),
+            AstType::Atom(sym) => visitor.visit_atom(sym, self, arg),
+            AstType::Function { param, result } => visitor.visit_func(param, result, self, arg),
+            AstType::Application { ctor, arg: a } => visitor.visit_apply(ctor, a, self, arg),
+            AstType::Schema { ref vars, inner } => visitor.visit_schema(vars, inner, self, arg),
+            AstType::Unification(type_ref) => type_ref.accept(visitor, arg),
         }
     }
 
@@ -210,6 +215,7 @@ mod tests {
     use typed_arena::Arena;
 
     use crate::ast::symbol::SymbolSpace;
+    use crate::ast::types::instantiation::InstantiationVisitor;
 
     use super::*;
 
@@ -289,16 +295,46 @@ mod tests {
         assert_eq!(format!("{}", schema), "(for 'a. ('a) -> (Foo ('a)) -> (for 'b. 'b ('a)))");
         let value = TypeRef::new_in(&arena, AstType::FreeVariable(1));
         let replace = vec![(a, value)];
-        let inst = func.instantiate(&arena, &replace);
+        let mut visitor = InstantiationVisitor { arena: &arena, vars: replace };
+        let inst = func.accept(&mut visitor, ());
         assert_eq!(format!("{}", inst), "(#1) -> (Foo (#1)) -> (for 'b. 'b (#1))");
     }
 
+    #[derive(Copy, Clone, Debug, Eq, PartialEq)]
+    struct TypeHolder<'sym, 'arena> {
+        free: TypeRef<'sym, 'arena>,
+        bound: TypeRef<'sym, 'arena>,
+        atom: TypeRef<'sym, 'arena>,
+        function: TypeRef<'sym, 'arena>,
+        application: TypeRef<'sym, 'arena>,
+        schema: TypeRef<'sym, 'arena>,
+    }
+
+    impl<'sym, 'arena> TypeHolder<'sym, 'arena> {
+        fn new_in(arena: &'arena TypeArena<'sym, 'arena>) -> Self {
+            // leak is ok, it's a test
+            let a = &*Box::leak::<'sym>(Box::new(AstSymbol::new(SymbolSpace::Type, "Foo")));
+            let free = TypeRef::new_in(arena, AstType::FreeVariable(0));
+            let bound = TypeRef::new_in(arena, AstType::BoundVariable(BoundVariable::Inferred(0)));
+            let atom = TypeRef::new_in(arena, AstType::Atom(a));
+            let function = TypeRef::new_in(arena, AstType::Function { param: atom, result: bound });
+            let application = TypeRef::new_in(arena, AstType::Application { ctor: atom, arg: free });
+            let schema = TypeRef::new_in(arena, AstType::Schema { vars: vec![BoundVariable::Inferred(0)], inner: function });
+            Self { free, bound, atom, function, application, schema }
+        }
+    }
+
     #[test]
-    fn unification() {
+    fn unify_free() {
         let arena = Arena::new();
-        let free0 = TypeRef::new_in(&arena, AstType::FreeVariable(0));
-        let free1 = TypeRef::new_in(&arena, AstType::FreeVariable(1));
-        assert_eq!(free0.unify(&arena, &[], free1).unwrap(), free0);
-        // todo: more tests
+        let holder = TypeHolder::new_in(&arena);
+        let unify_with = TypeRef::new_in(&arena, AstType::FreeVariable(1));
+        let bindings = &[];
+        assert_eq!(holder.free.unify(&arena, bindings, unify_with), Ok(holder.free));
+        assert_eq!(holder.bound.unify(&arena, bindings, unify_with), Ok(holder.bound));
+        assert_eq!(holder.atom.unify(&arena, bindings, unify_with), Ok(holder.atom));
+        assert_eq!(holder.function.unify(&arena, bindings, unify_with), Ok(holder.function));
+        assert_eq!(holder.application.unify(&arena, bindings, unify_with), Ok(holder.application));
+        assert_eq!(holder.schema.unify(&arena, bindings, unify_with), Ok(holder.schema));
     }
 }
