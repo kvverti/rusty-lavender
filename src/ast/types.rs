@@ -9,6 +9,7 @@ use typed_arena::Arena;
 use crate::ast::symbol::AstSymbol;
 
 mod instantiation;
+mod unification;
 
 pub type TypeArena<'sym, 'arena> = Arena<RefCell<AstType<'sym, 'arena>>>;
 
@@ -145,57 +146,6 @@ impl<'sym, 'arena> TypeRef<'sym, 'arena> {
             AstType::Unification(type_ref) => type_ref.accept(visitor, arg),
         }
     }
-
-    /// Unifies the given types, or returns an error if they cannot be unified.
-    pub fn unify(self,
-                 arena: &'arena TypeArena<'sym, 'arena>,
-                 bindings: &[(BoundVariable<'sym>, BoundVariable<'sym>)],
-                 other: Self) -> Result<Self, ()>
-    {
-        match (&*self.0.borrow(), &*other.0.borrow()) {
-            // free vars unify with everything
-            (_, AstType::FreeVariable(_)) => Ok(self),
-            (AstType::FreeVariable(_), _) => Ok(other),
-            // unifications unify like their referents
-            (_, &AstType::Unification(type_ref)) => self.unify(arena, bindings, type_ref),
-            (&AstType::Unification(type_ref), _) => type_ref.unify(arena, bindings, other),
-            // bound variables are unified according to the given bindings
-            // (we choose the left binding always)
-            (&AstType::BoundVariable(b1),
-                &AstType::BoundVariable(b2)) if bindings.contains(&(b1, b2)) => Ok(self),
-            // equality short circuit
-            (typ, other) if typ == other => Ok(self),
-            (&AstType::Function { param: p1, result: r1 },
-                &AstType::Function { param: p2, result: r2 }) => {
-                let unified = AstType::Function {
-                    param: p1.unify(arena, bindings, p2)?,
-                    result: r1.unify(arena, bindings, r2)?,
-                };
-                Ok(Self::new_in(arena, unified))
-            }
-            (&AstType::Application { ctor: c1, arg: a1 },
-                &AstType::Application { ctor: c2, arg: a2 }) => {
-                let unified = AstType::Application {
-                    ctor: c1.unify(arena, bindings, c2)?,
-                    arg: a1.unify(arena, bindings, a2)?,
-                };
-                Ok(Self::new_in(arena, unified))
-            }
-            // schemas (we choose the left bindings always)
-            (&AstType::Schema { vars: ref v1, inner: i1 },
-                &AstType::Schema { vars: ref v2, inner: i2 }) => {
-                assert!(bindings.iter().all(|(l, r)| !v1.contains(l) && !v2.contains(r)),
-                        "Duplicate bound variable in nested schema");
-                let unified = AstType::Schema {
-                    vars: v1.clone(),
-                    inner: i1.unify(arena, bindings, i2)?,
-                };
-                Ok(Self::new_in(arena, unified))
-            }
-            // everything else does not unify
-            _ => Err(())
-        }
-    }
 }
 
 impl Display for TypeRef<'_, '_> {
@@ -306,43 +256,5 @@ mod tests {
         let new_len = arena.len();
         assert_eq!(format!("{}", inst), "(Foo (#0)) -> (Foo (#1)) -> (for 'b. 'b (#1))");
         assert_eq!(new_len - old_len, 5);
-    }
-
-    #[derive(Copy, Clone, Debug, Eq, PartialEq)]
-    struct TypeHolder<'sym, 'arena> {
-        free: TypeRef<'sym, 'arena>,
-        bound: TypeRef<'sym, 'arena>,
-        atom: TypeRef<'sym, 'arena>,
-        function: TypeRef<'sym, 'arena>,
-        application: TypeRef<'sym, 'arena>,
-        schema: TypeRef<'sym, 'arena>,
-    }
-
-    impl<'sym, 'arena> TypeHolder<'sym, 'arena> {
-        fn new_in(arena: &'arena TypeArena<'sym, 'arena>) -> Self {
-            // leak is ok, it's a test
-            let a = &*Box::leak::<'sym>(Box::new(AstSymbol::new(SymbolSpace::Type, "Foo")));
-            let free = TypeRef::new_in(arena, AstType::FreeVariable(0));
-            let bound = TypeRef::new_in(arena, AstType::BoundVariable(BoundVariable::Inferred(0)));
-            let atom = TypeRef::new_in(arena, AstType::Atom(a));
-            let function = TypeRef::new_in(arena, AstType::Function { param: atom, result: bound });
-            let application = TypeRef::new_in(arena, AstType::Application { ctor: atom, arg: free });
-            let schema = TypeRef::new_in(arena, AstType::Schema { vars: vec![BoundVariable::Inferred(0)], inner: function });
-            Self { free, bound, atom, function, application, schema }
-        }
-    }
-
-    #[test]
-    fn unify_free() {
-        let arena = Arena::new();
-        let holder = TypeHolder::new_in(&arena);
-        let unify_with = TypeRef::new_in(&arena, AstType::FreeVariable(1));
-        let bindings = &[];
-        assert_eq!(holder.free.unify(&arena, bindings, unify_with), Ok(holder.free));
-        assert_eq!(holder.bound.unify(&arena, bindings, unify_with), Ok(holder.bound));
-        assert_eq!(holder.atom.unify(&arena, bindings, unify_with), Ok(holder.atom));
-        assert_eq!(holder.function.unify(&arena, bindings, unify_with), Ok(holder.function));
-        assert_eq!(holder.application.unify(&arena, bindings, unify_with), Ok(holder.application));
-        assert_eq!(holder.schema.unify(&arena, bindings, unify_with), Ok(holder.schema));
     }
 }
