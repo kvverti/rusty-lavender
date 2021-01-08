@@ -95,7 +95,7 @@ pub enum AstType<'sym, 'arena> {
 }
 
 impl Display for AstType<'_, '_> {
-    /// Format an [`AstType`], handling recursive references.
+    /// Format an [`AstType`].
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             AstType::FreeVariable(idx) => write!(f, "#{}", idx),
@@ -104,13 +104,12 @@ impl Display for AstType<'_, '_> {
             AstType::Function { param, result } => write!(f, "({}) -> {}", param, result),
             AstType::Application { ctor, arg } => write!(f, "{} ({})", ctor, arg),
             AstType::Schema { vars, inner } => {
-                let mut ret = f.write_str("(for");
+                f.write_str("(for")?;
                 for v in vars {
-                    ret = ret
-                        .and_then(|_| f.write_str(" "))
-                        .and_then(|_| write!(f, "{}", v));
+                    f.write_str(" ")?;
+                    write!(f, "{}", v)?;
                 }
-                ret.and_then(|_| write!(f, ". {})", inner))
+                write!(f, ". {})", inner)
             }
             AstType::Unification(type_ref) => {
                 write!(f, "{}", type_ref)
@@ -150,13 +149,7 @@ impl<'sym, 'arena> TypeRef<'sym, 'arena> {
 
 impl Display for TypeRef<'_, '_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        // if we don't have unique access, we are in a cycle
-        // we shouldn't have a cycle anyway...
-        if let Ok(typ) = self.0.try_borrow_mut() {
-            write!(f, "{}", typ)
-        } else {
-            f.write_str("...")
-        }
+        write!(f, "{}", self.0.borrow())
     }
 }
 
@@ -212,16 +205,6 @@ mod tests {
             uni,
         ].into_iter().map(|r| format!("{}", r)).collect::<Vec<_>>();
         assert_eq!(types, expected);
-    }
-
-    #[test]
-    fn recursive() {
-        let arena = Arena::new();
-        let type_ref = TypeRef::new_in(&arena, AstType::FreeVariable(0));
-        *type_ref.0.borrow_mut() = AstType::Unification(type_ref);
-        let expected = "...";
-        let result = format!("{}", type_ref);
-        assert_eq!(result, expected);
     }
 
     #[test]
