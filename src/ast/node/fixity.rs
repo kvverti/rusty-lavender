@@ -147,8 +147,9 @@ mod tests {
 
     #[test]
     fn proper_inner_scopes() {
-        let input = "(a (for a. a)) (for a. a) `a` (for a. (for a. a) a (for a. a))";
-        //    *       0/0/1        0/1  *                 1,0 1        1,2
+        let input = "\
+          (a (for a. a)) (for a. a) `a` (for a. (for a. a) a (for a. a))";
+        // *       0/0/1        0/1  *                 1,0 1        1,2
         let a = AstSymbol::from_scopes(SymbolSpace::Value, &["a"]);
         let a001 = AstSymbol::from_scopes(SymbolSpace::Value, &["0/0/1", "a"]);
         let a01 = AstSymbol::from_scopes(SymbolSpace::Value, &["0/1", "a"]);
