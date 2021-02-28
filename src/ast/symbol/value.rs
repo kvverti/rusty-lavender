@@ -32,7 +32,7 @@ mod test {
 
     #[test]
     fn extracts_names() {
-        let input = "a @ (lam (Some b, c). b + c + (lam _. a))";
+        let input = "a @ (for (Some b, c). b + c + (for _. a))";
         let input = Token::parse_sequence(input);
         let expr = ValueExpression::parse(TokenStream(&input)).unwrap().1;
         let mut data = SymbolData::new();

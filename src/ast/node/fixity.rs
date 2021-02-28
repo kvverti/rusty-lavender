@@ -120,7 +120,7 @@ mod tests {
     #[test]
     fn proper_inner_scopes() {
         let input =
-            "(a (lam a. a)) (lam a. a) `a` (lam a. (lam a. a) a (lam a. a))";
+            "(a (for a. a)) (for a. a) `a` (for a. (for a. a) a (for a. a))";
         //    *       0/0/1        0/1  *                 1,0 1        1,2
         let a = AstSymbol::from_scopes(SymbolSpace::Value, &["a"]);
         let a001 = AstSymbol::from_scopes(SymbolSpace::Value, &["0/0/1", "a"]);

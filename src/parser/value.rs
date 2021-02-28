@@ -127,7 +127,7 @@ mod tests {
 
     #[test]
     fn expr_with_lambda() {
-        let input = "a + (lam f. f a)";
+        let input = "a + (for f. f a)";
         let expected = ValueExpression::Application(BasicFixity::Infix(InfixApply {
             func: Tagged {
                 value: Identifier::Operator(Operator("+".to_owned())),
@@ -144,7 +144,7 @@ mod tests {
                     params: vec![
                         PatternPrimary::Identifier(Tagged {
                             value: ScopedIdentifier::from(Identifier::Name(Name("f".to_owned()))),
-                            idx: input.match_indices('f').next().unwrap().0,
+                            idx: input.match_indices('f').nth(1).unwrap().0,
                             len: 1,
                         }),
                     ],

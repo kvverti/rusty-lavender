@@ -49,7 +49,7 @@ macro_rules! next {
 
 impl LambdaExpression {
     pub fn parse(input: TokenStream) -> ParseResult<TokenStream, Self> {
-        let (input, _) = tag(TokenValue::from(Keyword::Lam))(input)?;
+        let (input, _) = tag(TokenValue::from(Keyword::For))(input)?;
         let (input, params) = next!("Expected pattern", many1(PatternPrimary::parse), input);
         let (input, _) = next!("Expected '.'", tag(TokenValue::from(Identifier::Operator(Operator(".".to_owned())))), input);
         let (input, body) = next!("Expected expression", ValueExpression::parse, input);
@@ -115,9 +115,9 @@ mod tests {
                 ],
             }))),
         };
-        // lam x y (Id z). x + z
+        // for x y (Id z). x + z
         let tokens = [
-            Token::new(TokenValue::from(Keyword::Lam)),
+            Token::new(TokenValue::from(Keyword::For)),
             Token::new(TokenValue::from(Identifier::Name(Name("x".to_owned())))),
             Token::new(TokenValue::from(Identifier::Name(Name("y".to_owned())))),
             Token::new(TokenValue::from(Separator::LeftRound)),

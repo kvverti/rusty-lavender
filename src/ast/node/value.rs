@@ -72,7 +72,7 @@ mod tests {
 
     #[test]
     fn constructs() {
-        let input = "a @ (lam (Some b, c). b + c + (lam _. a))";
+        let input = "a @ (for (Some b, c). b + c + (for _. a))";
         let a = AstSymbol::from_scopes(SymbolSpace::Value, &["a"]);
         let at = AstSymbol::from_scopes(SymbolSpace::Value, &["@"]);
         let some = AstSymbol::from_scopes(SymbolSpace::Pattern, &["Some"]);

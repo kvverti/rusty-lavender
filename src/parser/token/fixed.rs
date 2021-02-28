@@ -61,9 +61,7 @@ pub enum Keyword {
     Impl,
     /// Data definition `data A => A1 B | A2 C`.
     Data,
-    /// Lambda expression `lam x y. z`.
-    Lam,
-    /// Type universal expression `for a b. c`.
+    /// Lambda expression `for a b. c`.
     For,
     /// Unbound value `f _`.
     Underscore,
@@ -77,7 +75,6 @@ impl Keyword {
             value(Self::Class, tag("class")),
             value(Self::Impl, tag("impl")),
             value(Self::Data, tag("data")),
-            value(Self::Lam, tag("lam")),
             value(Self::For, tag("for")),
             value(Self::Underscore, tag("_")),
         ))(input)
