@@ -4,12 +4,12 @@ use nom::combinator::map;
 use nom::multi::{many0, many1};
 use nom::sequence::{delimited, preceded};
 
-use crate::parser::ParseResult;
 use crate::parser::primary::{name, operator, Primary};
-use crate::parser::tagged::{Tagged, tagged};
-use crate::parser::token::{TokenStream, TokenValue};
+use crate::parser::tagged::{tagged, Tagged};
 use crate::parser::token::fixed::Separator;
 use crate::parser::token::identifier::Identifier;
+use crate::parser::token::{TokenStream, TokenValue};
+use crate::parser::ParseResult;
 
 /// Prefix function application `a b c ...`, where all of `a`, `b`, `c` are primaries.
 #[derive(Clone, Debug, PartialEq)]
@@ -108,17 +108,17 @@ pub fn infix_operator(input: TokenStream) -> ParseResult<TokenStream, Identifier
                 tag(TokenValue::from(Separator::BackTick)),
             ),
             Identifier::Name,
-        )
+        ),
     ))(input)
 }
 
 #[cfg(test)]
 mod tests {
     use crate::parser::scoped::ScopedIdentifier;
-    use crate::parser::token::{Token, TokenStream, TokenValue};
     use crate::parser::token::fixed::Separator;
     use crate::parser::token::identifier::{Identifier, Name, Operator};
     use crate::parser::token::literal::{IntLiteral, Literal};
+    use crate::parser::token::{Token, TokenStream, TokenValue};
     use crate::parser::value::ValuePrimary;
 
     use super::*;
@@ -129,11 +129,16 @@ mod tests {
         let expected = Identifier::Name(Name("hello".to_owned()));
         let infix_name = [
             Token::new(TokenValue::Separator(Separator::BackTick)),
-            Token::new(TokenValue::Identifier(Identifier::Name(Name("hello".to_owned())))),
+            Token::new(TokenValue::Identifier(Identifier::Name(Name(
+                "hello".to_owned(),
+            )))),
             Token::new(TokenValue::Separator(Separator::BackTick)),
         ];
         let result = infix_operator(TokenStream(&infix_name));
-        assert!(result.is_ok(), format!("Expected ok parse, got {:?}", result));
+        assert!(
+            result.is_ok(),
+            format!("Expected ok parse, got {:?}", result)
+        );
         let (rest, result) = result.unwrap();
         assert_eq!(rest.0, &[]);
         assert_eq!(result, expected);
@@ -143,11 +148,14 @@ mod tests {
     fn operator() {
         // infix operator
         let expected = Identifier::Operator(Operator("**".to_owned()));
-        let infix_name = [
-            Token::new(TokenValue::Identifier(Identifier::Operator(Operator("**".to_owned())))),
-        ];
+        let infix_name = [Token::new(TokenValue::Identifier(Identifier::Operator(
+            Operator("**".to_owned()),
+        )))];
         let result = infix_operator(TokenStream(&infix_name));
-        assert!(result.is_ok(), format!("Expected ok parse, got {:?}", result));
+        assert!(
+            result.is_ok(),
+            format!("Expected ok parse, got {:?}", result)
+        );
         let (rest, result) = result.unwrap();
         assert_eq!(rest.0, &[]);
         assert_eq!(result, expected);
@@ -156,11 +164,14 @@ mod tests {
     #[test]
     fn invalid_name() {
         // invalid infix name
-        let infix_name = [
-            Token::new(TokenValue::Identifier(Identifier::Name(Name("hello".to_owned())))),
-        ];
+        let infix_name = [Token::new(TokenValue::Identifier(Identifier::Name(Name(
+            "hello".to_owned(),
+        ))))];
         let result = infix_operator(TokenStream(&infix_name));
-        assert!(result.is_err(), format!("Expected error parse, got {:?}", result));
+        assert!(
+            result.is_err(),
+            format!("Expected error parse, got {:?}", result)
+        );
     }
 
     #[test]
@@ -168,11 +179,16 @@ mod tests {
         // invalid infix operator
         let infix_name = [
             Token::new(TokenValue::Separator(Separator::BackTick)),
-            Token::new(TokenValue::Identifier(Identifier::Operator(Operator("**".to_owned())))),
+            Token::new(TokenValue::Identifier(Identifier::Operator(Operator(
+                "**".to_owned(),
+            )))),
             Token::new(TokenValue::Separator(Separator::BackTick)),
         ];
         let result = infix_operator(TokenStream(&infix_name));
-        assert!(result.is_err(), format!("Expected error parse, got {:?}", result));
+        assert!(
+            result.is_err(),
+            format!("Expected error parse, got {:?}", result)
+        );
     }
 
     #[test]
@@ -182,7 +198,10 @@ mod tests {
 
         let name_input = [Token::new(name.clone())];
         let name_result = prefix_operator(TokenStream(&name_input));
-        assert!(name_result.is_ok(), format!("Name result error {:?}", name_result));
+        assert!(
+            name_result.is_ok(),
+            format!("Name result error {:?}", name_result)
+        );
         assert_eq!(TokenValue::from(name_result.unwrap().1), name);
 
         let operator_input = [
@@ -191,20 +210,30 @@ mod tests {
             Token::new(TokenValue::from(Separator::RightRound)),
         ];
         let operator_result = prefix_operator(TokenStream(&operator_input));
-        assert!(operator_result.is_ok(), format!("Operator result error {:?}", operator_result));
+        assert!(
+            operator_result.is_ok(),
+            format!("Operator result error {:?}", operator_result)
+        );
         assert_eq!(TokenValue::from(operator_result.unwrap().1), operator);
 
         let error_op_input = [Token::new(operator)];
         let error_op_result = prefix_operator(TokenStream(&error_op_input));
-        assert!(error_op_result.is_err(), format!("Bare operator did not error {:?}", error_op_result));
+        assert!(
+            error_op_result.is_err(),
+            format!("Bare operator did not error {:?}", error_op_result)
+        );
     }
 
     #[test]
     fn prefix_parses() {
         let expected = BasicFixity::Prefix(PrefixApply {
-            func: ValuePrimary::Identifier(Tagged::new(ScopedIdentifier::from(Identifier::Operator(Operator("+".to_owned()))))),
+            func: ValuePrimary::Identifier(Tagged::new(ScopedIdentifier::from(
+                Identifier::Operator(Operator("+".to_owned())),
+            ))),
             args: vec![
-                ValuePrimary::Identifier(Tagged::new(ScopedIdentifier::from(Identifier::Name(Name("f".to_owned()))))),
+                ValuePrimary::Identifier(Tagged::new(ScopedIdentifier::from(Identifier::Name(
+                    Name("f".to_owned()),
+                )))),
                 ValuePrimary::Literal(Literal::Int(IntLiteral(1))),
             ],
         });
@@ -215,7 +244,8 @@ mod tests {
             TokenValue::from(Identifier::Name(Name("f".to_owned()))),
             TokenValue::from(Literal::Int(IntLiteral(1))),
         ];
-        let success_vec = success.iter()
+        let success_vec = success
+            .iter()
             .map(|t| Token::new(t.clone()))
             .collect::<Vec<_>>();
         let result = BasicFixity::parse(TokenStream(success_vec.as_slice()));
@@ -233,11 +263,15 @@ mod tests {
             args: vec![
                 InfixPrimary::Primary(ValuePrimary::Literal(Literal::Int(IntLiteral(7)))),
                 InfixPrimary::Application(PrefixApply {
-                    func: ValuePrimary::Identifier(Tagged::new(ScopedIdentifier::from(Identifier::Name(Name("f".to_owned()))))),
+                    func: ValuePrimary::Identifier(Tagged::new(ScopedIdentifier::from(
+                        Identifier::Name(Name("f".to_owned())),
+                    ))),
                     args: vec![ValuePrimary::Literal(Literal::Int(IntLiteral(8)))],
                 }),
                 InfixPrimary::Application(PrefixApply {
-                    func: ValuePrimary::Identifier(Tagged::new(ScopedIdentifier::from(Identifier::Name(Name("g".to_owned()))))),
+                    func: ValuePrimary::Identifier(Tagged::new(ScopedIdentifier::from(
+                        Identifier::Name(Name("g".to_owned())),
+                    ))),
                     args: vec![ValuePrimary::Literal(Literal::Int(IntLiteral(9)))],
                 }),
                 InfixPrimary::Primary(ValuePrimary::Literal(Literal::Int(IntLiteral(10)))),
@@ -245,17 +279,30 @@ mod tests {
         });
         let expr = [
             Token::new(TokenValue::Literal(Literal::Int(IntLiteral(7)))),
-            Token::new(TokenValue::Identifier(Identifier::Operator(Operator("@".to_owned())))),
-            Token::new(TokenValue::Identifier(Identifier::Name(Name("f".to_owned())))),
+            Token::new(TokenValue::Identifier(Identifier::Operator(Operator(
+                "@".to_owned(),
+            )))),
+            Token::new(TokenValue::Identifier(Identifier::Name(Name(
+                "f".to_owned(),
+            )))),
             Token::new(TokenValue::Literal(Literal::Int(IntLiteral(8)))),
-            Token::new(TokenValue::Identifier(Identifier::Operator(Operator("@".to_owned())))),
-            Token::new(TokenValue::Identifier(Identifier::Name(Name("g".to_owned())))),
+            Token::new(TokenValue::Identifier(Identifier::Operator(Operator(
+                "@".to_owned(),
+            )))),
+            Token::new(TokenValue::Identifier(Identifier::Name(Name(
+                "g".to_owned(),
+            )))),
             Token::new(TokenValue::Literal(Literal::Int(IntLiteral(9)))),
-            Token::new(TokenValue::Identifier(Identifier::Operator(Operator("@".to_owned())))),
+            Token::new(TokenValue::Identifier(Identifier::Operator(Operator(
+                "@".to_owned(),
+            )))),
             Token::new(TokenValue::Literal(Literal::Int(IntLiteral(10)))),
         ];
         let result = BasicFixity::parse(TokenStream(&expr));
-        assert!(result.is_ok(), format!("Expected ok parse, got {:?}", result));
+        assert!(
+            result.is_ok(),
+            format!("Expected ok parse, got {:?}", result)
+        );
         let (rest, result) = result.unwrap();
         assert_eq!(rest.0, &[]);
         assert_eq!(result, expected);
@@ -268,19 +315,28 @@ mod tests {
             args: vec![
                 InfixPrimary::Primary(ValuePrimary::Literal(Literal::Int(IntLiteral(7)))),
                 InfixPrimary::Application(PrefixApply {
-                    func: ValuePrimary::Identifier(Tagged::new(ScopedIdentifier::from(Identifier::Name(Name("f".to_owned()))))),
+                    func: ValuePrimary::Identifier(Tagged::new(ScopedIdentifier::from(
+                        Identifier::Name(Name("f".to_owned())),
+                    ))),
                     args: vec![ValuePrimary::Literal(Literal::Int(IntLiteral(8)))],
                 }),
             ],
         });
         let expr = [
             Token::new(TokenValue::Literal(Literal::Int(IntLiteral(7)))),
-            Token::new(TokenValue::Identifier(Identifier::Operator(Operator("@".to_owned())))),
-            Token::new(TokenValue::Identifier(Identifier::Name(Name("f".to_owned())))),
+            Token::new(TokenValue::Identifier(Identifier::Operator(Operator(
+                "@".to_owned(),
+            )))),
+            Token::new(TokenValue::Identifier(Identifier::Name(Name(
+                "f".to_owned(),
+            )))),
             Token::new(TokenValue::Literal(Literal::Int(IntLiteral(8)))),
         ];
         let result = BasicFixity::parse(TokenStream(&expr));
-        assert!(result.is_ok(), format!("Expected ok parse, got {:?}", result));
+        assert!(
+            result.is_ok(),
+            format!("Expected ok parse, got {:?}", result)
+        );
         let (rest, result) = result.unwrap();
         assert_eq!(rest.0, &[]);
         assert_eq!(result, expected);
@@ -290,17 +346,30 @@ mod tests {
     fn invalid_mixed_operators() {
         let expr = [
             Token::new(TokenValue::Literal(Literal::Int(IntLiteral(7)))),
-            Token::new(TokenValue::Identifier(Identifier::Operator(Operator("@".to_owned())))),
-            Token::new(TokenValue::Identifier(Identifier::Name(Name("f".to_owned())))),
+            Token::new(TokenValue::Identifier(Identifier::Operator(Operator(
+                "@".to_owned(),
+            )))),
+            Token::new(TokenValue::Identifier(Identifier::Name(Name(
+                "f".to_owned(),
+            )))),
             Token::new(TokenValue::Literal(Literal::Int(IntLiteral(8)))),
-            Token::new(TokenValue::Identifier(Identifier::Operator(Operator("@".to_owned())))),
-            Token::new(TokenValue::Identifier(Identifier::Name(Name("g".to_owned())))),
+            Token::new(TokenValue::Identifier(Identifier::Operator(Operator(
+                "@".to_owned(),
+            )))),
+            Token::new(TokenValue::Identifier(Identifier::Name(Name(
+                "g".to_owned(),
+            )))),
             Token::new(TokenValue::Literal(Literal::Int(IntLiteral(9)))),
-            Token::new(TokenValue::Identifier(Identifier::Operator(Operator("+".to_owned())))),
+            Token::new(TokenValue::Identifier(Identifier::Operator(Operator(
+                "+".to_owned(),
+            )))),
             Token::new(TokenValue::Literal(Literal::Int(IntLiteral(10)))),
         ];
         let result = BasicFixity::<ValuePrimary>::parse(TokenStream(&expr));
-        assert!(result.is_ok(), format!("Expected ok parse, got {:?}", result));
+        assert!(
+            result.is_ok(),
+            format!("Expected ok parse, got {:?}", result)
+        );
         let (rest, _) = result.unwrap();
         assert_eq!(rest.0, &expr[7..]);
     }
@@ -309,9 +378,14 @@ mod tests {
     fn invalid_incomplete() {
         let expr = [
             Token::new(TokenValue::Literal(Literal::Int(IntLiteral(7)))),
-            Token::new(TokenValue::Identifier(Identifier::Operator(Operator("@".to_owned())))),
+            Token::new(TokenValue::Identifier(Identifier::Operator(Operator(
+                "@".to_owned(),
+            )))),
         ];
         let result = BasicFixity::<ValuePrimary>::parse(TokenStream(&expr));
-        assert!(result.is_err(), format!("Expected error parse, got {:?}", result));
+        assert!(
+            result.is_err(),
+            format!("Expected error parse, got {:?}", result)
+        );
     }
 }

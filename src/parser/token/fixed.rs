@@ -94,10 +94,7 @@ impl Keyword {
 /// assert!(!is_keyword_or_separator("simple"));
 /// ```
 pub fn is_keyword_or_separator(input: Source) -> bool {
-    let result = alt((
-        value((), Separator::parse),
-        value((), Keyword::parse),
-    ))(input);
+    let result = alt((value((), Separator::parse), value((), Keyword::parse)))(input);
     if let Ok((rest, _)) = result {
         // the entire input is a keyword if and only if the remainder is empty
         rest.is_empty()

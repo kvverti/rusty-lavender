@@ -8,7 +8,11 @@ pub struct UnificationVisitor<'sym> {
 
 impl<'sym> UnificationVisitor<'sym> {
     /// Attempts to unify the two types, and returns a result indicating success.
-    pub fn unify<'arena>(&mut self, left: TypeRef<'sym, 'arena>, right: TypeRef<'sym, 'arena>) -> Result<(), ()> {
+    pub fn unify<'arena>(
+        &mut self,
+        left: TypeRef<'sym, 'arena>,
+        right: TypeRef<'sym, 'arena>,
+    ) -> Result<(), ()> {
         if !left.identity_eq(right) {
             // unify inner type structure
             left.accept(self, right)?;
@@ -31,12 +35,22 @@ impl<'sym: 'arena, 'arena> TypeVisitor<'sym, 'arena> for UnificationVisitor<'sym
     type Input = TypeRef<'sym, 'arena>;
     type Output = Result<(), ()>;
 
-    fn visit_free(&mut self, _v: u64, _typ: TypeRef<'sym, 'arena>, _arg: Self::Input) -> Self::Output {
+    fn visit_free(
+        &mut self,
+        _v: u64,
+        _typ: TypeRef<'sym, 'arena>,
+        _arg: Self::Input,
+    ) -> Self::Output {
         // free variables always unify
         Ok(())
     }
 
-    fn visit_bound(&mut self, v: BoundVariable<'sym>, _typ: TypeRef<'sym, 'arena>, arg: Self::Input) -> Self::Output {
+    fn visit_bound(
+        &mut self,
+        v: BoundVariable<'sym>,
+        _typ: TypeRef<'sym, 'arena>,
+        arg: Self::Input,
+    ) -> Self::Output {
         // bound variables unify with their corresponding bindings
         let other = arg.0.borrow();
         match *other {
@@ -46,7 +60,12 @@ impl<'sym: 'arena, 'arena> TypeVisitor<'sym, 'arena> for UnificationVisitor<'sym
         }
     }
 
-    fn visit_atom(&mut self, sym: &'sym AstSymbol, _typ: TypeRef<'sym, 'arena>, arg: Self::Input) -> Self::Output {
+    fn visit_atom(
+        &mut self,
+        sym: &'sym AstSymbol,
+        _typ: TypeRef<'sym, 'arena>,
+        arg: Self::Input,
+    ) -> Self::Output {
         let other = arg.0.borrow();
         match *other {
             AstType::FreeVariable(_) => Ok(()),
@@ -55,11 +74,20 @@ impl<'sym: 'arena, 'arena> TypeVisitor<'sym, 'arena> for UnificationVisitor<'sym
         }
     }
 
-    fn visit_func(&mut self, param: TypeRef<'sym, 'arena>, result: TypeRef<'sym, 'arena>, _typ: TypeRef<'sym, 'arena>, arg: Self::Input) -> Self::Output {
+    fn visit_func(
+        &mut self,
+        param: TypeRef<'sym, 'arena>,
+        result: TypeRef<'sym, 'arena>,
+        _typ: TypeRef<'sym, 'arena>,
+        arg: Self::Input,
+    ) -> Self::Output {
         let other = arg.0.borrow();
         match *other {
             AstType::FreeVariable(_) => Ok(()),
-            AstType::Function { param: p2, result: r2 } => {
+            AstType::Function {
+                param: p2,
+                result: r2,
+            } => {
                 self.unify(param, p2)?;
                 self.unify(result, r2)?;
                 Ok(())
@@ -68,7 +96,13 @@ impl<'sym: 'arena, 'arena> TypeVisitor<'sym, 'arena> for UnificationVisitor<'sym
         }
     }
 
-    fn visit_apply(&mut self, ctor: TypeRef<'sym, 'arena>, par: TypeRef<'sym, 'arena>, _typ: TypeRef<'sym, 'arena>, arg: Self::Input) -> Self::Output {
+    fn visit_apply(
+        &mut self,
+        ctor: TypeRef<'sym, 'arena>,
+        par: TypeRef<'sym, 'arena>,
+        _typ: TypeRef<'sym, 'arena>,
+        arg: Self::Input,
+    ) -> Self::Output {
         let other = arg.0.borrow();
         match *other {
             AstType::FreeVariable(_) => Ok(()),
@@ -81,13 +115,26 @@ impl<'sym: 'arena, 'arena> TypeVisitor<'sym, 'arena> for UnificationVisitor<'sym
         }
     }
 
-    fn visit_schema(&mut self, vars: &[BoundVariable<'sym>], inner: TypeRef<'sym, 'arena>, _typ: TypeRef<'sym, 'arena>, arg: Self::Input) -> Self::Output {
+    fn visit_schema(
+        &mut self,
+        vars: &[BoundVariable<'sym>],
+        inner: TypeRef<'sym, 'arena>,
+        _typ: TypeRef<'sym, 'arena>,
+        arg: Self::Input,
+    ) -> Self::Output {
         let other = arg.0.borrow();
         match *other {
             AstType::FreeVariable(_) => Ok(()),
-            AstType::Schema { vars: ref v2, inner: i2 } => {
-                assert!(self.bindings.iter().all(|(l, r)| !vars.contains(l) && !v2.contains(r)),
-                        "Duplicate bound variable in nested schema");
+            AstType::Schema {
+                vars: ref v2,
+                inner: i2,
+            } => {
+                assert!(
+                    self.bindings
+                        .iter()
+                        .all(|(l, r)| !vars.contains(l) && !v2.contains(r)),
+                    "Duplicate bound variable in nested schema"
+                );
                 // unify the declared bound variables
                 let outer_len = self.bindings.len();
                 let inner_vars = vars.iter().copied().zip(v2.iter().copied());

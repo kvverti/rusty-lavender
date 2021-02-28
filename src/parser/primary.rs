@@ -1,14 +1,15 @@
-use nom::Err::Error;
 use nom::error::{VerboseError, VerboseErrorKind};
+use nom::Err::Error;
 
-use crate::parser::ParseResult;
-use crate::parser::token::{TokenStream, TokenValue};
 use crate::parser::token::identifier::{Identifier, Name, Operator};
 use crate::parser::token::literal::Literal;
+use crate::parser::token::{TokenStream, TokenValue};
+use crate::parser::ParseResult;
 
 /// A trait for parsable primary expressions.
 pub trait Primary
-    where Self: Sized
+where
+    Self: Sized,
 {
     fn parse(input: TokenStream) -> ParseResult<TokenStream, Self>;
 }
@@ -19,10 +20,14 @@ pub fn name(input: TokenStream) -> ParseResult<TokenStream, Name> {
         if let TokenValue::Identifier(Identifier::Name(v)) = t {
             Ok((TokenStream(&input.0[1..]), v.clone()))
         } else {
-            Err(Error(VerboseError { errors: vec![(input, VerboseErrorKind::Context("Token not a name"))] }))
+            Err(Error(VerboseError {
+                errors: vec![(input, VerboseErrorKind::Context("Token not a name"))],
+            }))
         }
     } else {
-        Err(Error(VerboseError { errors: vec![(input, VerboseErrorKind::Context("Token does not exist"))] }))
+        Err(Error(VerboseError {
+            errors: vec![(input, VerboseErrorKind::Context("Token does not exist"))],
+        }))
     }
 }
 
@@ -32,10 +37,14 @@ pub fn operator(input: TokenStream) -> ParseResult<TokenStream, Operator> {
         if let TokenValue::Identifier(Identifier::Operator(v)) = t {
             Ok((TokenStream(&input.0[1..]), v.clone()))
         } else {
-            Err(Error(VerboseError { errors: vec![(input, VerboseErrorKind::Context("Token not an operator"))] }))
+            Err(Error(VerboseError {
+                errors: vec![(input, VerboseErrorKind::Context("Token not an operator"))],
+            }))
         }
     } else {
-        Err(Error(VerboseError { errors: vec![(input, VerboseErrorKind::Context("Token does not exist"))] }))
+        Err(Error(VerboseError {
+            errors: vec![(input, VerboseErrorKind::Context("Token does not exist"))],
+        }))
     }
 }
 
@@ -45,10 +54,14 @@ pub fn literal(input: TokenStream) -> ParseResult<TokenStream, Literal> {
         if let TokenValue::Literal(v) = t {
             Ok((TokenStream(&input.0[1..]), *v))
         } else {
-            Err(Error(VerboseError { errors: vec![(input, VerboseErrorKind::Context("Token not a literal"))] }))
+            Err(Error(VerboseError {
+                errors: vec![(input, VerboseErrorKind::Context("Token not a literal"))],
+            }))
         }
     } else {
-        Err(Error(VerboseError { errors: vec![(input, VerboseErrorKind::Context("Token does not exist"))] }))
+        Err(Error(VerboseError {
+            errors: vec![(input, VerboseErrorKind::Context("Token does not exist"))],
+        }))
     }
 }
 
@@ -63,10 +76,12 @@ mod tests {
     use super::*;
 
     fn test_parse<P, O>(expected: &[TokenValue], errors: &[TokenValue], parser: P)
-        where P: Fn(TokenStream) -> ParseResult<TokenStream, O>,
-              O: Into<TokenValue> + Debug,
+    where
+        P: Fn(TokenStream) -> ParseResult<TokenStream, O>,
+        O: Into<TokenValue> + Debug,
     {
-        let token_vec = expected.iter()
+        let token_vec = expected
+            .iter()
             .map(|t| Token::new(t.clone()))
             .collect::<Vec<_>>();
         let mut tokens = TokenStream(token_vec.as_slice());
@@ -83,7 +98,8 @@ mod tests {
             }
         }
 
-        let error_token_vec = errors.iter()
+        let error_token_vec = errors
+            .iter()
             .map(|t| Token::new(t.clone()))
             .collect::<Vec<_>>();
         let mut error_tokens = TokenStream(error_token_vec.as_slice());

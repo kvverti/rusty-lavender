@@ -34,7 +34,8 @@ fn main() {
     if let Some(source) = source {
         let source_lines = create_line_mapping(&source);
         let tokens = Token::parse_sequence(&source);
-        let errs = tokens.iter()
+        let errs = tokens
+            .iter()
             .filter_map(|Token { value, col, len }| {
                 if let TokenValue::Unrecognized(chr) = value {
                     Some((chr, col, len))
@@ -53,7 +54,12 @@ fn main() {
                 let col = col - line_idx;
                 let mut highlight = vec![' '; line_len];
                 highlight[col..col + len].iter_mut().for_each(|c| *c = '^');
-                eprintln!("[{}:{}] Error: Unrecognized token '{}'", line + 1, col + 1, chr);
+                eprintln!(
+                    "[{}:{}] Error: Unrecognized token '{}'",
+                    line + 1,
+                    col + 1,
+                    chr
+                );
                 eprintln!("\t{}", &source[line_idx..line_idx + line_len]);
                 eprintln!("\t{}", String::from_iter(highlight));
             }
@@ -88,7 +94,7 @@ fn main() {
                     }
                 }
                 _ => println!("Error parsing (no message)"),
-            }
+            },
         }
     } else {
         println!("No source");

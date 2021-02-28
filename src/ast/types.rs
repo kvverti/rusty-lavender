@@ -19,23 +19,39 @@ pub trait TypeVisitor<'sym, 'arena> {
     type Output;
 
     fn visit_free(&mut self, v: u64, typ: TypeRef<'sym, 'arena>, arg: Self::Input) -> Self::Output;
-    fn visit_bound(&mut self, v: BoundVariable<'sym>, typ: TypeRef<'sym, 'arena>, arg: Self::Input) -> Self::Output;
-    fn visit_atom(&mut self, sym: &'sym AstSymbol, typ: TypeRef<'sym, 'arena>, arg: Self::Input) -> Self::Output;
-    fn visit_func(&mut self,
-                  param: TypeRef<'sym, 'arena>,
-                  result: TypeRef<'sym, 'arena>,
-                  typ: TypeRef<'sym, 'arena>,
-                  arg: Self::Input) -> Self::Output;
-    fn visit_apply(&mut self,
-                   ctor: TypeRef<'sym, 'arena>,
-                   par: TypeRef<'sym, 'arena>,
-                   typ: TypeRef<'sym, 'arena>,
-                   arg: Self::Input) -> Self::Output;
-    fn visit_schema(&mut self,
-                    vars: &[BoundVariable<'sym>],
-                    inner: TypeRef<'sym, 'arena>,
-                    typ: TypeRef<'sym, 'arena>,
-                    arg: Self::Input) -> Self::Output;
+    fn visit_bound(
+        &mut self,
+        v: BoundVariable<'sym>,
+        typ: TypeRef<'sym, 'arena>,
+        arg: Self::Input,
+    ) -> Self::Output;
+    fn visit_atom(
+        &mut self,
+        sym: &'sym AstSymbol,
+        typ: TypeRef<'sym, 'arena>,
+        arg: Self::Input,
+    ) -> Self::Output;
+    fn visit_func(
+        &mut self,
+        param: TypeRef<'sym, 'arena>,
+        result: TypeRef<'sym, 'arena>,
+        typ: TypeRef<'sym, 'arena>,
+        arg: Self::Input,
+    ) -> Self::Output;
+    fn visit_apply(
+        &mut self,
+        ctor: TypeRef<'sym, 'arena>,
+        par: TypeRef<'sym, 'arena>,
+        typ: TypeRef<'sym, 'arena>,
+        arg: Self::Input,
+    ) -> Self::Output;
+    fn visit_schema(
+        &mut self,
+        vars: &[BoundVariable<'sym>],
+        inner: TypeRef<'sym, 'arena>,
+        typ: TypeRef<'sym, 'arena>,
+        arg: Self::Input,
+    ) -> Self::Output;
 }
 
 /// A bound type variable for use in a type schema. These may be user defined or inferred by
@@ -52,7 +68,10 @@ impl Display for BoundVariable<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Declared(symb) => {
-                let last_scope = symb.as_scopes().last().expect("No name for user-defined binding");
+                let last_scope = symb
+                    .as_scopes()
+                    .last()
+                    .expect("No name for user-defined binding");
                 write!(f, "'{}", last_scope)
             }
             Self::Inferred(idx) => {
@@ -171,18 +190,27 @@ mod tests {
         let bound_0 = TypeRef::new_in(&arena, AstType::BoundVariable(BoundVariable::Inferred(0)));
         let bound_d = TypeRef::new_in(&arena, AstType::BoundVariable(BoundVariable::Declared(&a)));
         let atom = TypeRef::new_in(&arena, AstType::Atom(&int));
-        let func = TypeRef::new_in(&arena, AstType::Function {
-            param: free_0,
-            result: bound_0,
-        });
-        let app = TypeRef::new_in(&arena, AstType::Application {
-            ctor: free_0,
-            arg: bound_d,
-        });
-        let schema = TypeRef::new_in(&arena, AstType::Schema {
-            vars: vec![BoundVariable::Inferred(0)],
-            inner: func,
-        });
+        let func = TypeRef::new_in(
+            &arena,
+            AstType::Function {
+                param: free_0,
+                result: bound_0,
+            },
+        );
+        let app = TypeRef::new_in(
+            &arena,
+            AstType::Application {
+                ctor: free_0,
+                arg: bound_d,
+            },
+        );
+        let schema = TypeRef::new_in(
+            &arena,
+            AstType::Schema {
+                vars: vec![BoundVariable::Inferred(0)],
+                inner: func,
+            },
+        );
         let uni = TypeRef::new_in(&arena, AstType::Unification(schema));
         let expected = vec![
             "#0",
@@ -194,16 +222,10 @@ mod tests {
             "(for '0. (#0) -> '0)",
             "(for '0. (#0) -> '0)",
         ];
-        let types = vec![
-            free_0,
-            bound_0,
-            bound_d,
-            atom,
-            func,
-            app,
-            schema,
-            uni,
-        ].into_iter().map(|r| format!("{}", r)).collect::<Vec<_>>();
+        let types = vec![free_0, bound_0, bound_d, atom, func, app, schema, uni]
+            .into_iter()
+            .map(|r| format!("{}", r))
+            .collect::<Vec<_>>();
         assert_eq!(types, expected);
     }
 
@@ -220,24 +242,75 @@ mod tests {
         let atom_foo = TypeRef::new_in(&arena, AstType::Atom(&foo_s));
         let bound = TypeRef::new_in(&arena, AstType::BoundVariable(a));
         let bound_b = TypeRef::new_in(&arena, AstType::BoundVariable(b));
-        let b_a = TypeRef::new_in(&arena, AstType::Application { ctor: bound_b, arg: bound });
-        let schema_inner = TypeRef::new_in(&arena, AstType::Schema { vars: vec![b], inner: b_a });
-        let foo_a = TypeRef::new_in(&arena, AstType::Application { ctor: atom_foo, arg: bound });
+        let b_a = TypeRef::new_in(
+            &arena,
+            AstType::Application {
+                ctor: bound_b,
+                arg: bound,
+            },
+        );
+        let schema_inner = TypeRef::new_in(
+            &arena,
+            AstType::Schema {
+                vars: vec![b],
+                inner: b_a,
+            },
+        );
+        let foo_a = TypeRef::new_in(
+            &arena,
+            AstType::Application {
+                ctor: atom_foo,
+                arg: bound,
+            },
+        );
         let uni = TypeRef::new_in(&arena, AstType::Unification(foo_a));
-        let func_inner = TypeRef::new_in(&arena, AstType::Function { param: uni, result: schema_inner });
-        let foo_0 = TypeRef::new_in(&arena, AstType::Application { ctor: atom_foo, arg: free });
-        let func = TypeRef::new_in(&arena, AstType::Function { param: foo_0, result: func_inner });
-        let schema = TypeRef::new_in(&arena, AstType::Schema { vars: vec![a], inner: func });
-        assert_eq!(format!("{}", schema), "(for 'a. (Foo (#0)) -> (Foo ('a)) -> (for 'b. 'b ('a)))");
+        let func_inner = TypeRef::new_in(
+            &arena,
+            AstType::Function {
+                param: uni,
+                result: schema_inner,
+            },
+        );
+        let foo_0 = TypeRef::new_in(
+            &arena,
+            AstType::Application {
+                ctor: atom_foo,
+                arg: free,
+            },
+        );
+        let func = TypeRef::new_in(
+            &arena,
+            AstType::Function {
+                param: foo_0,
+                result: func_inner,
+            },
+        );
+        let schema = TypeRef::new_in(
+            &arena,
+            AstType::Schema {
+                vars: vec![a],
+                inner: func,
+            },
+        );
+        assert_eq!(
+            format!("{}", schema),
+            "(for 'a. (Foo (#0)) -> (Foo ('a)) -> (for 'b. 'b ('a)))"
+        );
 
         let value = TypeRef::new_in(&arena, AstType::FreeVariable(1));
         let replace = vec![(a, value)];
-        let mut visitor = InstantiationVisitor { arena: &arena, vars: replace };
+        let mut visitor = InstantiationVisitor {
+            arena: &arena,
+            vars: replace,
+        };
 
         let old_len = arena.len();
         let inst = func.accept(&mut visitor, ());
         let new_len = arena.len();
-        assert_eq!(format!("{}", inst), "(Foo (#0)) -> (Foo (#1)) -> (for 'b. 'b (#1))");
+        assert_eq!(
+            format!("{}", inst),
+            "(Foo (#0)) -> (Foo (#1)) -> (for 'b. 'b (#1))"
+        );
         assert_eq!(new_len - old_len, 5);
     }
 }

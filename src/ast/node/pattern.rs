@@ -1,5 +1,5 @@
-use crate::ast::node::{AstPatternExpression, ExtractAstNode};
 use crate::ast::node::fixity::InfixNamespace;
+use crate::ast::node::{AstPatternExpression, ExtractAstNode};
 use crate::ast::symbol::{AstSymbol, SymbolContext, SymbolData, SymbolSpace};
 use crate::parser::pattern::{Pattern, PatternPrimary};
 
@@ -10,24 +10,35 @@ impl<'a> ExtractAstNode<'a> for PatternPrimary {
         match self {
             Self::Identifier(id) => {
                 // patterns are scoped identifiers or begin with an uppercase letter
-                let is_pattern = !id.value.scopes.is_empty() || id.value.name.value()
-                    .chars()
-                    .next()
-                    .expect("Expected nonempty name")
-                    .is_uppercase();
+                let is_pattern = !id.value.scopes.is_empty()
+                    || id
+                        .value
+                        .name
+                        .value()
+                        .chars()
+                        .next()
+                        .expect("Expected nonempty name")
+                        .is_uppercase();
                 if is_pattern {
-                    let symbol = AstSymbol::from_scopes(SymbolSpace::Pattern, &id.value.to_scopes());
+                    let symbol =
+                        AstSymbol::from_scopes(SymbolSpace::Pattern, &id.value.to_scopes());
                     data.resolve_symbol(ctx.enclosing_scope, symbol)
                         .map(|(s, _)| AstPatternExpression::Symbol(s))
-                        .unwrap_or_else(|| AstPatternExpression::Error(id.map(|_| "Cannot resolve pattern symbol")))
+                        .unwrap_or_else(|| {
+                            AstPatternExpression::Error(id.map(|_| "Cannot resolve pattern symbol"))
+                        })
                 } else {
-                    let symbol = AstSymbol::in_scope(SymbolSpace::Value, ctx.enclosing_scope, id.value.name.value());
+                    let symbol = AstSymbol::in_scope(
+                        SymbolSpace::Value,
+                        ctx.enclosing_scope,
+                        id.value.name.value(),
+                    );
                     AstPatternExpression::Symbol(data.get_declared_symbol(symbol))
                 }
             }
             Self::Literal(lit) => AstPatternExpression::Constant(lit),
             Self::Blank => AstPatternExpression::Blank,
-            Self::SubPattern(pattern) => pattern.construct_ast(data, ctx)
+            Self::SubPattern(pattern) => pattern.construct_ast(data, ctx),
         }
     }
 }
@@ -53,8 +64,8 @@ mod tests {
     use crate::parser::item::Fixity;
     use crate::parser::primary::Primary;
     use crate::parser::tagged::Tagged;
-    use crate::parser::token::{Token, TokenStream};
     use crate::parser::token::literal::{IntLiteral, Literal};
+    use crate::parser::token::{Token, TokenStream};
 
     use super::*;
 
@@ -70,7 +81,9 @@ mod tests {
                 (some.clone(), Tagged::new(Fixity::None)),
                 (arrow.clone(), Tagged::new(Fixity::Right)),
                 (list_nil.clone(), Tagged::new(Fixity::None)),
-            ].into_iter().collect(),
+            ]
+            .into_iter()
+            .collect(),
             vec![
                 (GLOBAL_SCOPE.clone(), some.clone()),
                 (GLOBAL_SCOPE.clone(), arrow.clone()),
@@ -110,9 +123,10 @@ mod tests {
         let x = AstSymbol::new(SymbolSpace::Value, "x");
         let mut data = SymbolData::from_parts(
             HashMap::new(),
-            vec![
-                (GLOBAL_SCOPE.clone(), AstSymbol::new(SymbolSpace::Pattern, "Some"))
-            ],
+            vec![(
+                GLOBAL_SCOPE.clone(),
+                AstSymbol::new(SymbolSpace::Pattern, "Some"),
+            )],
         );
         let expected = AstPatternExpression::Application(
             Box::new(AstPatternExpression::Error(Tagged {

@@ -22,17 +22,26 @@ pub trait AstApply<'a> {
 }
 
 impl<'a, P: ExtractAstNode<'a>> ExtractAstNode<'a> for PrefixApply<P>
-    where P::Node: AstApply<'a>
+where
+    P::Node: AstApply<'a>,
 {
     type Node = P::Node;
 
     fn construct_ast(self, data: &'a SymbolData, ctx: SymbolContext<'_>) -> Self::Node {
         let implicit = AstSymbol::in_scope(SymbolSpace::Value, ctx.implicit_scope, "0");
-        let func_node = self.func.construct_ast(data, ctx.with_implicit_scope(&implicit));
+        let func_node = self
+            .func
+            .construct_ast(data, ctx.with_implicit_scope(&implicit));
         // left fold args: f a b c -> ((f a) b) c
-        self.args.into_iter().enumerate()
+        self.args
+            .into_iter()
+            .enumerate()
             .map(|(idx, arg)| {
-                let implicit = AstSymbol::in_scope(SymbolSpace::Value, ctx.implicit_scope, &(1 + idx).to_string());
+                let implicit = AstSymbol::in_scope(
+                    SymbolSpace::Value,
+                    ctx.implicit_scope,
+                    &(1 + idx).to_string(),
+                );
                 arg.construct_ast(data, ctx.with_implicit_scope(&implicit))
             })
             .fold(func_node, AstApply::apply)
@@ -40,7 +49,8 @@ impl<'a, P: ExtractAstNode<'a>> ExtractAstNode<'a> for PrefixApply<P>
 }
 
 impl<'a, P: ExtractAstNode<'a>> ExtractAstNode<'a> for InfixPrimary<P>
-    where P::Node: AstApply<'a>
+where
+    P::Node: AstApply<'a>,
 {
     type Node = P::Node;
 
@@ -53,25 +63,40 @@ impl<'a, P: ExtractAstNode<'a>> ExtractAstNode<'a> for InfixPrimary<P>
 }
 
 impl<'a, P: ExtractAstNode<'a> + InfixNamespace> ExtractAstNode<'a> for InfixApply<P>
-    where P::Node: AstApply<'a> + Clone
+where
+    P::Node: AstApply<'a> + Clone,
 {
     type Node = P::Node;
 
     fn construct_ast(self, data: &'a SymbolData, ctx: SymbolContext<'_>) -> Self::Node {
         let Self { func, args } = self;
         let func_symbol = AstSymbol::new(P::NAMESPACE, func.value.value());
-        let (func_node, fixity) = data.resolve_symbol(ctx.enclosing_scope, func_symbol)
+        let (func_node, fixity) = data
+            .resolve_symbol(ctx.enclosing_scope, func_symbol)
             .map(|(s, f)| (Self::Node::symbol(s), f))
-            .unwrap_or_else(|| (Self::Node::error(func.as_ref().map(|_| "Cannot resolve symbol")), Fixity::Left));
+            .unwrap_or_else(|| {
+                (
+                    Self::Node::error(func.as_ref().map(|_| "Cannot resolve symbol")),
+                    Fixity::Left,
+                )
+            });
         // fold order depends on the fixity of the definition
         if fixity == Fixity::None && args.len() != 2 {
             // must have exactly two arguments
-            Self::Node::error(func.as_ref().map(|_| "Chained expression with a non-associative operator"))
+            Self::Node::error(
+                func.as_ref()
+                    .map(|_| "Chained expression with a non-associative operator"),
+            )
         } else {
-            let mut args = args.into_iter()
+            let mut args = args
+                .into_iter()
                 .enumerate()
                 .map(|(idx, arg)| {
-                    let implicit = AstSymbol::in_scope(SymbolSpace::Value, ctx.implicit_scope, &idx.to_string());
+                    let implicit = AstSymbol::in_scope(
+                        SymbolSpace::Value,
+                        ctx.implicit_scope,
+                        &idx.to_string(),
+                    );
                     arg.construct_ast(data, ctx.with_implicit_scope(&implicit))
                 })
                 .collect::<Vec<_>>();
@@ -95,7 +120,8 @@ impl<'a, P: ExtractAstNode<'a> + InfixNamespace> ExtractAstNode<'a> for InfixApp
 }
 
 impl<'a, P: ExtractAstNode<'a> + InfixNamespace> ExtractAstNode<'a> for BasicFixity<P>
-    where P::Node: AstApply<'a> + Clone
+where
+    P::Node: AstApply<'a> + Clone,
 {
     type Node = P::Node;
 
@@ -111,7 +137,9 @@ impl<'a, P: ExtractAstNode<'a> + InfixNamespace> ExtractAstNode<'a> for BasicFix
 #[cfg(test)]
 mod tests {
     use crate::ast::node::{AstPatternExpression, AstValueExpression, ExtractAstNode};
-    use crate::ast::symbol::{AstSymbol, ExtractSymbol, GLOBAL_SCOPE, SymbolContext, SymbolData, SymbolSpace};
+    use crate::ast::symbol::{
+        AstSymbol, ExtractSymbol, SymbolContext, SymbolData, SymbolSpace, GLOBAL_SCOPE,
+    };
     use crate::parser::item::Fixity;
     use crate::parser::tagged::Tagged;
     use crate::parser::token::{Token, TokenStream};
@@ -119,8 +147,7 @@ mod tests {
 
     #[test]
     fn proper_inner_scopes() {
-        let input =
-            "(a (for a. a)) (for a. a) `a` (for a. (for a. a) a (for a. a))";
+        let input = "(a (for a. a)) (for a. a) `a` (for a. (for a. a) a (for a. a))";
         //    *       0/0/1        0/1  *                 1,0 1        1,2
         let a = AstSymbol::from_scopes(SymbolSpace::Value, &["a"]);
         let a001 = AstSymbol::from_scopes(SymbolSpace::Value, &["0/0/1", "a"]);
@@ -129,17 +156,32 @@ mod tests {
         let a10 = AstSymbol::from_scopes(SymbolSpace::Value, &["1", "0", "a"]);
         let a12 = AstSymbol::from_scopes(SymbolSpace::Value, &["1", "2", "a"]);
         let mut data = SymbolData::from_parts(
-            vec![
-                (a.clone(), Tagged::new(Fixity::None)),
-            ].into_iter().collect(),
+            vec![(a.clone(), Tagged::new(Fixity::None))]
+                .into_iter()
+                .collect(),
             vec![
                 (GLOBAL_SCOPE.clone(), a.clone()),
                 (GLOBAL_SCOPE.clone(), a.clone()),
-                (AstSymbol::from_scopes(SymbolSpace::Value, &["0/0/1"]), a.clone()),
-                (AstSymbol::from_scopes(SymbolSpace::Value, &["0/1"]), a.clone()),
-                (AstSymbol::from_scopes(SymbolSpace::Value, &["1"]), a.clone()),
-                (AstSymbol::from_scopes(SymbolSpace::Value, &["1", "0"]), a.clone()),
-                (AstSymbol::from_scopes(SymbolSpace::Value, &["1", "2"]), a.clone()),
+                (
+                    AstSymbol::from_scopes(SymbolSpace::Value, &["0/0/1"]),
+                    a.clone(),
+                ),
+                (
+                    AstSymbol::from_scopes(SymbolSpace::Value, &["0/1"]),
+                    a.clone(),
+                ),
+                (
+                    AstSymbol::from_scopes(SymbolSpace::Value, &["1"]),
+                    a.clone(),
+                ),
+                (
+                    AstSymbol::from_scopes(SymbolSpace::Value, &["1", "0"]),
+                    a.clone(),
+                ),
+                (
+                    AstSymbol::from_scopes(SymbolSpace::Value, &["1", "2"]),
+                    a.clone(),
+                ),
             ],
         );
         let expected = AstValueExpression::Application(

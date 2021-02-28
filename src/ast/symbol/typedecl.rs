@@ -8,7 +8,9 @@ impl ExtractSymbol for TypePrimary {
             Self::TypeIdentifier(_) | Self::TypeHole(_) => {}
             // type variables are bound to definition scope
             Self::TypeVariable(name) => {
-                let symbol = name.as_ref().map(|name| AstSymbol::in_scope(SymbolSpace::Type, ctx.enclosing_definition, &name.0));
+                let symbol = name.as_ref().map(|name| {
+                    AstSymbol::in_scope(SymbolSpace::Type, ctx.enclosing_definition, &name.0)
+                });
                 data.declare_symbol(symbol);
             }
             // subexpressions pass through
@@ -43,9 +45,25 @@ mod tests {
         let ctx = SymbolContext::new();
         let expected = SymbolData::from_parts(
             vec![
-                (AstSymbol::from_scopes(SymbolSpace::Type, &["a"]), Tagged { value: Fixity::None, idx: 0, len: 2 }),
-                (AstSymbol::from_scopes(SymbolSpace::Type, &["1", "b"]), Tagged { value: Fixity::None, idx: 11, len: 1 }),
-            ].into_iter().collect(),
+                (
+                    AstSymbol::from_scopes(SymbolSpace::Type, &["a"]),
+                    Tagged {
+                        value: Fixity::None,
+                        idx: 0,
+                        len: 2,
+                    },
+                ),
+                (
+                    AstSymbol::from_scopes(SymbolSpace::Type, &["1", "b"]),
+                    Tagged {
+                        value: Fixity::None,
+                        idx: 11,
+                        len: 1,
+                    },
+                ),
+            ]
+            .into_iter()
+            .collect(),
             vec![],
         );
         expr.extract(&mut data, ctx);
@@ -61,10 +79,33 @@ mod tests {
         let ctx = SymbolContext::new();
         let expected = SymbolData::from_parts(
             vec![
-                (AstSymbol::from_scopes(SymbolSpace::Type, &["a"]), Tagged { value: Fixity::None, idx: 13, len: 2 }),
-                (AstSymbol::from_scopes(SymbolSpace::Type, &["0", "b"]), Tagged { value: Fixity::None, idx: 5, len: 1 }),
-                (AstSymbol::from_scopes(SymbolSpace::Type, &["1", "b"]), Tagged { value: Fixity::None, idx: 25, len: 1 }),
-            ].into_iter().collect(),
+                (
+                    AstSymbol::from_scopes(SymbolSpace::Type, &["a"]),
+                    Tagged {
+                        value: Fixity::None,
+                        idx: 13,
+                        len: 2,
+                    },
+                ),
+                (
+                    AstSymbol::from_scopes(SymbolSpace::Type, &["0", "b"]),
+                    Tagged {
+                        value: Fixity::None,
+                        idx: 5,
+                        len: 1,
+                    },
+                ),
+                (
+                    AstSymbol::from_scopes(SymbolSpace::Type, &["1", "b"]),
+                    Tagged {
+                        value: Fixity::None,
+                        idx: 25,
+                        len: 1,
+                    },
+                ),
+            ]
+            .into_iter()
+            .collect(),
             vec![],
         );
         expr.extract(&mut data, ctx);
@@ -80,10 +121,33 @@ mod tests {
         let ctx = SymbolContext::new();
         let expected = SymbolData::from_parts(
             vec![
-                (AstSymbol::from_scopes(SymbolSpace::Type, &["a"]), Tagged { value: Fixity::None, idx: 13, len: 2 }),
-                (AstSymbol::from_scopes(SymbolSpace::Type, &["0", "b"]), Tagged { value: Fixity::None, idx: 5, len: 1 }),
-                (AstSymbol::from_scopes(SymbolSpace::Type, &["1", "b"]), Tagged { value: Fixity::None, idx: 22, len: 1 }),
-            ].into_iter().collect(),
+                (
+                    AstSymbol::from_scopes(SymbolSpace::Type, &["a"]),
+                    Tagged {
+                        value: Fixity::None,
+                        idx: 13,
+                        len: 2,
+                    },
+                ),
+                (
+                    AstSymbol::from_scopes(SymbolSpace::Type, &["0", "b"]),
+                    Tagged {
+                        value: Fixity::None,
+                        idx: 5,
+                        len: 1,
+                    },
+                ),
+                (
+                    AstSymbol::from_scopes(SymbolSpace::Type, &["1", "b"]),
+                    Tagged {
+                        value: Fixity::None,
+                        idx: 22,
+                        len: 1,
+                    },
+                ),
+            ]
+            .into_iter()
+            .collect(),
             vec![],
         );
         expr.extract(&mut data, ctx);

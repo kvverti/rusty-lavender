@@ -4,13 +4,13 @@ use nom::combinator::{map, value};
 use nom::sequence::delimited;
 
 use crate::parser::fixity::BasicFixity;
-use crate::parser::ParseResult;
 use crate::parser::primary::{literal, Primary};
 use crate::parser::scoped::ScopedIdentifier;
-use crate::parser::tagged::{Tagged, tagged};
-use crate::parser::token::{TokenStream, TokenValue};
+use crate::parser::tagged::{tagged, Tagged};
 use crate::parser::token::fixed::{Keyword, Separator};
 use crate::parser::token::literal::Literal;
+use crate::parser::token::{TokenStream, TokenValue};
+use crate::parser::ParseResult;
 
 /// A primary pattern, used where patterns may be placed.
 #[derive(Clone, Debug, PartialEq)]
@@ -32,11 +32,14 @@ impl Primary for PatternPrimary {
             map(literal, Self::Literal),
             value(Self::Blank, tag(TokenValue::from(Keyword::Underscore))),
             map(tagged(ScopedIdentifier::parse), Self::Identifier),
-            map(delimited(
-                tag(TokenValue::from(Separator::LeftRound)),
-                Pattern::parse,
-                tag(TokenValue::from(Separator::RightRound)),
-            ), |e| Self::SubPattern(Box::new(e)))
+            map(
+                delimited(
+                    tag(TokenValue::from(Separator::LeftRound)),
+                    Pattern::parse,
+                    tag(TokenValue::from(Separator::RightRound)),
+                ),
+                |e| Self::SubPattern(Box::new(e)),
+            ),
         ))(input)
     }
 }
@@ -66,25 +69,29 @@ mod tests {
 
     #[test]
     fn parses() {
-        let expected = PatternPrimary::SubPattern(Box::new(
-            Pattern::Application(BasicFixity::Infix(InfixApply {
+        let expected = PatternPrimary::SubPattern(Box::new(Pattern::Application(
+            BasicFixity::Infix(InfixApply {
                 func: Tagged::new(Identifier::Operator(Operator("!".to_owned()))),
                 args: vec![
                     InfixPrimary::Application(PrefixApply {
-                        func: PatternPrimary::Identifier(Tagged::new(ScopedIdentifier::from(Identifier::Name(Name("Some".to_owned()))))),
-                        args: vec![
-                            PatternPrimary::Blank,
-                        ],
+                        func: PatternPrimary::Identifier(Tagged::new(ScopedIdentifier::from(
+                            Identifier::Name(Name("Some".to_owned())),
+                        ))),
+                        args: vec![PatternPrimary::Blank],
                     }),
-                    InfixPrimary::Primary(PatternPrimary::Identifier(Tagged::new(ScopedIdentifier::from(Identifier::Name(Name("a".to_owned())))))),
+                    InfixPrimary::Primary(PatternPrimary::Identifier(Tagged::new(
+                        ScopedIdentifier::from(Identifier::Name(Name("a".to_owned()))),
+                    ))),
                 ],
-            })
-            )));
+            }),
+        )));
         let tokens = [
             Token::new(TokenValue::from(Separator::LeftRound)),
             Token::new(TokenValue::from(Identifier::Name(Name("Some".to_owned())))),
             Token::new(TokenValue::from(Keyword::Underscore)),
-            Token::new(TokenValue::from(Identifier::Operator(Operator("!".to_owned())))),
+            Token::new(TokenValue::from(Identifier::Operator(Operator(
+                "!".to_owned(),
+            )))),
             Token::new(TokenValue::from(Identifier::Name(Name("a".to_owned())))),
             Token::new(TokenValue::from(Separator::RightRound)),
         ];

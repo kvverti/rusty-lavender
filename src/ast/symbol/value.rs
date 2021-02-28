@@ -39,9 +39,25 @@ mod test {
         let ctx = SymbolContext::new();
         let expected = SymbolData::from_parts(
             vec![
-                (AstSymbol::from_scopes(SymbolSpace::Value, &["1", "b"]), Tagged { value: Fixity::None, idx: 15, len: 1 }),
-                (AstSymbol::from_scopes(SymbolSpace::Value, &["1", "c"]), Tagged { value: Fixity::None, idx: 18, len: 1 }),
-            ].into_iter().collect(),
+                (
+                    AstSymbol::from_scopes(SymbolSpace::Value, &["1", "b"]),
+                    Tagged {
+                        value: Fixity::None,
+                        idx: 15,
+                        len: 1,
+                    },
+                ),
+                (
+                    AstSymbol::from_scopes(SymbolSpace::Value, &["1", "c"]),
+                    Tagged {
+                        value: Fixity::None,
+                        idx: 18,
+                        len: 1,
+                    },
+                ),
+            ]
+            .into_iter()
+            .collect(),
             vec![],
         );
         expr.extract(&mut data, ctx);

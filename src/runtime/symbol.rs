@@ -44,15 +44,17 @@ impl SymbolTable {
     pub fn symbol(&mut self, name: &str) -> SymbolicReference {
         let symbol_map = &mut self.symbol_map;
         let symbols = &mut self.symbols;
-        let idx = *symbol_map.entry((SymbolNamespace::Value, name.to_owned())).or_insert_with(|| {
-            let sym = Symbol {
-                name: name.to_owned(),
-                address: None,
-            };
-            let idx = symbols.len();
-            symbols.push(sym);
-            idx
-        });
+        let idx = *symbol_map
+            .entry((SymbolNamespace::Value, name.to_owned()))
+            .or_insert_with(|| {
+                let sym = Symbol {
+                    name: name.to_owned(),
+                    address: None,
+                };
+                let idx = symbols.len();
+                symbols.push(sym);
+                idx
+            });
         SymbolicReference::from_raw(idx)
     }
 
@@ -76,15 +78,17 @@ impl SymbolTable {
     pub fn label(&mut self, name: &str) -> TextLabel {
         let symbol_map = &mut self.symbol_map;
         let symbols = &mut self.symbols;
-        let idx = *symbol_map.entry((SymbolNamespace::Label, name.to_owned())).or_insert_with(|| {
-            let sym = Symbol {
-                name: name.to_owned(),
-                address: None,
-            };
-            let idx = symbols.len();
-            symbols.push(sym);
-            idx
-        });
+        let idx = *symbol_map
+            .entry((SymbolNamespace::Label, name.to_owned()))
+            .or_insert_with(|| {
+                let sym = Symbol {
+                    name: name.to_owned(),
+                    address: None,
+                };
+                let idx = symbols.len();
+                symbols.push(sym);
+                idx
+            });
         TextLabel::from_raw(idx)
     }
 
@@ -135,21 +139,45 @@ mod tests {
         let reference = symbols.symbol("test");
         let reference2 = symbols.symbol("test2");
         assert_ne!(reference, reference2, "distinct symbols are unequal");
-        assert!(!symbols.is_symbol_defined(reference), "reference is not defined");
-        assert!(!symbols.is_symbol_defined(reference2), "reference2 is not defined");
+        assert!(
+            !symbols.is_symbol_defined(reference),
+            "reference is not defined"
+        );
+        assert!(
+            !symbols.is_symbol_defined(reference2),
+            "reference2 is not defined"
+        );
         symbols.define_symbol(reference, LvValue::from(42));
         assert!(symbols.is_symbol_defined(reference), "reference is defined");
-        assert!(!symbols.is_symbol_defined(reference2), "reference2 is not defined");
+        assert!(
+            !symbols.is_symbol_defined(reference2),
+            "reference2 is not defined"
+        );
         let forty_two = symbols.resolve_symbol(reference).clone();
-        assert_eq!(LvValue::Integer(42), forty_two, "resolved symbols are equal");
+        assert_eq!(
+            LvValue::Integer(42),
+            forty_two,
+            "resolved symbols are equal"
+        );
         symbols.define_symbol(reference2, LvValue::from("hello".to_owned()));
-        assert!(symbols.is_symbol_defined(reference2), "reference2 is defined");
+        assert!(
+            symbols.is_symbol_defined(reference2),
+            "reference2 is defined"
+        );
         let hello = symbols.resolve_symbol(reference2).clone();
-        assert_eq!(LvValue::String("hello".to_owned()), hello, "resolved symbols are equal");
+        assert_eq!(
+            LvValue::String("hello".to_owned()),
+            hello,
+            "resolved symbols are equal"
+        );
         let reference3 = symbols.symbol("test");
         assert_eq!(reference, reference3, "duplicate symbols are equal");
         let forty_two = symbols.resolve_symbol(reference3).clone();
-        assert_eq!(LvValue::Integer(42), forty_two, "resolved value for symbol test is still the same");
+        assert_eq!(
+            LvValue::Integer(42),
+            forty_two,
+            "resolved value for symbol test is still the same"
+        );
     }
 
     #[test]
@@ -166,7 +194,8 @@ mod tests {
         assert!(!symbols.is_label_defined(label2), "label2 is not defined");
         let add = symbols.resolve_label(label);
         for (i, opcode) in code.iter().enumerate() {
-            if let (Opcode::DebugTop, Opcode::DebugTop) = (opcode, symbols.opcode_at(add + i)) {} else {
+            if let (Opcode::DebugTop, Opcode::DebugTop) = (opcode, symbols.opcode_at(add + i)) {
+            } else {
                 panic!("Unequal opcodes");
             }
         }

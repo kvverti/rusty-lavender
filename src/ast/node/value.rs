@@ -1,8 +1,8 @@
-use crate::ast::node::{AstValueExpression, ExtractAstNode};
 use crate::ast::node::fixity::InfixNamespace;
-use crate::ast::symbol::{AstSymbol, GLOBAL_SCOPE, SymbolContext, SymbolData, SymbolSpace};
-use crate::parser::value::{ValueExpression, ValuePrimary};
+use crate::ast::node::{AstValueExpression, ExtractAstNode};
+use crate::ast::symbol::{AstSymbol, SymbolContext, SymbolData, SymbolSpace, GLOBAL_SCOPE};
 use crate::parser::value::lambda::LambdaExpression;
+use crate::parser::value::{ValueExpression, ValuePrimary};
 
 impl<'a> ExtractAstNode<'a> for LambdaExpression {
     type Node = AstValueExpression<'a>;
@@ -14,10 +14,13 @@ impl<'a> ExtractAstNode<'a> for LambdaExpression {
                 let inner_scope = AstSymbol::in_scope(
                     SymbolSpace::Value,
                     ctx.enclosing_scope,
-                    &ctx.implicit_scope.as_scopes().join("/"));
-                let inner_ctx = ctx.with_enclosing_scope(&inner_scope)
+                    &ctx.implicit_scope.as_scopes().join("/"),
+                );
+                let inner_ctx = ctx
+                    .with_enclosing_scope(&inner_scope)
                     .with_implicit_scope(&GLOBAL_SCOPE);
-                let params = params.into_iter()
+                let params = params
+                    .into_iter()
                     .map(|pattern| pattern.construct_ast(data, inner_ctx));
                 let body_node = body.construct_ast(data, inner_ctx);
                 AstValueExpression::Abstraction(params.collect(), Box::new(body_node))
@@ -36,7 +39,9 @@ impl<'a> ExtractAstNode<'a> for ValuePrimary {
                 let symbol = AstSymbol::from_scopes(SymbolSpace::Value, &id.value.to_scopes());
                 data.resolve_symbol(ctx.enclosing_scope, symbol)
                     .map(|(symbol, _)| AstValueExpression::Symbol(symbol))
-                    .unwrap_or_else(|| AstValueExpression::Error(id.map(|_| "Cannot resolve value")))
+                    .unwrap_or_else(|| {
+                        AstValueExpression::Error(id.map(|_| "Cannot resolve value"))
+                    })
             }
             Self::SubExpression(expr) => expr.construct_ast(data, ctx),
         }
@@ -63,11 +68,13 @@ mod tests {
     use nom::lib::std::collections::HashMap;
 
     use crate::ast::node::{AstPatternExpression, AstValueExpression, ExtractAstNode};
-    use crate::ast::symbol::{AstSymbol, ExtractSymbol, GLOBAL_SCOPE, SymbolContext, SymbolData, SymbolSpace};
+    use crate::ast::symbol::{
+        AstSymbol, ExtractSymbol, SymbolContext, SymbolData, SymbolSpace, GLOBAL_SCOPE,
+    };
     use crate::parser::item::Fixity;
     use crate::parser::tagged::Tagged;
-    use crate::parser::token::{Token, TokenStream};
     use crate::parser::token::literal::{IntLiteral, Literal};
+    use crate::parser::token::{Token, TokenStream};
     use crate::parser::value::ValueExpression;
 
     #[test]
@@ -87,16 +94,36 @@ mod tests {
                 (plus.clone(), Tagged::new(Fixity::Left)),
                 (some.clone(), Tagged::new(Fixity::None)),
                 (comma.clone(), Tagged::new(Fixity::None)),
-            ].into_iter().collect(),
+            ]
+            .into_iter()
+            .collect(),
             vec![
                 (GLOBAL_SCOPE.clone(), a.clone()),
                 (GLOBAL_SCOPE.clone(), at.clone()),
-                (AstSymbol::from_scopes(SymbolSpace::Value, &["1"]), some.clone()),
-                (AstSymbol::from_scopes(SymbolSpace::Value, &["1"]), comma.clone()),
-                (AstSymbol::from_scopes(SymbolSpace::Value, &["1"]), AstSymbol::from_scopes(SymbolSpace::Value, &["b"])),
-                (AstSymbol::from_scopes(SymbolSpace::Value, &["1"]), AstSymbol::from_scopes(SymbolSpace::Value, &["c"])),
-                (AstSymbol::from_scopes(SymbolSpace::Value, &["1"]), plus.clone()),
-                (AstSymbol::from_scopes(SymbolSpace::Value, &["1", "2"]), a.clone()),
+                (
+                    AstSymbol::from_scopes(SymbolSpace::Value, &["1"]),
+                    some.clone(),
+                ),
+                (
+                    AstSymbol::from_scopes(SymbolSpace::Value, &["1"]),
+                    comma.clone(),
+                ),
+                (
+                    AstSymbol::from_scopes(SymbolSpace::Value, &["1"]),
+                    AstSymbol::from_scopes(SymbolSpace::Value, &["b"]),
+                ),
+                (
+                    AstSymbol::from_scopes(SymbolSpace::Value, &["1"]),
+                    AstSymbol::from_scopes(SymbolSpace::Value, &["c"]),
+                ),
+                (
+                    AstSymbol::from_scopes(SymbolSpace::Value, &["1"]),
+                    plus.clone(),
+                ),
+                (
+                    AstSymbol::from_scopes(SymbolSpace::Value, &["1", "2"]),
+                    a.clone(),
+                ),
             ],
         );
         let expected = AstValueExpression::Application(
@@ -147,8 +174,14 @@ mod tests {
         let mut data = SymbolData::from_parts(
             HashMap::new(),
             vec![
-                (GLOBAL_SCOPE.clone(), AstSymbol::from_scopes(SymbolSpace::Value, &["a"])),
-                (GLOBAL_SCOPE.clone(), AstSymbol::from_scopes(SymbolSpace::Value, &["@"])),
+                (
+                    GLOBAL_SCOPE.clone(),
+                    AstSymbol::from_scopes(SymbolSpace::Value, &["a"]),
+                ),
+                (
+                    GLOBAL_SCOPE.clone(),
+                    AstSymbol::from_scopes(SymbolSpace::Value, &["@"]),
+                ),
             ],
         );
         let expected = AstValueExpression::Application(

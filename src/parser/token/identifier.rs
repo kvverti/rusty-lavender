@@ -3,12 +3,12 @@ use nom::bytes::complete::tag;
 use nom::character::complete::{alphanumeric1, one_of};
 use nom::character::is_alphabetic;
 use nom::combinator::{map, verify};
-use nom::IResult;
 use nom::multi::{fold_many1, many1};
+use nom::IResult;
 
-use crate::parser::Source;
 use crate::parser::token::fixed::is_keyword_or_separator;
 use crate::parser::token::literal::is_bool_literal;
+use crate::parser::Source;
 
 /// An alphanumeric identifier.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -18,14 +18,12 @@ impl Name {
     pub fn parse(input: Source) -> IResult<Source, Self> {
         map(
             verify(
-                fold_many1(
-                    alt((alphanumeric1, tag("_"))),
-                    String::new(), |a, b| a + b,
-                ),
+                fold_many1(alt((alphanumeric1, tag("_"))), String::new(), |a, b| a + b),
                 |s: &str| {
                     let s = s.as_bytes();
                     is_alphabetic(s[0]) || s[0] == b'_'
-                }),
+                },
+            ),
             Self,
         )(input)
     }
@@ -38,10 +36,9 @@ pub struct Operator(pub String);
 
 impl Operator {
     pub fn parse(input: Source) -> IResult<Source, Self> {
-        map(
-            many1(one_of("~!@$%^&*-+=|:<>?,./")),
-            |v| Self(v.into_iter().collect()),
-        )(input)
+        map(many1(one_of("~!@$%^&*-+=|:<>?,./")), |v| {
+            Self(v.into_iter().collect())
+        })(input)
     }
 }
 
@@ -82,8 +79,8 @@ impl Identifier {
 
 #[cfg(test)]
 mod tests {
-    use nom::Err::Error;
     use nom::error::ErrorKind;
+    use nom::Err::Error;
 
     use super::*;
 

@@ -2,9 +2,9 @@ use nom::branch::alt;
 use nom::bytes::complete::tag;
 use nom::character::complete::{line_ending, not_line_ending, space1};
 use nom::combinator::value;
-use nom::IResult;
 use nom::multi::fold_many0;
 use nom::sequence::pair;
+use nom::IResult;
 
 use crate::parser::Source;
 
@@ -22,11 +22,7 @@ pub fn comment(input: Source) -> IResult<Source, ()> {
 /// line endings.
 pub fn token_delimiter(input: Source) -> IResult<Source, ()> {
     fold_many0(
-        alt((
-            value((), space1),
-            value((), line_ending),
-            comment,
-        )),
+        alt((value((), space1), value((), line_ending), comment)),
         (),
         |_, _| (),
     )(input)
@@ -51,7 +47,10 @@ mod tests {
         ];
         for c in &successes {
             let result = parser(c);
-            assert!(result.is_ok(), format!("Ok case {:?}, result {:?}", c, result));
+            assert!(
+                result.is_ok(),
+                format!("Ok case {:?}, result {:?}", c, result)
+            );
         }
     }
 }

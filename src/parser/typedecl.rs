@@ -4,14 +4,14 @@ use nom::combinator::map;
 use nom::sequence::{delimited, preceded};
 
 use crate::parser::fixity::BasicFixity;
-use crate::parser::ParseResult;
 use crate::parser::primary::{name, Primary};
 use crate::parser::scoped::ScopedIdentifier;
-use crate::parser::tagged::{Tagged, tagged};
-use crate::parser::token::{TokenStream, TokenValue};
+use crate::parser::tagged::{tagged, Tagged};
 use crate::parser::token::fixed::{Keyword, Separator};
 use crate::parser::token::identifier::Name;
+use crate::parser::token::{TokenStream, TokenValue};
 use crate::parser::typedecl::typelambda::TypeLambda;
+use crate::parser::ParseResult;
 
 /// Type lambda expression.
 pub mod typelambda;
@@ -37,9 +37,9 @@ impl Primary for TypePrimary {
                 tagged(preceded(tag(TokenValue::from(Separator::Check)), name)),
                 Self::TypeVariable,
             ),
-            map(tagged(tag(TokenValue::from(Keyword::Underscore))), |t| Self::TypeHole(
-                t.map(|_| ())
-            )),
+            map(tagged(tag(TokenValue::from(Keyword::Underscore))), |t| {
+                Self::TypeHole(t.map(|_| ()))
+            }),
             map(
                 delimited(
                     tag(TokenValue::from(Separator::LeftRound)),
@@ -47,7 +47,7 @@ impl Primary for TypePrimary {
                     tag(TokenValue::from(Separator::RightRound)),
                 ),
                 |e| Self::TypeSubExpression(Box::new(e)),
-            )
+            ),
         ))(input)
     }
 }
@@ -81,18 +81,22 @@ mod tests {
     #[test]
     fn parses() {
         let expected = TypeExpression::TypeApplication(BasicFixity::Prefix(PrefixApply {
-            func: TypePrimary::TypeIdentifier(Tagged::new(ScopedIdentifier::from(Identifier::Name(Name("Type".to_owned()))))),
+            func: TypePrimary::TypeIdentifier(Tagged::new(ScopedIdentifier::from(
+                Identifier::Name(Name("Type".to_owned())),
+            ))),
             args: vec![
                 TypePrimary::TypeVariable(Tagged::new(Name("a".to_owned()))),
-                TypePrimary::TypeSubExpression(Box::new(
-                    TypeExpression::TypeApplication(BasicFixity::Infix(InfixApply {
+                TypePrimary::TypeSubExpression(Box::new(TypeExpression::TypeApplication(
+                    BasicFixity::Infix(InfixApply {
                         func: Tagged::new(Identifier::Operator(Operator("->".to_owned()))),
                         args: vec![
-                            InfixPrimary::Primary(TypePrimary::TypeVariable(Tagged::new(Name("a".to_owned())))),
+                            InfixPrimary::Primary(TypePrimary::TypeVariable(Tagged::new(Name(
+                                "a".to_owned(),
+                            )))),
                             InfixPrimary::Primary(TypePrimary::TypeHole(Tagged::new(()))),
                         ],
-                    }))
-                )),
+                    }),
+                ))),
             ],
         }));
         let input = [
@@ -102,7 +106,9 @@ mod tests {
             Token::new(TokenValue::from(Separator::LeftRound)),
             Token::new(TokenValue::from(Separator::Check)),
             Token::new(TokenValue::from(Identifier::Name(Name("a".to_owned())))),
-            Token::new(TokenValue::from(Identifier::Operator(Operator("->".to_string())))),
+            Token::new(TokenValue::from(Identifier::Operator(Operator(
+                "->".to_string(),
+            )))),
             Token::new(TokenValue::from(Keyword::Underscore)),
             Token::new(TokenValue::from(Separator::RightRound)),
         ];

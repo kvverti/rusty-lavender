@@ -1,8 +1,8 @@
 use std::mem;
 
 use crate::code::Opcode;
-use crate::value::LvValue;
 use crate::value::vector::LvVect;
+use crate::value::LvValue;
 
 // integer operations
 
@@ -532,7 +532,7 @@ fn consv(args: &mut [LvValue]) -> LvValue {
         tail => LvValue::from(LvVect {
             values: vec![tail, head],
             append_tail: true,
-        })
+        }),
     }
 }
 

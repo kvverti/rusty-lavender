@@ -3,18 +3,18 @@ use nom::character::complete::anychar;
 use nom::combinator::map;
 use nom::IResult;
 
-use crate::parser::{Source, with_len};
 use crate::parser::token::delimiter::token_delimiter;
 use crate::parser::token::fixed::{Keyword, Separator};
 use crate::parser::token::identifier::Identifier;
 use crate::parser::token::literal::Literal;
+use crate::parser::{with_len, Source};
 
-/// Parsers for names and operators.
-pub mod identifier;
-/// Parsers for separators and keywords.
-pub mod fixed;
 /// Token delimiters: whitespace, comments, and new lines.
 pub mod delimiter;
+/// Parsers for separators and keywords.
+pub mod fixed;
+/// Parsers for names and operators.
+pub mod identifier;
 /// Literals: bool, int, float.
 pub mod literal;
 /// Token stream trait implementations.
@@ -51,7 +51,11 @@ pub struct Token {
 
 impl Token {
     pub fn new(value: TokenValue) -> Self {
-        Self { value, col: 0, len: 0 }
+        Self {
+            value,
+            col: 0,
+            len: 0,
+        }
     }
 
     /// Parses a single token.

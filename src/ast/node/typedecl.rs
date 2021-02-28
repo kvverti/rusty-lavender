@@ -1,8 +1,8 @@
-use crate::ast::node::{AstTypeExpression, ExtractAstNode};
 use crate::ast::node::fixity::InfixNamespace;
-use crate::ast::symbol::{AstSymbol, GLOBAL_SCOPE, SymbolContext, SymbolData, SymbolSpace};
-use crate::parser::typedecl::{TypeExpression, TypePrimary};
+use crate::ast::node::{AstTypeExpression, ExtractAstNode};
+use crate::ast::symbol::{AstSymbol, SymbolContext, SymbolData, SymbolSpace, GLOBAL_SCOPE};
 use crate::parser::typedecl::typelambda::TypeLambda;
+use crate::parser::typedecl::{TypeExpression, TypePrimary};
 
 impl<'a> ExtractAstNode<'a> for TypeLambda {
     type Node = AstTypeExpression<'a>;
@@ -14,11 +14,14 @@ impl<'a> ExtractAstNode<'a> for TypeLambda {
                 let inner_scope = AstSymbol::in_scope(
                     SymbolSpace::Value,
                     ctx.enclosing_scope,
-                    &ctx.implicit_scope.as_scopes().join("/"));
-                let params = params.into_iter()
+                    &ctx.implicit_scope.as_scopes().join("/"),
+                );
+                let params = params
+                    .into_iter()
                     .map(|name| AstSymbol::in_scope(SymbolSpace::Type, &inner_scope, &name.value.0))
                     .map(|s| data.get_declared_symbol(s));
-                let ctx = ctx.with_enclosing_scope(&inner_scope)
+                let ctx = ctx
+                    .with_enclosing_scope(&inner_scope)
                     .with_implicit_scope(&GLOBAL_SCOPE);
                 let body_node = body.construct_ast(data, ctx);
                 AstTypeExpression::Abstraction(params.collect(), Box::new(body_node))
@@ -37,10 +40,13 @@ impl<'a> ExtractAstNode<'a> for TypePrimary {
                 let symbol = AstSymbol::from_scopes(SymbolSpace::Type, &id.value.to_scopes());
                 let opt = data.resolve_symbol(ctx.enclosing_scope, symbol);
                 opt.map(|(symbol, _)| AstTypeExpression::Symbol(symbol))
-                    .unwrap_or_else(|| AstTypeExpression::Error(id.map(|_| "Cannot resolve type symbol")))
+                    .unwrap_or_else(|| {
+                        AstTypeExpression::Error(id.map(|_| "Cannot resolve type symbol"))
+                    })
             }
             Self::TypeVariable(name) => {
-                let symbol = AstSymbol::in_scope(SymbolSpace::Type, ctx.enclosing_definition, &name.value.0);
+                let symbol =
+                    AstSymbol::in_scope(SymbolSpace::Type, ctx.enclosing_definition, &name.value.0);
                 AstTypeExpression::Symbol(data.get_declared_symbol(symbol))
             }
             Self::TypeSubExpression(expr) => expr.construct_ast(data, ctx),
@@ -81,13 +87,19 @@ mod tests {
         let a = AstSymbol::new(SymbolSpace::Type, "a");
         let b = AstSymbol::from_scopes(SymbolSpace::Type, &["1", "b"]);
         let mut data = SymbolData::from_parts(
-            vec![
-                (arrow.clone(), Tagged::new(Fixity::Right)),
-            ].into_iter().collect(),
+            vec![(arrow.clone(), Tagged::new(Fixity::Right))]
+                .into_iter()
+                .collect(),
             vec![
                 (GLOBAL_SCOPE.clone(), arrow.clone()),
-                (AstSymbol::from_scopes(SymbolSpace::Value, &["1"]), AstSymbol::from_scopes(SymbolSpace::Type, &["b"])),
-                (AstSymbol::from_scopes(SymbolSpace::Value, &["1"]), arrow.clone())
+                (
+                    AstSymbol::from_scopes(SymbolSpace::Value, &["1"]),
+                    AstSymbol::from_scopes(SymbolSpace::Type, &["b"]),
+                ),
+                (
+                    AstSymbol::from_scopes(SymbolSpace::Value, &["1"]),
+                    arrow.clone(),
+                ),
             ],
         );
         let expected = AstTypeExpression::Application(
@@ -121,9 +133,10 @@ mod tests {
         let b = AstSymbol::from_scopes(SymbolSpace::Type, &["", "b"]);
         let mut data = SymbolData::from_parts(
             HashMap::new(),
-            vec![
-                (AstSymbol::from_scopes(SymbolSpace::Value, &[""]), AstSymbol::from_scopes(SymbolSpace::Type, &["c"])),
-            ],
+            vec![(
+                AstSymbol::from_scopes(SymbolSpace::Value, &[""]),
+                AstSymbol::from_scopes(SymbolSpace::Type, &["c"]),
+            )],
         );
         let expected = AstTypeExpression::Abstraction(
             vec![&a, &b],

@@ -1,4 +1,7 @@
-use nom::{Compare, CompareResult, FindSubstring, InputIter, InputLength, InputTake, Offset, UnspecializedInput};
+use nom::{
+    Compare, CompareResult, FindSubstring, InputIter, InputLength, InputTake, Offset,
+    UnspecializedInput,
+};
 
 use crate::parser::token::{Token, TokenStream, TokenValue};
 
@@ -16,8 +19,15 @@ impl<'a> InputTake for TokenStream<'a> {
 
 impl<'a> Compare<TokenValue> for TokenStream<'a> {
     fn compare(&self, t: TokenValue) -> CompareResult {
-        self.0.get(0)
-            .map(|v| if v.value == t { CompareResult::Ok } else { CompareResult::Error })
+        self.0
+            .get(0)
+            .map(|v| {
+                if v.value == t {
+                    CompareResult::Ok
+                } else {
+                    CompareResult::Error
+                }
+            })
             .unwrap_or(CompareResult::Incomplete)
     }
 
@@ -55,15 +65,20 @@ impl<'a> InputIter for TokenStream<'a> {
     type IterElem = Iter<'a>;
 
     fn iter_indices(&self) -> Self::Iter {
-        IndexIter { tokens: self.0, idx: 0 }
+        IndexIter {
+            tokens: self.0,
+            idx: 0,
+        }
     }
 
     fn iter_elements(&self) -> Self::IterElem {
         Iter { tokens: self.0 }
     }
 
-    fn position<P>(&self, predicate: P) -> Option<usize> where
-        P: Fn(Self::Item) -> bool {
+    fn position<P>(&self, predicate: P) -> Option<usize>
+    where
+        P: Fn(Self::Item) -> bool,
+    {
         for (idx, Token { value, .. }) in self.0.iter().enumerate() {
             if predicate(value) {
                 return Some(idx);

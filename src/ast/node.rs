@@ -15,8 +15,8 @@ use crate::parser::tagged::Tagged;
 use crate::parser::token::literal::Literal;
 
 mod definition;
-mod pattern;
 mod fixity;
+mod pattern;
 mod typedecl;
 mod value;
 

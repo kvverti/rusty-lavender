@@ -40,7 +40,10 @@ impl Display for SymbolSpace {
 }
 
 /// The global scope
-pub static GLOBAL_SCOPE: AstSymbol = AstSymbol { nspace: SymbolSpace::Value, scopes: vec![] };
+pub static GLOBAL_SCOPE: AstSymbol = AstSymbol {
+    nspace: SymbolSpace::Value,
+    scopes: vec![],
+};
 
 /// A symbol is a scoped name associated with a value or type.
 #[derive(Clone, Debug, Default, Eq, PartialEq, Hash)]
@@ -54,17 +57,17 @@ pub struct AstSymbol {
 impl AstSymbol {
     /// Creates a new unscoped symbol.
     pub fn new(nspace: SymbolSpace, name: &str) -> Self {
-        Self { nspace, scopes: vec![name.into()] }
+        Self {
+            nspace,
+            scopes: vec![name.into()],
+        }
     }
 
     /// Creates a symbol in the scope of the given symbol.
     pub fn in_scope(nspace: SymbolSpace, scope: &AstSymbol, name: &str) -> Self {
         let mut scopes = scope.scopes.clone();
         scopes.push(name.into());
-        Self {
-            nspace,
-            scopes,
-        }
+        Self { nspace, scopes }
     }
 
     /// Creates a symbol from the given namespace and scopes.
@@ -84,9 +87,11 @@ impl AstSymbol {
 impl Display for AstSymbol {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let prefix = write!(f, "{}/", self.nspace);
-        self.scopes[1..].iter()
-            .fold(prefix.and(write!(f, "{}", self.scopes[0])),
-                  |res, scope| res.and(write!(f, "::{}", scope)))
+        self.scopes[1..]
+            .iter()
+            .fold(prefix.and(write!(f, "{}", self.scopes[0])), |res, scope| {
+                res.and(write!(f, "::{}", scope))
+            })
     }
 }
 
@@ -174,7 +179,10 @@ impl SymbolData {
 
     /// Constructs a semantic data from parts, used in unit testing.
     #[cfg(test)]
-    pub(crate) fn from_parts(declared_symbols: HashMap<AstSymbol, Tagged<Fixity>>, expected_symbols: Vec<(AstSymbol, AstSymbol)>) -> Self {
+    pub(crate) fn from_parts(
+        declared_symbols: HashMap<AstSymbol, Tagged<Fixity>>,
+        expected_symbols: Vec<(AstSymbol, AstSymbol)>,
+    ) -> Self {
         Self {
             declared_symbols,
             tally: RefCell::new(SymbolTally {
@@ -188,8 +196,16 @@ impl SymbolData {
     #[cfg(test)]
     pub(crate) fn assert_resolved(&self) {
         let tally = self.tally.borrow();
-        assert!(tally.erroneous_symbols.is_empty(), "Unexpected symbols: {:#?}", tally.erroneous_symbols);
-        assert!(tally.expected_symbols.is_empty(), "Expected symbols: {:#?}", tally.expected_symbols);
+        assert!(
+            tally.erroneous_symbols.is_empty(),
+            "Unexpected symbols: {:#?}",
+            tally.erroneous_symbols
+        );
+        assert!(
+            tally.expected_symbols.is_empty(),
+            "Expected symbols: {:#?}",
+            tally.expected_symbols
+        );
     }
 
     /// Declares a symbol. If the symbol has been previously declared, no action is taken.
@@ -199,25 +215,41 @@ impl SymbolData {
 
     pub fn declare_symbol_with_fixity(&mut self, symb: Tagged<AstSymbol>, fixity: Fixity) {
         let Tagged { value, idx, len } = symb;
-        self.declared_symbols.entry(value).or_insert(Tagged { value: fixity, idx, len });
+        self.declared_symbols.entry(value).or_insert(Tagged {
+            value: fixity,
+            idx,
+            len,
+        });
     }
 
     /// Asserts and returns a symbol previously declared.
     pub fn get_declared_symbol(&self, symbol: AstSymbol) -> &AstSymbol {
-        self.declared_symbols.get_key_value(&symbol).expect("Declared symbol not bound").0
+        self.declared_symbols
+            .get_key_value(&symbol)
+            .expect("Declared symbol not bound")
+            .0
     }
 
     /// Resolves an unbound symbol in some scope to a bound symbol in this symbol data.
-    pub fn resolve_symbol(&self, scope: &AstSymbol, symbol: AstSymbol) -> Option<(&AstSymbol, Fixity)> {
-        #[cfg(test)] {
+    pub fn resolve_symbol(
+        &self,
+        scope: &AstSymbol,
+        symbol: AstSymbol,
+    ) -> Option<(&AstSymbol, Fixity)> {
+        #[cfg(test)]
+        {
             // tally resolved symbols to make sure they are expected
             let mut tally = self.tally.borrow_mut();
-            let removed = tally.expected_symbols.iter()
+            let removed = tally
+                .expected_symbols
+                .iter()
                 .position(|(sc, sy)| sc == scope && sy == &symbol);
             if let Some(idx) = removed {
                 tally.expected_symbols.remove(idx);
             } else {
-                tally.erroneous_symbols.push((scope.clone(), symbol.clone()));
+                tally
+                    .erroneous_symbols
+                    .push((scope.clone(), symbol.clone()));
             }
         }
         let mut env_scopes = scope.scopes.clone();
@@ -225,7 +257,10 @@ impl SymbolData {
         let nspace = symbol.nspace;
         env_scopes.extend(symbol.scopes);
         loop {
-            let candidate_symbol = AstSymbol { nspace, scopes: env_scopes };
+            let candidate_symbol = AstSymbol {
+                nspace,
+                scopes: env_scopes,
+            };
             if let Some((symb, fixity)) = self.declared_symbols.get_key_value(&candidate_symbol) {
                 return Some((symb, fixity.value));
             } else {
@@ -265,16 +300,29 @@ mod tests {
         let sym_n = AstSymbol::new(SymbolSpace::Type, "c");
         let data = SymbolData::from_parts(
             vec![
-                (AstSymbol::from_scopes(SymbolSpace::Value, &["a", "b", "c"]), Tagged::new(Fixity::None)),
-                (AstSymbol::from_scopes(SymbolSpace::Type, &["a", "b", "d"]), Tagged::new(Fixity::None)),
-                (AstSymbol::from_scopes(SymbolSpace::Value, &["a", "d"]), Tagged::new(Fixity::None)),
-            ].into_iter().collect(),
+                (
+                    AstSymbol::from_scopes(SymbolSpace::Value, &["a", "b", "c"]),
+                    Tagged::new(Fixity::None),
+                ),
+                (
+                    AstSymbol::from_scopes(SymbolSpace::Type, &["a", "b", "d"]),
+                    Tagged::new(Fixity::None),
+                ),
+                (
+                    AstSymbol::from_scopes(SymbolSpace::Value, &["a", "d"]),
+                    Tagged::new(Fixity::None),
+                ),
+            ]
+            .into_iter()
+            .collect(),
             vec![
                 (scope.clone(), sym1.clone()),
                 (scope.clone(), sym2.clone()),
                 (scope.clone(), sym3.clone()),
                 (scope.clone(), sym_n.clone()),
-            ].into_iter().collect(),
+            ]
+            .into_iter()
+            .collect(),
         );
         let res1 = data.resolve_symbol(&scope, sym1);
         let res2 = data.resolve_symbol(&scope, sym2);

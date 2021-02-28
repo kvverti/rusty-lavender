@@ -5,8 +5,8 @@ use nom::bytes::complete::tag;
 use nom::character::complete::digit1;
 use nom::combinator::{map, map_res, value, verify};
 use nom::error::context;
-use nom::IResult;
 use nom::number::complete::recognize_float;
+use nom::IResult;
 
 use crate::parser::Source;
 
@@ -17,12 +17,7 @@ impl IntLiteral {
     pub fn parse(input: Source) -> IResult<Source, Self> {
         context(
             "Tokenizing integer",
-            map_res(
-                digit1,
-                |digits| {
-                    i64::from_str(digits).map(Self)
-                },
-            ),
+            map_res(digit1, |digits| i64::from_str(digits).map(Self)),
         )(input)
     }
 }
@@ -32,13 +27,17 @@ pub struct FloatLiteral(pub f64);
 
 impl FloatLiteral {
     pub fn parse(input: Source) -> IResult<Source, Self> {
-        context("Tokenizing float", map_res(
-            verify(
-                recognize_float,
-                // ensure that we don't match the integer pattern
-                |s: &str| s.contains(|c: char| !c.is_ascii_digit())),
-            |s| f64::from_str(s).map(Self),
-        ))(input)
+        context(
+            "Tokenizing float",
+            map_res(
+                verify(
+                    recognize_float,
+                    // ensure that we don't match the integer pattern
+                    |s: &str| s.contains(|c: char| !c.is_ascii_digit()),
+                ),
+                |s| f64::from_str(s).map(Self),
+            ),
+        )(input)
     }
 }
 
@@ -50,10 +49,7 @@ impl BoolLiteral {
         context(
             "Tokenizing bool",
             map(
-                alt((
-                    value(true, tag("True")),
-                    value(false, tag("False")),
-                )),
+                alt((value(true, tag("True")), value(false, tag("False")))),
                 Self,
             ),
         )(input)
@@ -96,8 +92,8 @@ impl Literal {
 
 #[cfg(test)]
 mod tests {
-    use nom::Err::Error;
     use nom::error::ErrorKind;
+    use nom::Err::Error;
 
     use super::*;
 
@@ -124,7 +120,10 @@ mod tests {
             ("10000000000 +", Ok((" +", IntLiteral(10000000000)))),
             (
                 "999999999999999999999999999999999999999;",
-                Err(Error(("999999999999999999999999999999999999999;", ErrorKind::MapRes)))
+                Err(Error((
+                    "999999999999999999999999999999999999999;",
+                    ErrorKind::MapRes,
+                ))),
             ),
             ("1hhh", Ok(("hhh", IntLiteral(1)))),
             ("three", Err(Error(("three", ErrorKind::Digit)))),

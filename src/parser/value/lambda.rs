@@ -1,15 +1,17 @@
 use nom::bytes::complete::tag;
 use nom::multi::many1;
 
-use crate::ast::symbol::{AstSymbol, ExtractSymbol, SymbolContext, SymbolData, SymbolSpace, GLOBAL_SCOPE};
-use crate::parser::{ParseResult, until_next_sync_point};
+use crate::ast::symbol::{
+    AstSymbol, ExtractSymbol, SymbolContext, SymbolData, SymbolSpace, GLOBAL_SCOPE,
+};
 use crate::parser::pattern::PatternPrimary;
 use crate::parser::primary::Primary;
 use crate::parser::tagged::Tagged;
-use crate::parser::token::{TokenStream, TokenValue};
 use crate::parser::token::fixed::Keyword;
 use crate::parser::token::identifier::{Identifier, Operator};
+use crate::parser::token::{TokenStream, TokenValue};
 use crate::parser::value::ValueExpression;
+use crate::parser::{until_next_sync_point, ParseResult};
 
 /// A lambda expression (single case anonymous function) `lam a b. c`.
 #[derive(Clone, Debug, PartialEq)]
@@ -37,9 +39,7 @@ macro_rules! next {
             // parse error
             Err(nom::Err::Error(_)) => {
                 let (input, context) = until_next_sync_point($ctx, $input);
-                return Ok((input, Self::Error {
-                    context,
-                }));
+                return Ok((input, Self::Error { context }));
             }
             // parse failure
             Err(e) => return Err(e),
@@ -51,12 +51,21 @@ impl LambdaExpression {
     pub fn parse(input: TokenStream) -> ParseResult<TokenStream, Self> {
         let (input, _) = tag(TokenValue::from(Keyword::For))(input)?;
         let (input, params) = next!("Expected pattern", many1(PatternPrimary::parse), input);
-        let (input, _) = next!("Expected '.'", tag(TokenValue::from(Identifier::Operator(Operator(".".to_owned())))), input);
+        let (input, _) = next!(
+            "Expected '.'",
+            tag(TokenValue::from(Identifier::Operator(Operator(
+                ".".to_owned()
+            )))),
+            input
+        );
         let (input, body) = next!("Expected expression", ValueExpression::parse, input);
-        Ok((input, Self::Value {
-            params,
-            body: Box::new(body),
-        }))
+        Ok((
+            input,
+            Self::Value {
+                params,
+                body: Box::new(body),
+            },
+        ))
     }
 }
 
@@ -69,7 +78,8 @@ impl ExtractSymbol for LambdaExpression {
                 ctx.enclosing_scope,
                 &ctx.implicit_scope.as_scopes().join("/"),
             );
-            let inner_ctx = ctx.with_enclosing_scope(&inner_scope)
+            let inner_ctx = ctx
+                .with_enclosing_scope(&inner_scope)
                 .with_implicit_scope(&GLOBAL_SCOPE);
             for param in params {
                 param.extract(data, inner_ctx);
@@ -98,22 +108,36 @@ mod tests {
     fn parses() {
         let expected = LambdaExpression::Value {
             params: vec![
-                PatternPrimary::Identifier(Tagged::new(ScopedIdentifier::from(Identifier::Name(Name("x".to_owned()))))),
-                PatternPrimary::Identifier(Tagged::new(ScopedIdentifier::from(Identifier::Name(Name("y".to_owned()))))),
-                PatternPrimary::SubPattern(Box::new(Pattern::Application(BasicFixity::Prefix(PrefixApply {
-                    func: PatternPrimary::Identifier(Tagged::new(ScopedIdentifier::from(Identifier::Name(Name("Id".to_owned()))))),
-                    args: vec![
-                        PatternPrimary::Identifier(Tagged::new(ScopedIdentifier::from(Identifier::Name(Name("z".to_owned()))))),
-                    ],
-                }))))
+                PatternPrimary::Identifier(Tagged::new(ScopedIdentifier::from(Identifier::Name(
+                    Name("x".to_owned()),
+                )))),
+                PatternPrimary::Identifier(Tagged::new(ScopedIdentifier::from(Identifier::Name(
+                    Name("y".to_owned()),
+                )))),
+                PatternPrimary::SubPattern(Box::new(Pattern::Application(BasicFixity::Prefix(
+                    PrefixApply {
+                        func: PatternPrimary::Identifier(Tagged::new(ScopedIdentifier::from(
+                            Identifier::Name(Name("Id".to_owned())),
+                        ))),
+                        args: vec![PatternPrimary::Identifier(Tagged::new(
+                            ScopedIdentifier::from(Identifier::Name(Name("z".to_owned()))),
+                        ))],
+                    },
+                )))),
             ],
-            body: Box::new(ValueExpression::Application(BasicFixity::Infix(InfixApply {
-                func: Tagged::new(Identifier::Operator(Operator("+".to_owned()))),
-                args: vec![
-                    InfixPrimary::Primary(ValuePrimary::Identifier(Tagged::new(ScopedIdentifier::from(Identifier::Name(Name("x".to_owned())))))),
-                    InfixPrimary::Primary(ValuePrimary::Identifier(Tagged::new(ScopedIdentifier::from(Identifier::Name(Name("z".to_owned())))))),
-                ],
-            }))),
+            body: Box::new(ValueExpression::Application(BasicFixity::Infix(
+                InfixApply {
+                    func: Tagged::new(Identifier::Operator(Operator("+".to_owned()))),
+                    args: vec![
+                        InfixPrimary::Primary(ValuePrimary::Identifier(Tagged::new(
+                            ScopedIdentifier::from(Identifier::Name(Name("x".to_owned()))),
+                        ))),
+                        InfixPrimary::Primary(ValuePrimary::Identifier(Tagged::new(
+                            ScopedIdentifier::from(Identifier::Name(Name("z".to_owned()))),
+                        ))),
+                    ],
+                },
+            ))),
         };
         // for x y (Id z). x + z
         let tokens = [
@@ -124,9 +148,13 @@ mod tests {
             Token::new(TokenValue::from(Identifier::Name(Name("Id".to_owned())))),
             Token::new(TokenValue::from(Identifier::Name(Name("z".to_owned())))),
             Token::new(TokenValue::from(Separator::RightRound)),
-            Token::new(TokenValue::from(Identifier::Operator(Operator(".".to_owned())))),
+            Token::new(TokenValue::from(Identifier::Operator(Operator(
+                ".".to_owned(),
+            )))),
             Token::new(TokenValue::from(Identifier::Name(Name("x".to_owned())))),
-            Token::new(TokenValue::from(Identifier::Operator(Operator("+".to_owned())))),
+            Token::new(TokenValue::from(Identifier::Operator(Operator(
+                "+".to_owned(),
+            )))),
             Token::new(TokenValue::from(Identifier::Name(Name("z".to_owned())))),
         ];
         let result = LambdaExpression::parse(TokenStream(&tokens));

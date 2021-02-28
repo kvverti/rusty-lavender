@@ -94,7 +94,10 @@ impl RuntimeContext {
             MoveArg(idx) => {
                 let idx = usize::from(idx);
                 let mut arg = LvValue::Unit;
-                let frame = self.frames.last_mut().expect("No stack frame from which to move argument");
+                let frame = self
+                    .frames
+                    .last_mut()
+                    .expect("No stack frame from which to move argument");
                 let top = if idx < stack::LOCAL_SIZE {
                     &mut frame.locals[idx]
                 } else {
@@ -105,7 +108,10 @@ impl RuntimeContext {
             }
             CopyArg(idx) => {
                 let idx = usize::from(idx);
-                let frame = self.frames.last().expect("No stack frame from which to copy argument");
+                let frame = self
+                    .frames
+                    .last()
+                    .expect("No stack frame from which to copy argument");
                 let arg = if idx < stack::LOCAL_SIZE {
                     frame.locals[idx].clone()
                 } else {
@@ -116,7 +122,10 @@ impl RuntimeContext {
             MoveArgTo(idx) => {
                 let idx = usize::from(idx);
                 let value = self.values.pop().expect("No argument to place");
-                let frame = self.frames.last_mut().expect("No stack from to copy argument to");
+                let frame = self
+                    .frames
+                    .last_mut()
+                    .expect("No stack from to copy argument to");
                 let arg = if idx < stack::LOCAL_SIZE {
                     &mut frame.locals[idx]
                 } else {
@@ -199,11 +208,13 @@ impl RuntimeContext {
                 let ret = func(args);
                 self.values.push(ret);
             }
-            DebugTop => println!("Stack {:#}, Frame {:#}, Pc {:?} \n{:?}",
-                                 self.values.len(),
-                                 self.frames.len(),
-                                 self.pc,
-                                 self.values.last().unwrap()),
+            DebugTop => println!(
+                "Stack {:#}, Frame {:#}, Pc {:?} \n{:?}",
+                self.values.len(),
+                self.frames.len(),
+                self.pc,
+                self.values.last().unwrap()
+            ),
         }
     }
 }
@@ -224,21 +235,26 @@ mod tests {
         let f = runtime.symbols.symbol("f");
         let f_text = runtime.symbols.label("f");
         let main_text = runtime.symbols.label("main");
-        runtime.symbols.define_symbol(f, LvValue::from(LvFunc::new(f_text, 2)));
+        runtime
+            .symbols
+            .define_symbol(f, LvValue::from(LvFunc::new(f_text, 2)));
         runtime.symbols.define_label(f_text, &intrinsic::TEXT_ADDI);
-        runtime.symbols.define_label(main_text, &[
-            Opcode::IntValue(3),
-            Opcode::IntValue(2),
-            Opcode::IntValue(1),
-            Opcode::Value(f),
-            Opcode::Apply,
-            Opcode::Apply,
-            Opcode::Value(f),
-            Opcode::Apply,
-            Opcode::Apply,
-            Opcode::Eval,
-            Opcode::Return,
-        ]);
+        runtime.symbols.define_label(
+            main_text,
+            &[
+                Opcode::IntValue(3),
+                Opcode::IntValue(2),
+                Opcode::IntValue(1),
+                Opcode::Value(f),
+                Opcode::Apply,
+                Opcode::Apply,
+                Opcode::Value(f),
+                Opcode::Apply,
+                Opcode::Apply,
+                Opcode::Eval,
+                Opcode::Return,
+            ],
+        );
         let main = LvFunc::new(main_text, 0);
         let r = runtime.exec(main);
         assert_eq!(LvValue::Integer(6), r);

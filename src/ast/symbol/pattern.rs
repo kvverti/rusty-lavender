@@ -9,13 +9,23 @@ impl ExtractSymbol for PatternPrimary {
             // identifiers declare unbound (at first) symbols
             Self::Identifier(id) => {
                 // patterns are scoped identifiers or begin with an uppercase letter
-                let is_pattern = !id.value.scopes.is_empty() || id.value.name.value()
-                    .chars()
-                    .next()
-                    .expect("Expected nonempty name")
-                    .is_uppercase();
+                let is_pattern = !id.value.scopes.is_empty()
+                    || id
+                        .value
+                        .name
+                        .value()
+                        .chars()
+                        .next()
+                        .expect("Expected nonempty name")
+                        .is_uppercase();
                 if !is_pattern {
-                    let symbol = id.as_ref().map(|id| AstSymbol::in_scope(SymbolSpace::Value, ctx.enclosing_scope, id.name.value()));
+                    let symbol = id.as_ref().map(|id| {
+                        AstSymbol::in_scope(
+                            SymbolSpace::Value,
+                            ctx.enclosing_scope,
+                            id.name.value(),
+                        )
+                    });
                     data.declare_symbol(symbol);
                 }
             }
@@ -50,13 +60,28 @@ mod tests {
         let ctx = SymbolContext::new();
         let expected = SymbolData::from_parts(
             vec![
-                (AstSymbol::from_scopes(SymbolSpace::Value, &["a"]), Tagged { value: Fixity::None, idx: 1, len: 1 }),
-                (AstSymbol::from_scopes(SymbolSpace::Value, &["b"]), Tagged { value: Fixity::None, idx: 9, len: 1 }),
-            ].into_iter().collect(),
+                (
+                    AstSymbol::from_scopes(SymbolSpace::Value, &["a"]),
+                    Tagged {
+                        value: Fixity::None,
+                        idx: 1,
+                        len: 1,
+                    },
+                ),
+                (
+                    AstSymbol::from_scopes(SymbolSpace::Value, &["b"]),
+                    Tagged {
+                        value: Fixity::None,
+                        idx: 9,
+                        len: 1,
+                    },
+                ),
+            ]
+            .into_iter()
+            .collect(),
             vec![],
         );
         input.extract(&mut result, ctx);
         assert_eq!(result, expected);
     }
 }
-

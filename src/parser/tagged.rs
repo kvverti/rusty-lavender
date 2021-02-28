@@ -1,8 +1,8 @@
 use nom::combinator::map;
 
-use crate::parser::{ParseResult, with_len};
 use crate::parser::primary::Primary;
 use crate::parser::token::TokenStream;
+use crate::parser::{with_len, ParseResult};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct Tagged<T> {
@@ -13,14 +13,23 @@ pub struct Tagged<T> {
 
 impl<T> Tagged<T> {
     pub fn new(value: T) -> Self {
-        Self { value, idx: 0, len: 0 }
+        Self {
+            value,
+            idx: 0,
+            len: 0,
+        }
     }
 
     pub fn map<U, F>(self, f: F) -> Tagged<U>
-        where F: FnOnce(T) -> U
+    where
+        F: FnOnce(T) -> U,
     {
         let Tagged { value, idx, len } = self;
-        Tagged { value: f(value), idx, len }
+        Tagged {
+            value: f(value),
+            idx,
+            len,
+        }
     }
 
     pub fn as_ref(&self) -> Tagged<&T> {
@@ -38,8 +47,11 @@ impl<P: Primary> Primary for Tagged<P> {
     }
 }
 
-pub fn tagged<'a, F, O>(parser: F) -> impl Fn(TokenStream<'a>) -> ParseResult<TokenStream<'a>, Tagged<O>>
-    where F: Fn(TokenStream<'a>) -> ParseResult<TokenStream<'a>, O>
+pub fn tagged<'a, F, O>(
+    parser: F,
+) -> impl Fn(TokenStream<'a>) -> ParseResult<TokenStream<'a>, Tagged<O>>
+where
+    F: Fn(TokenStream<'a>) -> ParseResult<TokenStream<'a>, O>,
 {
     move |input| {
         map(with_len(&parser), |(len, value)| {
@@ -54,7 +66,11 @@ pub fn tagged<'a, F, O>(parser: F) -> impl Fn(TokenStream<'a>) -> ParseResult<To
                     },
                 }
             } else {
-                Tagged { value, idx: 0, len: 0 }
+                Tagged {
+                    value,
+                    idx: 0,
+                    len: 0,
+                }
             }
         })(input)
     }
