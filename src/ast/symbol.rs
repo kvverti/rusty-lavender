@@ -8,6 +8,7 @@ use crate::parser::tagged::Tagged;
 
 mod definition;
 mod fixity;
+mod lookup;
 mod pattern;
 mod typedecl;
 mod value;
