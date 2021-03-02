@@ -1,8 +1,14 @@
 //! A trie-based lookup for nonempty scoped symbols.
 
-/// An opaque key identifying a symbol.
+/// A key identifying a symbol.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct LookupKey(usize);
+
+impl LookupKey {
+    pub fn index(self) -> usize {
+        self.0
+    }
+}
 
 /// A node in the lookup.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -29,12 +35,20 @@ impl Lookup {
     }
 
     /// Retrieve the value associated with the given key string.
-    pub fn get(&self, key: &[&str]) -> Option<LookupKey> {
+    pub fn get<S, I>(&self, key: I) -> Option<LookupKey>
+    where
+        S: AsRef<str>,
+        I: IntoIterator<Item = S>,
+    {
         self.get_node(key).and_then(|n| n.index)
     }
 
     /// Retrieve all values which are direct descendants of the given key string.
-    pub fn get_all(&self, scope: &[&str]) -> impl Iterator<Item = (&str, LookupKey)> {
+    pub fn get_all<S, I>(&self, scope: I) -> impl Iterator<Item = (&str, LookupKey)>
+    where
+        S: AsRef<str>,
+        I: IntoIterator<Item = S>,
+    {
         let node = self.get_node(scope);
         node.into_iter()
             .flat_map(|n| &n.children)
@@ -43,7 +57,11 @@ impl Lookup {
 
     /// Place the value in the lookup. The symbol must be non-empty. If the symbol is
     /// already present, nothing is done.
-    pub fn insert(&mut self, key: &[&str]) {
+    pub fn insert<S, I>(&mut self, key: I)
+    where
+        S: AsRef<str>,
+        I: IntoIterator<Item = S>,
+    {
         fn find_or_create<'a>(children: &'a mut Vec<Node>, fragment: &str) -> &'a mut Node {
             let idx = children
                 .iter_mut()
@@ -60,9 +78,10 @@ impl Lookup {
                 });
             &mut children[idx]
         }
-        let mut current = find_or_create(&mut self.roots, &key[0]);
-        for fragment in key[1..].iter() {
-            current = find_or_create(&mut current.children, fragment);
+        let mut key_iter = key.into_iter();
+        let mut current = find_or_create(&mut self.roots, key_iter.next().unwrap().as_ref());
+        for fragment in key_iter {
+            current = find_or_create(&mut current.children, fragment.as_ref());
         }
         if current.index.is_none() {
             let index = self.next_key;
@@ -72,13 +91,17 @@ impl Lookup {
     }
 
     /// Resolve a key fragment against a possible longest prefix.
-    pub fn resolve(&self, scope: &[&str], fragment: &str) -> Option<LookupKey> {
+    pub fn resolve<S, I>(&self, scope: I, fragment: &str) -> Option<LookupKey>
+    where
+        S: AsRef<str>,
+        I: IntoIterator<Item = S>,
+    {
         let mut current_space = self.roots.as_slice();
-        let mut nodes = Vec::with_capacity(scope.len());
+        let mut nodes = Vec::new();
         for frag in scope {
             let node = current_space
                 .iter()
-                .find(|node| node.fragment.as_str() == *frag);
+                .find(|node| node.fragment.as_str() == frag.as_ref());
             if let Some(node) = node {
                 nodes.push(node);
                 current_space = node.children.as_slice();
@@ -95,18 +118,23 @@ impl Lookup {
     }
 
     /// Retrieve the node associated with a given key string.
-    fn get_node(&self, key: &[&str]) -> Option<&Node> {
-        let fragment = key.get(0)?;
+    fn get_node<S, I>(&self, key: I) -> Option<&Node>
+    where
+        S: AsRef<str>,
+        I: IntoIterator<Item = S>,
+    {
+        let mut key_iter = key.into_iter();
+        let fragment = key_iter.next()?;
         let mut current = self
             .roots
             .iter()
-            .find(|node| node.fragment.as_str() == *fragment)?;
-        for fragment in key[1..].iter() {
+            .find(|node| node.fragment.as_str() == fragment.as_ref())?;
+        for fragment in key_iter {
             // current.fragment == key[i]
             current = current
                 .children
                 .iter()
-                .find(|node| node.fragment.as_str() == *fragment)?;
+                .find(|node| node.fragment.as_str() == fragment.as_ref())?;
         }
         Some(current)
     }
