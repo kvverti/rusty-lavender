@@ -1,15 +1,21 @@
-//! A trie-based lookup for scoped symbols.
+//! A trie-based lookup for nonempty scoped symbols.
 
-use crate::ast::symbol::AstSymbol;
-use crate::parser::item::Fixity;
-use crate::parser::tagged::Tagged;
-
+/// An opaque key identifying a symbol.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct LookupKey(usize);
 
+/// A node in the lookup.
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct Node {
+    fragment: String,
+    index: Option<LookupKey>,
+    children: Vec<Node>,
+}
+
+/// A storage for nonempty hierarchical symbols.
 #[derive(Clone, Debug, Eq, PartialEq, Default)]
 pub struct Lookup {
-    values: Vec<(Tagged<AstSymbol>, Fixity)>,
+    next_key: usize,
     roots: Vec<Node>,
 }
 
@@ -17,13 +23,9 @@ impl Lookup {
     /// Create an empty lookup.
     pub const fn new() -> Self {
         Self {
-            values: Vec::new(),
+            next_key: 0,
             roots: Vec::new(),
         }
-    }
-
-    pub fn get_by_key(&self, key: LookupKey) -> &(Tagged<AstSymbol>, Fixity) {
-        &self.values[key.0]
     }
 
     /// Retrieve the value associated with the given key string.
@@ -39,52 +41,51 @@ impl Lookup {
             .flat_map(|n| Some((n.fragment.as_str(), n.index?)))
     }
 
-    /// Place the value in the lookup. The symbol must be non-empty.
-    pub fn put_if_absent(&mut self, value: (Tagged<AstSymbol>, Fixity)) {
-        // todo: why borrowck, why
+    /// Place the value in the lookup. The symbol must be non-empty. If the symbol is
+    /// already present, nothing is done.
+    pub fn insert(&mut self, key: &[&str]) {
         fn find_or_create<'a>(children: &'a mut Vec<Node>, fragment: &str) -> &'a mut Node {
-            let node = children
+            let idx = children
                 .iter_mut()
-                .find(|node| node.fragment.as_str() == fragment);
-            if let Some(node) = node {
-                return node;
-            }
-            let node = Node {
-                fragment: fragment.to_owned(),
-                index: None,
-                children: Vec::new(),
-            };
-            children.push(node);
-            children.last_mut().unwrap()
+                .position(|node| node.fragment.as_str() == fragment)
+                .unwrap_or_else(|| {
+                    let node = Node {
+                        fragment: fragment.to_owned(),
+                        index: None,
+                        children: Vec::new(),
+                    };
+                    let res = children.len();
+                    children.push(node);
+                    res
+                });
+            &mut children[idx]
         }
-        let key = value.0.value.as_scopes();
         let mut current = find_or_create(&mut self.roots, &key[0]);
         for fragment in key[1..].iter() {
-            current = find_or_create(&mut current.children, fragment.as_str());
+            current = find_or_create(&mut current.children, fragment);
         }
-        let index = self.values.len();
-        self.values.push(value);
-        current.index = Some(LookupKey(index));
+        if current.index.is_none() {
+            let index = self.next_key;
+            self.next_key += 1;
+            current.index = Some(LookupKey(index));
+        }
     }
 
     /// Resolve a key fragment against a possible longest prefix.
     pub fn resolve(&self, scope: &[&str], fragment: &str) -> Option<LookupKey> {
-        for n in 0..scope.len() {
-            let node = self.get_node(&scope[..n]);
-            if let Some(node) = node {
-                let key = node
-                    .children
-                    .iter()
-                    .find(|node| node.fragment.as_str() == fragment)
-                    .and_then(|node| node.index);
-                if key.is_some() {
-                    return key;
-                }
+        for n in (0..=scope.len()).rev() {
+            let key = self
+                .get_all(&scope[..n])
+                .find(|&(f, _)| f == fragment)
+                .map(|(_, k)| k);
+            if key.is_some() {
+                return key;
             }
         }
         None
     }
 
+    /// Retrieve the node associated with a given key string.
     fn get_node(&self, key: &[&str]) -> Option<&Node> {
         let fragment = key.get(0)?;
         let mut current = self
@@ -102,10 +103,65 @@ impl Lookup {
     }
 }
 
-/// A node in the lookup.
-#[derive(Clone, Debug, Eq, PartialEq)]
-struct Node {
-    fragment: String,
-    index: Option<LookupKey>,
-    children: Vec<Node>,
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn it_works() {
+        let mut lookup = Lookup::new();
+        let key1 = ["a", "b", "c"];
+        let key2 = ["a", "b", "d"];
+        let key3 = ["b", "b", "c"];
+
+        // get and put
+        assert!(lookup.get(&key1).is_none());
+        assert!(lookup.get(&key2).is_none());
+        assert!(lookup.get(&key3).is_none());
+        lookup.insert(&key1);
+        assert_eq!(LookupKey(0), lookup.get(&key1).expect("key1"));
+        assert!(lookup.get(&key2).is_none());
+        assert!(lookup.get(&key3).is_none());
+        lookup.insert(&key2);
+        lookup.insert(&key3);
+        assert_eq!(LookupKey(0), lookup.get(&key1).expect("key1"));
+        assert_eq!(LookupKey(1), lookup.get(&key2).expect("key2"));
+        assert_eq!(LookupKey(2), lookup.get(&key3).expect("key3"));
+
+        // get_all
+        let all = lookup.get_all(&["a", "b"]).collect::<Vec<_>>();
+        assert_eq!(&[("c", LookupKey(0)), ("d", LookupKey(1))], all.as_slice());
+        let none = lookup.get_all(&["a"]).collect::<Vec<_>>();
+        assert_eq!(0, none.len());
+    }
+
+    #[test]
+    fn resolve() {
+        let mut lookup = Lookup::new();
+        let key1 = ["a", "b", "c", "d"];
+        let key2 = ["a", "b", "d"];
+        let key3 = ["a", "b", "z"];
+        let key4 = ["a", "d"];
+        let key5 = ["a", "z"];
+        lookup.insert(&key1);
+        lookup.insert(&key2);
+        lookup.insert(&key3);
+        lookup.insert(&key4);
+        lookup.insert(&key5);
+        let key = lookup.resolve(&["a", "b", "c"], "d").expect("d");
+        assert_eq!(LookupKey(0), key);
+        let key = lookup.resolve(&["a", "b", "c"], "z").expect("z");
+        assert_eq!(LookupKey(2), key);
+    }
+
+    #[test]
+    fn double_insert() {
+        let mut lookup = Lookup::new();
+        let key = ["a", "b", "c"];
+        assert!(lookup.get(&key).is_none());
+        lookup.insert(&key);
+        assert_eq!(LookupKey(0), lookup.get(&key).expect("key"));
+        lookup.insert(&key);
+        assert_eq!(LookupKey(0), lookup.get(&key).expect("key"));
+    }
 }
