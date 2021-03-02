@@ -73,16 +73,25 @@ impl Lookup {
 
     /// Resolve a key fragment against a possible longest prefix.
     pub fn resolve(&self, scope: &[&str], fragment: &str) -> Option<LookupKey> {
-        for n in (0..=scope.len()).rev() {
-            let key = self
-                .get_all(&scope[..n])
-                .find(|&(f, _)| f == fragment)
-                .map(|(_, k)| k);
-            if key.is_some() {
-                return key;
+        let mut current_space = self.roots.as_slice();
+        let mut nodes = Vec::with_capacity(scope.len());
+        for frag in scope {
+            let node = current_space
+                .iter()
+                .find(|node| node.fragment.as_str() == *frag);
+            if let Some(node) = node {
+                nodes.push(node);
+                current_space = node.children.as_slice();
+            } else {
+                current_space = &[];
             }
         }
-        None
+        nodes
+            .into_iter()
+            .rev()
+            .flat_map(|node| node.children.iter().find(|node| node.fragment == fragment))
+            .flat_map(|node| node.index)
+            .next()
     }
 
     /// Retrieve the node associated with a given key string.
@@ -131,8 +140,8 @@ mod tests {
         // get_all
         let all = lookup.get_all(&["a", "b"]).collect::<Vec<_>>();
         assert_eq!(&[("c", LookupKey(0)), ("d", LookupKey(1))], all.as_slice());
-        let none = lookup.get_all(&["a"]).collect::<Vec<_>>();
-        assert_eq!(0, none.len());
+        let mut none = lookup.get_all(&["a"]);
+        assert_eq!(None, none.next());
     }
 
     #[test]
