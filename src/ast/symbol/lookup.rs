@@ -40,7 +40,7 @@ impl Lookup {
         S: AsRef<str>,
         I: IntoIterator<Item = S>,
     {
-        self.get_node(key).and_then(|n| n.index)
+        Self::get_node(&self.roots, key).and_then(|n| n.index)
     }
 
     /// Retrieve all values which are direct descendants of the given key string.
@@ -49,7 +49,7 @@ impl Lookup {
         S: AsRef<str>,
         I: IntoIterator<Item = S>,
     {
-        let node = self.get_node(scope);
+        let node = Self::get_node(&self.roots, scope);
         node.into_iter()
             .flat_map(|n| &n.children)
             .flat_map(|n| Some((n.fragment.as_str(), n.index?)))
@@ -91,10 +91,12 @@ impl Lookup {
     }
 
     /// Resolve a key fragment against a possible longest prefix.
-    pub fn resolve<S, I>(&self, scope: I, fragment: &str) -> Option<LookupKey>
+    pub fn resolve<S, T, I, J>(&self, scope: I, fragment: J) -> Option<LookupKey>
     where
         S: AsRef<str>,
+        T: AsRef<str>,
         I: IntoIterator<Item = S>,
+        J: IntoIterator<Item = T> + Clone,
     {
         let mut current_space = self.roots.as_slice();
         let mut nodes = Vec::new();
@@ -112,21 +114,20 @@ impl Lookup {
         nodes
             .into_iter()
             .rev()
-            .flat_map(|node| node.children.iter().find(|node| node.fragment == fragment))
+            .flat_map(|node| Self::get_node(&node.children, fragment.clone()))
             .flat_map(|node| node.index)
             .next()
     }
 
-    /// Retrieve the node associated with a given key string.
-    fn get_node<S, I>(&self, key: I) -> Option<&Node>
+    /// Retrieve the node associated with a given key string from the given roots.
+    fn get_node<S, I>(roots: &[Node], key: I) -> Option<&Node>
     where
         S: AsRef<str>,
         I: IntoIterator<Item = S>,
     {
         let mut key_iter = key.into_iter();
         let fragment = key_iter.next()?;
-        let mut current = self
-            .roots
+        let mut current = roots
             .iter()
             .find(|node| node.fragment.as_str() == fragment.as_ref())?;
         for fragment in key_iter {
@@ -185,9 +186,28 @@ mod tests {
         lookup.insert(&key3);
         lookup.insert(&key4);
         lookup.insert(&key5);
-        let key = lookup.resolve(&["a", "b", "c"], "d").expect("d");
+        let key = lookup.resolve(&["a", "b", "c"], &["d"]).expect("d");
         assert_eq!(LookupKey(0), key);
-        let key = lookup.resolve(&["a", "b", "c"], "z").expect("z");
+        let key = lookup.resolve(&["a", "b", "c"], &["z"]).expect("z");
+        assert_eq!(LookupKey(2), key);
+    }
+
+    #[test]
+    fn resolve_multi() {
+        let mut lookup = Lookup::new();
+        let key1 = ["a", "b", "c", "d", "e"];
+        let key2 = ["a", "b", "d", "e"];
+        let key3 = ["a", "b", "d", "z"];
+        let key4 = ["a", "d", "e"];
+        let key5 = ["a", "d", "z"];
+        lookup.insert(&key1);
+        lookup.insert(&key2);
+        lookup.insert(&key3);
+        lookup.insert(&key4);
+        lookup.insert(&key5);
+        let key = lookup.resolve(&["a", "b", "c"], &["d", "e"]).expect("d");
+        assert_eq!(LookupKey(0), key);
+        let key = lookup.resolve(&["a", "b", "c"], &["d", "z"]).expect("z");
         assert_eq!(LookupKey(2), key);
     }
 
