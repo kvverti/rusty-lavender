@@ -1,8 +1,8 @@
 #[cfg(test)]
 use std::cell::RefCell;
-use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 
+use crate::ast::symbol::lookup::Lookup;
 use crate::parser::item::Fixity;
 use crate::parser::tagged::Tagged;
 
@@ -152,18 +152,43 @@ impl<'a> Default for SymbolContext<'a> {
 /// Struct to use in AST construction / symbol resolution tests.
 #[cfg(test)]
 #[derive(Clone, Default, Debug, Eq, PartialEq)]
-pub(crate) struct SymbolTally {
+struct SymbolTally {
     /// Symbols expected to be resolved when constructing the AST.
     expected_symbols: Vec<(AstSymbol, AstSymbol)>,
     /// Symbols that are erroneously passed to be resolved.
     erroneous_symbols: Vec<(AstSymbol, AstSymbol)>,
 }
 
+#[derive(Clone, Default, Debug, Eq, PartialEq)]
+struct SymbolLookup {
+    symbols: Vec<(Tagged<AstSymbol>, Fixity)>,
+    lookup: Lookup,
+}
+
+impl SymbolLookup {
+    const fn new() -> Self {
+        Self {
+            symbols: Vec::new(),
+            lookup: Lookup::new(),
+        }
+    }
+
+    fn insert(&mut self, symb: Tagged<AstSymbol>, fix: Fixity) {
+        if self.lookup.insert(symb.value.as_scopes()) {
+            self.symbols.push((symb, fix));
+        }
+    }
+}
+
 /// Semantic data extracted from the parse tree and associated with the AST.
 #[derive(Clone, Default, Debug, Eq, PartialEq)]
 pub struct SymbolData {
-    /// The declared symbols in the tree.
-    declared_symbols: HashMap<AstSymbol, Tagged<Fixity>>,
+    /// Lookup for value symbols.
+    values: SymbolLookup,
+    /// Lookup for type symbols.
+    types: SymbolLookup,
+    /// Lookup for pattern symbols.
+    patterns: SymbolLookup,
     /// Symbols expected to be resolved when constructing the AST.
     #[cfg(test)]
     tally: RefCell<SymbolTally>,
@@ -172,7 +197,9 @@ pub struct SymbolData {
 impl SymbolData {
     pub fn new() -> Self {
         SymbolData {
-            declared_symbols: HashMap::new(),
+            values: SymbolLookup::new(),
+            types: SymbolLookup::new(),
+            patterns: SymbolLookup::new(),
             #[cfg(test)]
             tally: RefCell::default(),
         }
@@ -181,16 +208,23 @@ impl SymbolData {
     /// Constructs a semantic data from parts, used in unit testing.
     #[cfg(test)]
     pub(crate) fn from_parts(
-        declared_symbols: HashMap<AstSymbol, Tagged<Fixity>>,
+        declared_symbols: std::collections::HashMap<AstSymbol, Tagged<Fixity>>,
         expected_symbols: Vec<(AstSymbol, AstSymbol)>,
     ) -> Self {
-        Self {
-            declared_symbols,
+        let mut data = Self {
+            values: SymbolLookup::new(),
+            types: SymbolLookup::new(),
+            patterns: SymbolLookup::new(),
             tally: RefCell::new(SymbolTally {
                 expected_symbols,
                 erroneous_symbols: vec![],
             }),
+        };
+        for (symb, tfix) in declared_symbols.clone() {
+            data.select_lookup_mut(symb.nspace)
+                .insert(tfix.map(|_| symb), tfix.value);
         }
+        data
     }
 
     /// Asserts the expected symbol resolution took place.
@@ -215,20 +249,18 @@ impl SymbolData {
     }
 
     pub fn declare_symbol_with_fixity(&mut self, symb: Tagged<AstSymbol>, fixity: Fixity) {
-        let Tagged { value, idx, len } = symb;
-        self.declared_symbols.entry(value).or_insert(Tagged {
-            value: fixity,
-            idx,
-            len,
-        });
+        self.select_lookup_mut(symb.value.nspace)
+            .insert(symb, fixity);
     }
 
     /// Asserts and returns a symbol previously declared.
     pub fn get_declared_symbol(&self, symbol: AstSymbol) -> &AstSymbol {
-        self.declared_symbols
-            .get_key_value(&symbol)
-            .expect("Declared symbol not bound")
-            .0
+        let sl = self.select_lookup(symbol.nspace);
+        let key = sl
+            .lookup
+            .get(symbol.as_scopes())
+            .expect("Declared symbol not found");
+        &sl.symbols[key.index()].0.value
     }
 
     /// Resolves an unbound symbol in some scope to a bound symbol in this symbol data.
@@ -253,27 +285,25 @@ impl SymbolData {
                     .push((scope.clone(), symbol.clone()));
             }
         }
-        let mut env_scopes = scope.scopes.clone();
-        let mut env_len = env_scopes.len();
-        let nspace = symbol.nspace;
-        env_scopes.extend(symbol.scopes);
-        loop {
-            let candidate_symbol = AstSymbol {
-                nspace,
-                scopes: env_scopes,
-            };
-            if let Some((symb, fixity)) = self.declared_symbols.get_key_value(&candidate_symbol) {
-                return Some((symb, fixity.value));
-            } else {
-                env_scopes = candidate_symbol.scopes;
-                if env_len == 0 {
-                    // no symbol found
-                    return None;
-                } else {
-                    env_len -= 1;
-                    env_scopes.remove(env_len);
-                }
-            }
+        let sl = self.select_lookup(symbol.nspace);
+        let key = sl.lookup.resolve(scope.as_scopes(), symbol.as_scopes())?;
+        let (ref symb, fix) = sl.symbols[key.index()];
+        Some((&symb.value, fix))
+    }
+
+    fn select_lookup(&self, nspace: SymbolSpace) -> &SymbolLookup {
+        match nspace {
+            SymbolSpace::Value => &self.values,
+            SymbolSpace::Type => &self.types,
+            SymbolSpace::Pattern => &self.patterns,
+        }
+    }
+
+    fn select_lookup_mut(&mut self, nspace: SymbolSpace) -> &mut SymbolLookup {
+        match nspace {
+            SymbolSpace::Value => &mut self.values,
+            SymbolSpace::Type => &mut self.types,
+            SymbolSpace::Pattern => &mut self.patterns,
         }
     }
 }

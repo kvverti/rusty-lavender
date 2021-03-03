@@ -57,7 +57,7 @@ impl Lookup {
 
     /// Place the value in the lookup. The symbol must be non-empty. If the symbol is
     /// already present, nothing is done.
-    pub fn insert<S, I>(&mut self, key: I)
+    pub fn insert<S, I>(&mut self, key: I) -> bool
     where
         S: AsRef<str>,
         I: IntoIterator<Item = S>,
@@ -87,6 +87,9 @@ impl Lookup {
             let index = self.next_key;
             self.next_key += 1;
             current.index = Some(LookupKey(index));
+            true
+        } else {
+            false
         }
     }
 
@@ -117,6 +120,7 @@ impl Lookup {
             .flat_map(|node| Self::get_node(&node.children, fragment.clone()))
             .flat_map(|node| node.index)
             .next()
+            .or_else(|| Self::get_node(&self.roots, fragment.clone()).and_then(|node| node.index))
     }
 
     /// Retrieve the node associated with a given key string from the given roots.
@@ -212,13 +216,25 @@ mod tests {
     }
 
     #[test]
+    fn resolve_global() {
+        let mut lookup = Lookup::new();
+        let key1 = ["a", "b", "c", "d"];
+        let key2 = ["d"];
+        lookup.insert(&key1);
+        lookup.insert(&key2);
+        let key = lookup.resolve(&["a", "b", "c"], &["d"]).expect("d1");
+        assert_eq!(LookupKey(0), key);
+        let scope: &[&str] = &[];
+        let key = lookup.resolve(scope, &["d"]).expect("d2");
+        assert_eq!(LookupKey(1), key);
+    }
+
+    #[test]
     fn double_insert() {
         let mut lookup = Lookup::new();
         let key = ["a", "b", "c"];
         assert!(lookup.get(&key).is_none());
-        lookup.insert(&key);
-        assert_eq!(LookupKey(0), lookup.get(&key).expect("key"));
-        lookup.insert(&key);
-        assert_eq!(LookupKey(0), lookup.get(&key).expect("key"));
+        assert!(lookup.insert(&key));
+        assert!(!lookup.insert(&key));
     }
 }
