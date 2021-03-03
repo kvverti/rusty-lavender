@@ -208,7 +208,7 @@ impl SymbolData {
     /// Constructs a semantic data from parts, used in unit testing.
     #[cfg(test)]
     pub(crate) fn from_parts(
-        declared_symbols: std::collections::HashMap<AstSymbol, Tagged<Fixity>>,
+        declared_symbols: Vec<(AstSymbol, Tagged<Fixity>)>,
         expected_symbols: Vec<(AstSymbol, AstSymbol)>,
     ) -> Self {
         let mut data = Self {
@@ -220,9 +220,9 @@ impl SymbolData {
                 erroneous_symbols: vec![],
             }),
         };
-        for (symb, tfix) in declared_symbols.clone() {
+        for (symb, fix) in declared_symbols {
             data.select_lookup_mut(symb.nspace)
-                .insert(tfix.map(|_| symb), tfix.value);
+                .insert(fix.map(|_| symb), fix.value);
         }
         data
     }

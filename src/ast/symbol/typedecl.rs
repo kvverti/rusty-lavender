@@ -80,19 +80,19 @@ mod tests {
         let expected = SymbolData::from_parts(
             vec![
                 (
-                    AstSymbol::from_scopes(SymbolSpace::Type, &["a"]),
-                    Tagged {
-                        value: Fixity::None,
-                        idx: 13,
-                        len: 2,
-                    },
-                ),
-                (
                     AstSymbol::from_scopes(SymbolSpace::Type, &["0", "b"]),
                     Tagged {
                         value: Fixity::None,
                         idx: 5,
                         len: 1,
+                    },
+                ),
+                (
+                    AstSymbol::from_scopes(SymbolSpace::Type, &["a"]),
+                    Tagged {
+                        value: Fixity::None,
+                        idx: 13,
+                        len: 2,
                     },
                 ),
                 (
@@ -122,19 +122,19 @@ mod tests {
         let expected = SymbolData::from_parts(
             vec![
                 (
-                    AstSymbol::from_scopes(SymbolSpace::Type, &["a"]),
-                    Tagged {
-                        value: Fixity::None,
-                        idx: 13,
-                        len: 2,
-                    },
-                ),
-                (
                     AstSymbol::from_scopes(SymbolSpace::Type, &["0", "b"]),
                     Tagged {
                         value: Fixity::None,
                         idx: 5,
                         len: 1,
+                    },
+                ),
+                (
+                    AstSymbol::from_scopes(SymbolSpace::Type, &["a"]),
+                    Tagged {
+                        value: Fixity::None,
+                        idx: 13,
+                        len: 2,
                     },
                 ),
                 (

@@ -71,8 +71,6 @@ impl<'a> ExtractAstNode<'a> for TypeExpression {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
-
     use crate::ast::symbol::{ExtractSymbol, GLOBAL_SCOPE};
     use crate::parser::item::Fixity;
     use crate::parser::tagged::Tagged;
@@ -132,7 +130,7 @@ mod tests {
         let a = AstSymbol::from_scopes(SymbolSpace::Type, &["", "a"]);
         let b = AstSymbol::from_scopes(SymbolSpace::Type, &["", "b"]);
         let mut data = SymbolData::from_parts(
-            HashMap::new(),
+            Vec::new(),
             vec![(
                 AstSymbol::from_scopes(SymbolSpace::Value, &[""]),
                 AstSymbol::from_scopes(SymbolSpace::Type, &["c"]),

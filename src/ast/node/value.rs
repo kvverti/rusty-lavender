@@ -65,8 +65,6 @@ impl<'a> ExtractAstNode<'a> for ValueExpression {
 
 #[cfg(test)]
 mod tests {
-    use nom::lib::std::collections::HashMap;
-
     use crate::ast::node::{AstPatternExpression, AstValueExpression, ExtractAstNode};
     use crate::ast::symbol::{
         AstSymbol, ExtractSymbol, SymbolContext, SymbolData, SymbolSpace, GLOBAL_SCOPE,
@@ -172,7 +170,7 @@ mod tests {
     fn unresolved() {
         let input = "a @ 3";
         let mut data = SymbolData::from_parts(
-            HashMap::new(),
+            Vec::new(),
             vec![
                 (
                     GLOBAL_SCOPE.clone(),

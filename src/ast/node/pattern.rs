@@ -58,8 +58,6 @@ impl<'a> ExtractAstNode<'a> for Pattern {
 
 #[cfg(test)]
 mod tests {
-    use nom::lib::std::collections::HashMap;
-
     use crate::ast::symbol::{ExtractSymbol, GLOBAL_SCOPE};
     use crate::parser::item::Fixity;
     use crate::parser::primary::Primary;
@@ -122,7 +120,7 @@ mod tests {
         let input = "(Some x)";
         let x = AstSymbol::new(SymbolSpace::Value, "x");
         let mut data = SymbolData::from_parts(
-            HashMap::new(),
+            Vec::new(),
             vec![(
                 GLOBAL_SCOPE.clone(),
                 AstSymbol::new(SymbolSpace::Pattern, "Some"),
