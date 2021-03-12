@@ -6,43 +6,36 @@ use std::fmt::{Display, Formatter};
 
 use typed_arena::Arena;
 
-use crate::ast::symbol::AstSymbol;
-
 mod instantiation;
 mod unification;
 
-pub type TypeArena<'sym, 'arena> = Arena<RefCell<AstType<'sym, 'arena>>>;
+pub type TypeArena<'arena> = Arena<RefCell<AstType<'arena>>>;
 
 /// Visitor for AST types.
-pub trait TypeVisitor<'sym, 'arena> {
+pub trait TypeVisitor<'arena> {
     type Input;
     type Output;
 
-    fn visit_free(&mut self, v: u64, typ: TypeRef<'sym, 'arena>, arg: Self::Input) -> Self::Output;
+    fn visit_free(&mut self, v: u64, typ: TypeRef<'arena>, arg: Self::Input) -> Self::Output;
     fn visit_bound(
         &mut self,
-        v: BoundVariable<'sym>,
-        typ: TypeRef<'sym, 'arena>,
+        v: BoundVariable,
+        typ: TypeRef<'arena>,
         arg: Self::Input,
     ) -> Self::Output;
-    fn visit_atom(
-        &mut self,
-        sym: &'sym AstSymbol,
-        typ: TypeRef<'sym, 'arena>,
-        arg: Self::Input,
-    ) -> Self::Output;
+    fn visit_atom(&mut self, sym: usize, typ: TypeRef<'arena>, arg: Self::Input) -> Self::Output;
     fn visit_apply(
         &mut self,
-        ctor: TypeRef<'sym, 'arena>,
-        par: TypeRef<'sym, 'arena>,
-        typ: TypeRef<'sym, 'arena>,
+        ctor: TypeRef<'arena>,
+        par: TypeRef<'arena>,
+        typ: TypeRef<'arena>,
         arg: Self::Input,
     ) -> Self::Output;
     fn visit_schema(
         &mut self,
-        vars: &[BoundVariable<'sym>],
-        inner: TypeRef<'sym, 'arena>,
-        typ: TypeRef<'sym, 'arena>,
+        vars: &[BoundVariable],
+        inner: TypeRef<'arena>,
+        typ: TypeRef<'arena>,
         arg: Self::Input,
     ) -> Self::Output;
 }
@@ -50,22 +43,18 @@ pub trait TypeVisitor<'sym, 'arena> {
 /// A bound type variable for use in a type schema. These may be user defined or inferred by
 /// the type checker.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub enum BoundVariable<'a> {
+pub enum BoundVariable {
     /// A variable declared in the source code.
-    Declared(&'a AstSymbol),
+    Declared(usize),
     /// A variable inferred by the type checker.
     Inferred(u64),
 }
 
-impl Display for BoundVariable<'_> {
+impl Display for BoundVariable {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Declared(symb) => {
-                let last_scope = symb
-                    .as_scopes()
-                    .last()
-                    .expect("No name for user-defined binding");
-                write!(f, "'{}", last_scope)
+                write!(f, "'a{}", symb)
             }
             Self::Inferred(idx) => {
                 write!(f, "'{}", idx)
@@ -79,35 +68,35 @@ impl Display for BoundVariable<'_> {
 /// Note: It's very important that values of `AstType` are not copied accidentally, since the type
 /// inference algorithm is very identity-sensitive.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub enum AstType<'sym, 'arena> {
+pub enum AstType<'arena> {
     /// A free variable which must be inferred.
     FreeVariable(u64),
     /// A bound variable which may be captured.
-    BoundVariable(BoundVariable<'sym>),
+    BoundVariable(BoundVariable),
     /// A plain concrete type such as `Int`.
-    Atom(&'sym AstSymbol),
+    Atom(usize),
     /// Type application.
     Application {
-        ctor: TypeRef<'sym, 'arena>,
-        arg: TypeRef<'sym, 'arena>,
+        ctor: TypeRef<'arena>,
+        arg: TypeRef<'arena>,
     },
     /// A type universally quantified over a set of bound variables.
     Schema {
-        vars: Vec<BoundVariable<'sym>>,
-        inner: TypeRef<'sym, 'arena>,
+        vars: Vec<BoundVariable>,
+        inner: TypeRef<'arena>,
     },
     /// A type equal to it's inner type. References to this should be replaced with
     /// references to the inner type.
-    Unification(TypeRef<'sym, 'arena>),
+    Unification(TypeRef<'arena>),
 }
 
-impl Display for AstType<'_, '_> {
+impl Display for AstType<'_> {
     /// Format an [`AstType`].
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             AstType::FreeVariable(idx) => write!(f, "#{}", idx),
             AstType::BoundVariable(v) => write!(f, "{}", v),
-            AstType::Atom(symb) => write!(f, "{}", symb.as_scopes().join("::")),
+            AstType::Atom(symb) => write!(f, "{}", symb),
             AstType::Application { ctor, arg } => write!(f, "{} ({})", ctor, arg),
             AstType::Schema { vars, inner } => {
                 f.write_str("(for")?;
@@ -126,11 +115,11 @@ impl Display for AstType<'_, '_> {
 
 /// A reference to an `AstType` in the context of some arena.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub struct TypeRef<'sym, 'arena>(&'arena RefCell<AstType<'sym, 'arena>>);
+pub struct TypeRef<'arena>(&'arena RefCell<AstType<'arena>>);
 
-impl<'sym, 'arena> TypeRef<'sym, 'arena> {
+impl<'arena> TypeRef<'arena> {
     /// Creates a new type in the given arena.
-    pub fn new_in(arena: &'arena TypeArena<'sym, 'arena>, typ: AstType<'sym, 'arena>) -> Self {
+    pub fn new_in(arena: &'arena TypeArena<'arena>, typ: AstType<'arena>) -> Self {
         TypeRef(arena.alloc(RefCell::new(typ)))
     }
 
@@ -139,7 +128,7 @@ impl<'sym, 'arena> TypeRef<'sym, 'arena> {
         std::ptr::eq(self.0, other.0)
     }
 
-    pub fn accept<V: TypeVisitor<'sym, 'arena>>(self, visitor: &mut V, arg: V::Input) -> V::Output {
+    pub fn accept<V: TypeVisitor<'arena>>(self, visitor: &mut V, arg: V::Input) -> V::Output {
         let typ = self.0.borrow();
         match *typ {
             AstType::FreeVariable(v) => visitor.visit_free(v, self, arg),
@@ -152,7 +141,7 @@ impl<'sym, 'arena> TypeRef<'sym, 'arena> {
     }
 }
 
-impl Display for TypeRef<'_, '_> {
+impl Display for TypeRef<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0.borrow())
     }
@@ -162,20 +151,17 @@ impl Display for TypeRef<'_, '_> {
 mod tests {
     use typed_arena::Arena;
 
-    use crate::ast::symbol::SymbolSpace;
     use crate::ast::types::instantiation::InstantiationVisitor;
 
     use super::*;
 
     #[test]
     fn basic_format() {
-        let int = AstSymbol::from_scopes(SymbolSpace::Type, &["sys", "intrinsic", "Int"]);
-        let a = AstSymbol::from_scopes(SymbolSpace::Type, &["f", "a"]);
         let arena = Arena::new();
         let free_0 = TypeRef::new_in(&arena, AstType::FreeVariable(0));
         let bound_0 = TypeRef::new_in(&arena, AstType::BoundVariable(BoundVariable::Inferred(0)));
-        let bound_d = TypeRef::new_in(&arena, AstType::BoundVariable(BoundVariable::Declared(&a)));
-        let atom = TypeRef::new_in(&arena, AstType::Atom(&int));
+        let bound_d = TypeRef::new_in(&arena, AstType::BoundVariable(BoundVariable::Declared(0)));
+        let atom = TypeRef::new_in(&arena, AstType::Atom(1));
         let app = TypeRef::new_in(
             &arena,
             AstType::Application {
@@ -201,12 +187,12 @@ mod tests {
         let expected = vec![
             "#0",
             "'0",
-            "'a",
-            "sys::intrinsic::Int",
-            "#0 ('a)",
-            "#0 ('a) ('0)",
-            "(for '0. #0 ('a) ('0))",
-            "(for '0. #0 ('a) ('0))",
+            "'a0",
+            "1",
+            "#0 ('a0)",
+            "#0 ('a0) ('0)",
+            "(for '0. #0 ('a0) ('0))",
+            "(for '0. #0 ('a0) ('0))",
         ];
         let types = vec![free_0, bound_0, bound_d, atom, app, app2, schema, uni]
             .into_iter()
@@ -217,17 +203,13 @@ mod tests {
 
     #[test]
     fn instantiation() {
-        let a = AstSymbol::from_scopes(SymbolSpace::Type, &["a"]);
-        let b = AstSymbol::from_scopes(SymbolSpace::Type, &["b"]);
-        let foo_s = AstSymbol::from_scopes(SymbolSpace::Type, &["Foo"]);
-        let arrow = AstSymbol::from_scopes(SymbolSpace::Type, &["->"]);
-        let a = BoundVariable::Declared(&a);
-        let b = BoundVariable::Declared(&b);
+        let a = BoundVariable::Declared(0);
+        let b = BoundVariable::Declared(1);
 
         let arena = Arena::new();
         let free = TypeRef::new_in(&arena, AstType::FreeVariable(0));
-        let atom_foo = TypeRef::new_in(&arena, AstType::Atom(&foo_s));
-        let arrow = TypeRef::new_in(&arena, AstType::Atom(&arrow));
+        let atom_foo = TypeRef::new_in(&arena, AstType::Atom(2));
+        let arrow = TypeRef::new_in(&arena, AstType::Atom(3));
         let bound = TypeRef::new_in(&arena, AstType::BoundVariable(a));
         let bound_b = TypeRef::new_in(&arena, AstType::BoundVariable(b));
         let b_a = TypeRef::new_in(
@@ -294,7 +276,7 @@ mod tests {
         );
         assert_eq!(
             format!("{}", schema),
-            "(for 'a. -> (Foo (#0)) (-> (Foo ('a)) ((for 'b. 'b ('a)))))"
+            "(for 'a0. 3 (2 (#0)) (3 (2 ('a0)) ((for 'a1. 'a1 ('a0)))))"
         );
 
         let value = TypeRef::new_in(&arena, AstType::FreeVariable(1));
@@ -309,7 +291,7 @@ mod tests {
         let new_len = arena.len();
         assert_eq!(
             format!("{}", inst),
-            "-> (Foo (#0)) (-> (Foo (#1)) ((for 'b. 'b (#1))))"
+            "3 (2 (#0)) (3 (2 (#1)) ((for 'a1. 'a1 (#1))))"
         );
         assert_eq!(new_len - old_len, 6);
     }

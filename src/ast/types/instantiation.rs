@@ -1,26 +1,25 @@
-use crate::ast::symbol::AstSymbol;
 use crate::ast::types::{AstType, BoundVariable, TypeArena, TypeRef, TypeVisitor};
 
 /// Applies the given bound variable replacements to types.
-pub struct InstantiationVisitor<'sym, 'arena> {
-    pub arena: &'arena TypeArena<'sym, 'arena>,
-    pub vars: Vec<(BoundVariable<'sym>, TypeRef<'sym, 'arena>)>,
+pub struct InstantiationVisitor<'arena> {
+    pub arena: &'arena TypeArena<'arena>,
+    pub vars: Vec<(BoundVariable, TypeRef<'arena>)>,
 }
 
-impl<'sym, 'arena> TypeVisitor<'sym, 'arena> for InstantiationVisitor<'sym, 'arena> {
+impl<'arena> TypeVisitor<'arena> for InstantiationVisitor<'arena> {
     /// The type being instantiated from.
     type Input = ();
     /// The instantiated type.
-    type Output = TypeRef<'sym, 'arena>;
+    type Output = TypeRef<'arena>;
 
-    fn visit_free(&mut self, _v: u64, typ: TypeRef<'sym, 'arena>, _: Self::Input) -> Self::Output {
+    fn visit_free(&mut self, _v: u64, typ: TypeRef<'arena>, _: Self::Input) -> Self::Output {
         typ
     }
 
     fn visit_bound(
         &mut self,
-        var: BoundVariable<'sym>,
-        typ: TypeRef<'sym, 'arena>,
+        var: BoundVariable,
+        typ: TypeRef<'arena>,
         _: Self::Input,
     ) -> Self::Output {
         let tp = self.vars.iter().find(|(v, _)| *v == var);
@@ -31,20 +30,15 @@ impl<'sym, 'arena> TypeVisitor<'sym, 'arena> for InstantiationVisitor<'sym, 'are
         }
     }
 
-    fn visit_atom(
-        &mut self,
-        _sym: &'sym AstSymbol,
-        typ: TypeRef<'sym, 'arena>,
-        _: Self::Input,
-    ) -> Self::Output {
+    fn visit_atom(&mut self, _sym: usize, typ: TypeRef<'arena>, _: Self::Input) -> Self::Output {
         typ
     }
 
     fn visit_apply(
         &mut self,
-        ctor: TypeRef<'sym, 'arena>,
-        par: TypeRef<'sym, 'arena>,
-        typ: TypeRef<'sym, 'arena>,
+        ctor: TypeRef<'arena>,
+        par: TypeRef<'arena>,
+        typ: TypeRef<'arena>,
         _: Self::Input,
     ) -> Self::Output {
         let ctor1 = ctor.accept(self, ());
@@ -64,9 +58,9 @@ impl<'sym, 'arena> TypeVisitor<'sym, 'arena> for InstantiationVisitor<'sym, 'are
 
     fn visit_schema(
         &mut self,
-        vars: &[BoundVariable<'sym>],
-        inner: TypeRef<'sym, 'arena>,
-        typ: TypeRef<'sym, 'arena>,
+        vars: &[BoundVariable],
+        inner: TypeRef<'arena>,
+        typ: TypeRef<'arena>,
         _: Self::Input,
     ) -> Self::Output {
         assert!(

@@ -1,17 +1,16 @@
-use crate::ast::symbol::AstSymbol;
 use crate::ast::types::{AstType, BoundVariable, TypeRef, TypeVisitor};
 
 /// Performs unification (intrusively) and returns the unified type, if any.
-pub struct UnificationVisitor<'sym> {
-    pub bindings: Vec<(BoundVariable<'sym>, BoundVariable<'sym>)>,
+pub struct UnificationVisitor {
+    pub bindings: Vec<(BoundVariable, BoundVariable)>,
 }
 
-impl<'sym> UnificationVisitor<'sym> {
+impl UnificationVisitor {
     /// Attempts to unify the two types, and returns a result indicating success.
     pub fn unify<'arena>(
         &mut self,
-        left: TypeRef<'sym, 'arena>,
-        right: TypeRef<'sym, 'arena>,
+        left: TypeRef<'arena>,
+        right: TypeRef<'arena>,
     ) -> Result<(), ()> {
         if !left.identity_eq(right) {
             // unify inner type structure
@@ -31,24 +30,19 @@ impl<'sym> UnificationVisitor<'sym> {
 }
 
 // Invariants: `typ` and `arg` are never identical
-impl<'sym: 'arena, 'arena> TypeVisitor<'sym, 'arena> for UnificationVisitor<'sym> {
-    type Input = TypeRef<'sym, 'arena>;
+impl<'arena> TypeVisitor<'arena> for UnificationVisitor {
+    type Input = TypeRef<'arena>;
     type Output = Result<(), ()>;
 
-    fn visit_free(
-        &mut self,
-        _v: u64,
-        _typ: TypeRef<'sym, 'arena>,
-        _arg: Self::Input,
-    ) -> Self::Output {
+    fn visit_free(&mut self, _v: u64, _typ: TypeRef<'arena>, _arg: Self::Input) -> Self::Output {
         // free variables always unify
         Ok(())
     }
 
     fn visit_bound(
         &mut self,
-        v: BoundVariable<'sym>,
-        _typ: TypeRef<'sym, 'arena>,
+        v: BoundVariable,
+        _typ: TypeRef<'arena>,
         arg: Self::Input,
     ) -> Self::Output {
         // bound variables unify with their corresponding bindings
@@ -60,12 +54,7 @@ impl<'sym: 'arena, 'arena> TypeVisitor<'sym, 'arena> for UnificationVisitor<'sym
         }
     }
 
-    fn visit_atom(
-        &mut self,
-        sym: &'sym AstSymbol,
-        _typ: TypeRef<'sym, 'arena>,
-        arg: Self::Input,
-    ) -> Self::Output {
+    fn visit_atom(&mut self, sym: usize, _typ: TypeRef<'arena>, arg: Self::Input) -> Self::Output {
         let other = arg.0.borrow();
         match *other {
             AstType::FreeVariable(_) => Ok(()),
@@ -76,9 +65,9 @@ impl<'sym: 'arena, 'arena> TypeVisitor<'sym, 'arena> for UnificationVisitor<'sym
 
     fn visit_apply(
         &mut self,
-        ctor: TypeRef<'sym, 'arena>,
-        par: TypeRef<'sym, 'arena>,
-        _typ: TypeRef<'sym, 'arena>,
+        ctor: TypeRef<'arena>,
+        par: TypeRef<'arena>,
+        _typ: TypeRef<'arena>,
         arg: Self::Input,
     ) -> Self::Output {
         let other = arg.0.borrow();
@@ -95,9 +84,9 @@ impl<'sym: 'arena, 'arena> TypeVisitor<'sym, 'arena> for UnificationVisitor<'sym
 
     fn visit_schema(
         &mut self,
-        vars: &[BoundVariable<'sym>],
-        inner: TypeRef<'sym, 'arena>,
-        _typ: TypeRef<'sym, 'arena>,
+        vars: &[BoundVariable],
+        inner: TypeRef<'arena>,
+        _typ: TypeRef<'arena>,
         arg: Self::Input,
     ) -> Self::Output {
         let other = arg.0.borrow();
