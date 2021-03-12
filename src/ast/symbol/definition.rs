@@ -29,7 +29,7 @@ impl ExtractSymbol for Definition {
         let name = self.name.as_ref().map(Identifier::value);
         let name_scope =
             name.map(|name| AstSymbol::in_scope(SymbolSpace::Value, ctx.enclosing_scope, name));
-        data.declare_symbol_with_fixity(name_scope.clone(), self.fixity);
+        data.declare_with_data(name_scope.clone(), self.fixity);
         let function_ctx = ctx
             .with_enclosing_scope(&name_scope.value)
             .with_enclosing_definition(&name_scope.value);

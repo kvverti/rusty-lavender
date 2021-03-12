@@ -2,6 +2,7 @@ use crate::ast::node::fixity::InfixNamespace;
 use crate::ast::node::{AstPatternExpression, ExtractAstNode};
 use crate::ast::symbol::{AstSymbol, SymbolContext, SymbolData, SymbolSpace};
 use crate::parser::pattern::{Pattern, PatternPrimary};
+use std::iter;
 
 impl<'a> ExtractAstNode<'a> for PatternPrimary {
     type Node = AstPatternExpression<'a>;
@@ -22,18 +23,19 @@ impl<'a> ExtractAstNode<'a> for PatternPrimary {
                 if is_pattern {
                     let symbol =
                         AstSymbol::from_scopes(SymbolSpace::Pattern, &id.value.to_scopes());
-                    data.resolve_symbol(ctx.enclosing_scope, symbol)
+                    data.resolve(ctx.enclosing_scope, symbol)
                         .map(|(s, _)| AstPatternExpression::Symbol(s))
                         .unwrap_or_else(|| {
                             AstPatternExpression::Error(id.map(|_| "Cannot resolve pattern symbol"))
                         })
                 } else {
-                    let symbol = AstSymbol::in_scope(
-                        SymbolSpace::Value,
-                        ctx.enclosing_scope,
-                        id.value.name.value(),
-                    );
-                    AstPatternExpression::Symbol(data.get_declared_symbol(symbol))
+                    let symbol = ctx
+                        .enclosing_scope
+                        .as_scopes()
+                        .iter()
+                        .map(AsRef::as_ref)
+                        .chain(iter::once(id.value.name.value()));
+                    AstPatternExpression::Symbol(data.get(SymbolSpace::Value, symbol))
                 }
             }
             Self::Literal(lit) => AstPatternExpression::Constant(lit),

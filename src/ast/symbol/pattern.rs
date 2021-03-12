@@ -26,7 +26,7 @@ impl ExtractSymbol for PatternPrimary {
                             id.name.value(),
                         )
                     });
-                    data.declare_symbol(symbol);
+                    data.declare(symbol);
                 }
             }
             // subpatterns pass through

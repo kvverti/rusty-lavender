@@ -39,7 +39,7 @@ impl<'a> ExtractAstNode<'a> for Definition {
         } = self;
         let name = AstSymbol::in_scope(SymbolSpace::Value, ctx.enclosing_scope, name.value.value());
         let name = data
-            .resolve_symbol(&GLOBAL_SCOPE, name)
+            .resolve(&GLOBAL_SCOPE, name)
             .expect("Unbound definition")
             .0;
         let def_ctx = ctx

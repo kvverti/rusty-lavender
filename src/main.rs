@@ -69,7 +69,7 @@ fn main() {
         match parser(TokenStream(&tokens)) {
             Ok((_, item)) => {
                 let mut data = SymbolData::new();
-                data.declare_symbol_with_fixity(
+                data.declare_with_data(
                     Tagged::new(AstSymbol::new(SymbolSpace::Type, "->")),
                     Fixity::Right,
                 );

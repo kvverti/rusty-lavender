@@ -80,7 +80,7 @@ impl ExtractSymbol for TypeLambda {
                 let symbol = name
                     .as_ref()
                     .map(|name| AstSymbol::in_scope(SymbolSpace::Type, &inner_scope, &name.0));
-                data.declare_symbol(symbol);
+                data.declare(symbol);
             }
             let ctx = ctx
                 .with_enclosing_scope(&inner_scope)

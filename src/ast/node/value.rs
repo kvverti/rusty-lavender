@@ -37,7 +37,7 @@ impl<'a> ExtractAstNode<'a> for ValuePrimary {
             Self::Literal(lit) => AstValueExpression::Constant(lit),
             Self::Identifier(id) => {
                 let symbol = AstSymbol::from_scopes(SymbolSpace::Value, &id.value.to_scopes());
-                data.resolve_symbol(ctx.enclosing_scope, symbol)
+                data.resolve(ctx.enclosing_scope, symbol)
                     .map(|(symbol, _)| AstValueExpression::Symbol(symbol))
                     .unwrap_or_else(|| {
                         AstValueExpression::Error(id.map(|_| "Cannot resolve value"))

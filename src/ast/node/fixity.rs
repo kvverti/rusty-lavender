@@ -72,7 +72,7 @@ where
         let Self { func, args } = self;
         let func_symbol = AstSymbol::new(P::NAMESPACE, func.value.value());
         let (func_node, fixity) = data
-            .resolve_symbol(ctx.enclosing_scope, func_symbol)
+            .resolve(ctx.enclosing_scope, func_symbol)
             .map(|(s, f)| (Self::Node::symbol(s), f))
             .unwrap_or_else(|| {
                 (

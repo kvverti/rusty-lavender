@@ -11,7 +11,7 @@ impl ExtractSymbol for TypePrimary {
                 let symbol = name.as_ref().map(|name| {
                     AstSymbol::in_scope(SymbolSpace::Type, ctx.enclosing_definition, &name.0)
                 });
-                data.declare_symbol(symbol);
+                data.declare(symbol);
             }
             // subexpressions pass through
             Self::TypeSubExpression(expr) => expr.extract(data, ctx),

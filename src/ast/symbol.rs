@@ -244,31 +244,28 @@ impl SymbolData {
     }
 
     /// Declares a symbol. If the symbol has been previously declared, no action is taken.
-    pub fn declare_symbol(&mut self, symb: Tagged<AstSymbol>) {
-        self.declare_symbol_with_fixity(symb, Fixity::None);
+    pub fn declare(&mut self, symb: Tagged<AstSymbol>) {
+        self.declare_with_data(symb, Fixity::None);
     }
 
-    pub fn declare_symbol_with_fixity(&mut self, symb: Tagged<AstSymbol>, fixity: Fixity) {
+    pub fn declare_with_data(&mut self, symb: Tagged<AstSymbol>, fixity: Fixity) {
         self.select_lookup_mut(symb.value.nspace)
             .insert(symb, fixity);
     }
 
     /// Asserts and returns a symbol previously declared.
-    pub fn get_declared_symbol(&self, symbol: AstSymbol) -> &AstSymbol {
-        let sl = self.select_lookup(symbol.nspace);
-        let key = sl
-            .lookup
-            .get(symbol.as_scopes())
-            .expect("Declared symbol not found");
+    pub fn get<S, I>(&self, nspace: SymbolSpace, symbol: I) -> &AstSymbol
+    where
+        S: AsRef<str>,
+        I: IntoIterator<Item = S>,
+    {
+        let sl = self.select_lookup(nspace);
+        let key = sl.lookup.get(symbol).expect("Declared symbol not found");
         &sl.symbols[key.index()].0.value
     }
 
     /// Resolves an unbound symbol in some scope to a bound symbol in this symbol data.
-    pub fn resolve_symbol(
-        &self,
-        scope: &AstSymbol,
-        symbol: AstSymbol,
-    ) -> Option<(&AstSymbol, Fixity)> {
+    pub fn resolve(&self, scope: &AstSymbol, symbol: AstSymbol) -> Option<(&AstSymbol, Fixity)> {
         #[cfg(test)]
         {
             // tally resolved symbols to make sure they are expected
@@ -355,10 +352,10 @@ mod tests {
             .into_iter()
             .collect(),
         );
-        let res1 = data.resolve_symbol(&scope, sym1);
-        let res2 = data.resolve_symbol(&scope, sym2);
-        let res3 = data.resolve_symbol(&scope, sym3);
-        let res_n = data.resolve_symbol(&scope, sym_n);
+        let res1 = data.resolve(&scope, sym1);
+        let res2 = data.resolve(&scope, sym2);
+        let res3 = data.resolve(&scope, sym3);
+        let res_n = data.resolve(&scope, sym_n);
         assert!(res_n.is_none());
         let res1 = format!("{}", res1.unwrap().0);
         let res2 = format!("{}", res2.unwrap().0);

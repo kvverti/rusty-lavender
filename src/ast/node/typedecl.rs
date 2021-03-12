@@ -3,6 +3,7 @@ use crate::ast::node::{AstTypeExpression, ExtractAstNode};
 use crate::ast::symbol::{AstSymbol, SymbolContext, SymbolData, SymbolSpace, GLOBAL_SCOPE};
 use crate::parser::typedecl::typelambda::TypeLambda;
 use crate::parser::typedecl::{TypeExpression, TypePrimary};
+use std::iter;
 
 impl<'a> ExtractAstNode<'a> for TypeLambda {
     type Node = AstTypeExpression<'a>;
@@ -17,9 +18,14 @@ impl<'a> ExtractAstNode<'a> for TypeLambda {
                     &ctx.implicit_scope.as_scopes().join("/"),
                 );
                 let params = params
-                    .into_iter()
-                    .map(|name| AstSymbol::in_scope(SymbolSpace::Type, &inner_scope, &name.value.0))
-                    .map(|s| data.get_declared_symbol(s));
+                    .iter()
+                    .map(|name| {
+                        inner_scope
+                            .as_scopes()
+                            .iter()
+                            .chain(iter::once(&name.value.0))
+                    })
+                    .map(|s| data.get(SymbolSpace::Type, s));
                 let ctx = ctx
                     .with_enclosing_scope(&inner_scope)
                     .with_implicit_scope(&GLOBAL_SCOPE);
@@ -38,16 +44,19 @@ impl<'a> ExtractAstNode<'a> for TypePrimary {
             Self::TypeHole(_) => AstTypeExpression::Hole,
             Self::TypeIdentifier(id) => {
                 let symbol = AstSymbol::from_scopes(SymbolSpace::Type, &id.value.to_scopes());
-                let opt = data.resolve_symbol(ctx.enclosing_scope, symbol);
+                let opt = data.resolve(ctx.enclosing_scope, symbol);
                 opt.map(|(symbol, _)| AstTypeExpression::Symbol(symbol))
                     .unwrap_or_else(|| {
                         AstTypeExpression::Error(id.map(|_| "Cannot resolve type symbol"))
                     })
             }
             Self::TypeVariable(name) => {
-                let symbol =
-                    AstSymbol::in_scope(SymbolSpace::Type, ctx.enclosing_definition, &name.value.0);
-                AstTypeExpression::Symbol(data.get_declared_symbol(symbol))
+                let symbol = ctx
+                    .enclosing_definition
+                    .as_scopes()
+                    .iter()
+                    .chain(iter::once(&name.value.0));
+                AstTypeExpression::Symbol(data.get(SymbolSpace::Type, symbol))
             }
             Self::TypeSubExpression(expr) => expr.construct_ast(data, ctx),
         }
