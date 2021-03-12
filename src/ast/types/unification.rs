@@ -74,28 +74,6 @@ impl<'sym: 'arena, 'arena> TypeVisitor<'sym, 'arena> for UnificationVisitor<'sym
         }
     }
 
-    fn visit_func(
-        &mut self,
-        param: TypeRef<'sym, 'arena>,
-        result: TypeRef<'sym, 'arena>,
-        _typ: TypeRef<'sym, 'arena>,
-        arg: Self::Input,
-    ) -> Self::Output {
-        let other = arg.0.borrow();
-        match *other {
-            AstType::FreeVariable(_) => Ok(()),
-            AstType::Function {
-                param: p2,
-                result: r2,
-            } => {
-                self.unify(param, p2)?;
-                self.unify(result, r2)?;
-                Ok(())
-            }
-            _ => Err(()),
-        }
-    }
-
     fn visit_apply(
         &mut self,
         ctor: TypeRef<'sym, 'arena>,

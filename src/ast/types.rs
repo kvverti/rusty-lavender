@@ -31,13 +31,6 @@ pub trait TypeVisitor<'sym, 'arena> {
         typ: TypeRef<'sym, 'arena>,
         arg: Self::Input,
     ) -> Self::Output;
-    fn visit_func(
-        &mut self,
-        param: TypeRef<'sym, 'arena>,
-        result: TypeRef<'sym, 'arena>,
-        typ: TypeRef<'sym, 'arena>,
-        arg: Self::Input,
-    ) -> Self::Output;
     fn visit_apply(
         &mut self,
         ctor: TypeRef<'sym, 'arena>,
@@ -93,11 +86,6 @@ pub enum AstType<'sym, 'arena> {
     BoundVariable(BoundVariable<'sym>),
     /// A plain concrete type such as `Int`.
     Atom(&'sym AstSymbol),
-    /// A function type.
-    Function {
-        param: TypeRef<'sym, 'arena>,
-        result: TypeRef<'sym, 'arena>,
-    },
     /// Type application.
     Application {
         ctor: TypeRef<'sym, 'arena>,
@@ -120,7 +108,6 @@ impl Display for AstType<'_, '_> {
             AstType::FreeVariable(idx) => write!(f, "#{}", idx),
             AstType::BoundVariable(v) => write!(f, "{}", v),
             AstType::Atom(symb) => write!(f, "{}", symb.as_scopes().join("::")),
-            AstType::Function { param, result } => write!(f, "({}) -> {}", param, result),
             AstType::Application { ctor, arg } => write!(f, "{} ({})", ctor, arg),
             AstType::Schema { vars, inner } => {
                 f.write_str("(for")?;
@@ -158,7 +145,6 @@ impl<'sym, 'arena> TypeRef<'sym, 'arena> {
             AstType::FreeVariable(v) => visitor.visit_free(v, self, arg),
             AstType::BoundVariable(v) => visitor.visit_bound(v, self, arg),
             AstType::Atom(sym) => visitor.visit_atom(sym, self, arg),
-            AstType::Function { param, result } => visitor.visit_func(param, result, self, arg),
             AstType::Application { ctor, arg: a } => visitor.visit_apply(ctor, a, self, arg),
             AstType::Schema { ref vars, inner } => visitor.visit_schema(vars, inner, self, arg),
             AstType::Unification(type_ref) => type_ref.accept(visitor, arg),
@@ -190,13 +176,6 @@ mod tests {
         let bound_0 = TypeRef::new_in(&arena, AstType::BoundVariable(BoundVariable::Inferred(0)));
         let bound_d = TypeRef::new_in(&arena, AstType::BoundVariable(BoundVariable::Declared(&a)));
         let atom = TypeRef::new_in(&arena, AstType::Atom(&int));
-        let func = TypeRef::new_in(
-            &arena,
-            AstType::Function {
-                param: free_0,
-                result: bound_0,
-            },
-        );
         let app = TypeRef::new_in(
             &arena,
             AstType::Application {
@@ -204,11 +183,18 @@ mod tests {
                 arg: bound_d,
             },
         );
+        let app2 = TypeRef::new_in(
+            &arena,
+            AstType::Application {
+                ctor: app,
+                arg: bound_0,
+            },
+        );
         let schema = TypeRef::new_in(
             &arena,
             AstType::Schema {
                 vars: vec![BoundVariable::Inferred(0)],
-                inner: func,
+                inner: app2,
             },
         );
         let uni = TypeRef::new_in(&arena, AstType::Unification(schema));
@@ -217,12 +203,12 @@ mod tests {
             "'0",
             "'a",
             "sys::intrinsic::Int",
-            "(#0) -> '0",
             "#0 ('a)",
-            "(for '0. (#0) -> '0)",
-            "(for '0. (#0) -> '0)",
+            "#0 ('a) ('0)",
+            "(for '0. #0 ('a) ('0))",
+            "(for '0. #0 ('a) ('0))",
         ];
-        let types = vec![free_0, bound_0, bound_d, atom, func, app, schema, uni]
+        let types = vec![free_0, bound_0, bound_d, atom, app, app2, schema, uni]
             .into_iter()
             .map(|r| format!("{}", r))
             .collect::<Vec<_>>();
@@ -234,12 +220,14 @@ mod tests {
         let a = AstSymbol::from_scopes(SymbolSpace::Type, &["a"]);
         let b = AstSymbol::from_scopes(SymbolSpace::Type, &["b"]);
         let foo_s = AstSymbol::from_scopes(SymbolSpace::Type, &["Foo"]);
+        let arrow = AstSymbol::from_scopes(SymbolSpace::Type, &["->"]);
         let a = BoundVariable::Declared(&a);
         let b = BoundVariable::Declared(&b);
 
         let arena = Arena::new();
         let free = TypeRef::new_in(&arena, AstType::FreeVariable(0));
         let atom_foo = TypeRef::new_in(&arena, AstType::Atom(&foo_s));
+        let arrow = TypeRef::new_in(&arena, AstType::Atom(&arrow));
         let bound = TypeRef::new_in(&arena, AstType::BoundVariable(a));
         let bound_b = TypeRef::new_in(&arena, AstType::BoundVariable(b));
         let b_a = TypeRef::new_in(
@@ -266,9 +254,15 @@ mod tests {
         let uni = TypeRef::new_in(&arena, AstType::Unification(foo_a));
         let func_inner = TypeRef::new_in(
             &arena,
-            AstType::Function {
-                param: uni,
-                result: schema_inner,
+            AstType::Application {
+                ctor: TypeRef::new_in(
+                    &arena,
+                    AstType::Application {
+                        ctor: arrow,
+                        arg: uni,
+                    },
+                ),
+                arg: schema_inner,
             },
         );
         let foo_0 = TypeRef::new_in(
@@ -280,9 +274,15 @@ mod tests {
         );
         let func = TypeRef::new_in(
             &arena,
-            AstType::Function {
-                param: foo_0,
-                result: func_inner,
+            AstType::Application {
+                ctor: TypeRef::new_in(
+                    &arena,
+                    AstType::Application {
+                        ctor: arrow,
+                        arg: foo_0,
+                    },
+                ),
+                arg: func_inner,
             },
         );
         let schema = TypeRef::new_in(
@@ -294,7 +294,7 @@ mod tests {
         );
         assert_eq!(
             format!("{}", schema),
-            "(for 'a. (Foo (#0)) -> (Foo ('a)) -> (for 'b. 'b ('a)))"
+            "(for 'a. -> (Foo (#0)) (-> (Foo ('a)) ((for 'b. 'b ('a)))))"
         );
 
         let value = TypeRef::new_in(&arena, AstType::FreeVariable(1));
@@ -309,8 +309,8 @@ mod tests {
         let new_len = arena.len();
         assert_eq!(
             format!("{}", inst),
-            "(Foo (#0)) -> (Foo (#1)) -> (for 'b. 'b (#1))"
+            "-> (Foo (#0)) (-> (Foo (#1)) ((for 'b. 'b (#1))))"
         );
-        assert_eq!(new_len - old_len, 5);
+        assert_eq!(new_len - old_len, 6);
     }
 }

@@ -40,28 +40,6 @@ impl<'sym, 'arena> TypeVisitor<'sym, 'arena> for InstantiationVisitor<'sym, 'are
         typ
     }
 
-    fn visit_func(
-        &mut self,
-        param: TypeRef<'sym, 'arena>,
-        result: TypeRef<'sym, 'arena>,
-        typ: TypeRef<'sym, 'arena>,
-        _: Self::Input,
-    ) -> Self::Output {
-        let param1 = param.accept(self, ());
-        let result1 = result.accept(self, ());
-        if param.identity_eq(param1) && result.identity_eq(result1) {
-            typ
-        } else {
-            TypeRef::new_in(
-                self.arena,
-                AstType::Function {
-                    param: param1,
-                    result: result1,
-                },
-            )
-        }
-    }
-
     fn visit_apply(
         &mut self,
         ctor: TypeRef<'sym, 'arena>,
