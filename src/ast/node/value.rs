@@ -4,10 +4,10 @@ use crate::ast::symbol::{AstSymbol, SymbolContext, SymbolData, SymbolSpace, GLOB
 use crate::parser::value::lambda::LambdaExpression;
 use crate::parser::value::{ValueExpression, ValuePrimary};
 
-impl<'a> ExtractAstNode<'a> for LambdaExpression {
-    type Node = AstValueExpression<'a>;
+impl ExtractAstNode for LambdaExpression {
+    type Node = AstValueExpression;
 
-    fn construct_ast(self, data: &'a SymbolData, ctx: SymbolContext<'_>) -> Self::Node {
+    fn construct_ast(self, data: &SymbolData, ctx: SymbolContext<'_>) -> Self::Node {
         match self {
             Self::Error { .. } => unreachable!(),
             Self::Value { params, body } => {
@@ -29,16 +29,16 @@ impl<'a> ExtractAstNode<'a> for LambdaExpression {
     }
 }
 
-impl<'a> ExtractAstNode<'a> for ValuePrimary {
-    type Node = AstValueExpression<'a>;
+impl ExtractAstNode for ValuePrimary {
+    type Node = AstValueExpression;
 
-    fn construct_ast(self, data: &'a SymbolData, ctx: SymbolContext<'_>) -> Self::Node {
+    fn construct_ast(self, data: &SymbolData, ctx: SymbolContext<'_>) -> Self::Node {
         match self {
             Self::Literal(lit) => AstValueExpression::Constant(lit),
             Self::Identifier(id) => {
                 let symbol = AstSymbol::from_scopes(SymbolSpace::Value, &id.value.to_scopes());
                 data.resolve(ctx.enclosing_scope, symbol)
-                    .map(|(symbol, _)| AstValueExpression::Symbol(symbol))
+                    .map(AstValueExpression::Symbol)
                     .unwrap_or_else(|| {
                         AstValueExpression::Error(id.map(|_| "Cannot resolve value"))
                     })
@@ -52,10 +52,10 @@ impl InfixNamespace for ValuePrimary {
     const NAMESPACE: SymbolSpace = SymbolSpace::Value;
 }
 
-impl<'a> ExtractAstNode<'a> for ValueExpression {
-    type Node = AstValueExpression<'a>;
+impl ExtractAstNode for ValueExpression {
+    type Node = AstValueExpression;
 
-    fn construct_ast(self, data: &'a SymbolData, ctx: SymbolContext<'_>) -> Self::Node {
+    fn construct_ast(self, data: &SymbolData, ctx: SymbolContext<'_>) -> Self::Node {
         match self {
             Self::Lambda(lambda) => lambda.construct_ast(data, ctx),
             Self::Application(fixity) => fixity.construct_ast(data, ctx),
@@ -67,7 +67,7 @@ impl<'a> ExtractAstNode<'a> for ValueExpression {
 mod tests {
     use crate::ast::node::{AstPatternExpression, AstValueExpression, ExtractAstNode};
     use crate::ast::symbol::{
-        AstSymbol, ExtractSymbol, SymbolContext, SymbolData, SymbolSpace, GLOBAL_SCOPE,
+        AstSymbol, ExtractSymbol, LookupKey, SymbolContext, SymbolData, SymbolSpace, GLOBAL_SCOPE,
     };
     use crate::parser::item::Fixity;
     use crate::parser::tagged::Tagged;
@@ -83,8 +83,6 @@ mod tests {
         let some = AstSymbol::from_scopes(SymbolSpace::Pattern, &["Some"]);
         let comma = AstSymbol::from_scopes(SymbolSpace::Pattern, &[","]);
         let plus = AstSymbol::from_scopes(SymbolSpace::Value, &["+"]);
-        let b = AstSymbol::from_scopes(SymbolSpace::Value, &["1", "b"]);
-        let c = AstSymbol::from_scopes(SymbolSpace::Value, &["1", "c"]);
         let mut data = SymbolData::from_parts(
             vec![
                 (a.clone(), Tagged::new(Fixity::None)),
@@ -97,15 +95,9 @@ mod tests {
             .collect(),
             vec![
                 (GLOBAL_SCOPE.clone(), a.clone()),
-                (GLOBAL_SCOPE.clone(), at.clone()),
-                (
-                    AstSymbol::from_scopes(SymbolSpace::Value, &["1"]),
-                    some.clone(),
-                ),
-                (
-                    AstSymbol::from_scopes(SymbolSpace::Value, &["1"]),
-                    comma.clone(),
-                ),
+                (GLOBAL_SCOPE.clone(), at),
+                (AstSymbol::from_scopes(SymbolSpace::Value, &["1"]), some),
+                (AstSymbol::from_scopes(SymbolSpace::Value, &["1"]), comma),
                 (
                     AstSymbol::from_scopes(SymbolSpace::Value, &["1"]),
                     AstSymbol::from_scopes(SymbolSpace::Value, &["b"]),
@@ -114,46 +106,55 @@ mod tests {
                     AstSymbol::from_scopes(SymbolSpace::Value, &["1"]),
                     AstSymbol::from_scopes(SymbolSpace::Value, &["c"]),
                 ),
-                (
-                    AstSymbol::from_scopes(SymbolSpace::Value, &["1"]),
-                    plus.clone(),
-                ),
-                (
-                    AstSymbol::from_scopes(SymbolSpace::Value, &["1", "2"]),
-                    a.clone(),
-                ),
+                (AstSymbol::from_scopes(SymbolSpace::Value, &["1"]), plus),
+                (AstSymbol::from_scopes(SymbolSpace::Value, &["1", "2"]), a),
             ],
         );
+        // symbol table
+        // v/0 = a
+        // v/1 = @
+        // v/2 = +
+        // p/0 = Some
+        // p/1 = ,
+        // v/3 = a
+        // v/4 = b
+        let a = LookupKey::new(0);
+        let at = LookupKey::new(1);
+        let plus = LookupKey::new(2);
+        let some = LookupKey::new(0);
+        let comma = LookupKey::new(1);
+        let b = LookupKey::new(3);
+        let c = LookupKey::new(4);
         let expected = AstValueExpression::Application(
             Box::new(AstValueExpression::Application(
-                Box::new(AstValueExpression::Symbol(&at)),
-                Box::new(AstValueExpression::Symbol(&a)),
+                Box::new(AstValueExpression::Symbol(at)),
+                Box::new(AstValueExpression::Symbol(a)),
             )),
             Box::new(AstValueExpression::Abstraction(
                 vec![AstPatternExpression::Application(
                     Box::new(AstPatternExpression::Application(
-                        Box::new(AstPatternExpression::Symbol(&comma)),
+                        Box::new(AstPatternExpression::Symbol(comma)),
                         Box::new(AstPatternExpression::Application(
-                            Box::new(AstPatternExpression::Symbol(&some)),
-                            Box::new(AstPatternExpression::Symbol(&b)),
+                            Box::new(AstPatternExpression::Symbol(some)),
+                            Box::new(AstPatternExpression::Symbol(b)),
                         )),
                     )),
-                    Box::new(AstPatternExpression::Symbol(&c)),
+                    Box::new(AstPatternExpression::Symbol(c)),
                 )],
                 Box::new(AstValueExpression::Application(
                     Box::new(AstValueExpression::Application(
-                        Box::new(AstValueExpression::Symbol(&plus)),
+                        Box::new(AstValueExpression::Symbol(plus)),
                         Box::new(AstValueExpression::Application(
                             Box::new(AstValueExpression::Application(
-                                Box::new(AstValueExpression::Symbol(&plus)),
-                                Box::new(AstValueExpression::Symbol(&b)),
+                                Box::new(AstValueExpression::Symbol(plus)),
+                                Box::new(AstValueExpression::Symbol(b)),
                             )),
-                            Box::new(AstValueExpression::Symbol(&c)),
+                            Box::new(AstValueExpression::Symbol(c)),
                         )),
                     )),
                     Box::new(AstValueExpression::Abstraction(
                         vec![AstPatternExpression::Blank],
-                        Box::new(AstValueExpression::Symbol(&a)),
+                        Box::new(AstValueExpression::Symbol(a)),
                     )),
                 )),
             )),

@@ -6,6 +6,8 @@ use crate::ast::symbol::lookup::Lookup;
 use crate::parser::item::Fixity;
 use crate::parser::tagged::Tagged;
 
+pub use lookup::LookupKey;
+
 mod definition;
 mod fixity;
 mod lookup;
@@ -243,6 +245,11 @@ impl SymbolData {
         );
     }
 
+    /// Retrieves the symbol data associated with the given namespace and key.
+    pub fn data(&self, nspace: SymbolSpace, key: LookupKey) -> &(Tagged<AstSymbol>, Fixity) {
+        &self.select_lookup(nspace).symbols[key.index()]
+    }
+
     /// Declares a symbol. If the symbol has been previously declared, no action is taken.
     pub fn declare(&mut self, symb: Tagged<AstSymbol>) {
         self.declare_with_data(symb, Fixity::None);
@@ -254,18 +261,17 @@ impl SymbolData {
     }
 
     /// Asserts and returns a symbol previously declared.
-    pub fn get<S, I>(&self, nspace: SymbolSpace, symbol: I) -> &AstSymbol
+    pub fn get<S, I>(&self, nspace: SymbolSpace, symbol: I) -> LookupKey
     where
         S: AsRef<str>,
         I: IntoIterator<Item = S>,
     {
         let sl = self.select_lookup(nspace);
-        let key = sl.lookup.get(symbol).expect("Declared symbol not found");
-        &sl.symbols[key.index()].0.value
+        sl.lookup.get(symbol).expect("Declared symbol not found")
     }
 
     /// Resolves an unbound symbol in some scope to a bound symbol in this symbol data.
-    pub fn resolve(&self, scope: &AstSymbol, symbol: AstSymbol) -> Option<(&AstSymbol, Fixity)> {
+    pub fn resolve(&self, scope: &AstSymbol, symbol: AstSymbol) -> Option<LookupKey> {
         #[cfg(test)]
         {
             // tally resolved symbols to make sure they are expected
@@ -283,9 +289,7 @@ impl SymbolData {
             }
         }
         let sl = self.select_lookup(symbol.nspace);
-        let key = sl.lookup.resolve(scope.as_scopes(), symbol.as_scopes())?;
-        let (ref symb, fix) = sl.symbols[key.index()];
-        Some((&symb.value, fix))
+        sl.lookup.resolve(scope.as_scopes(), symbol.as_scopes())
     }
 
     fn select_lookup(&self, nspace: SymbolSpace) -> &SymbolLookup {
@@ -357,9 +361,9 @@ mod tests {
         let res3 = data.resolve(&scope, sym3);
         let res_n = data.resolve(&scope, sym_n);
         assert!(res_n.is_none());
-        let res1 = format!("{}", res1.unwrap().0);
-        let res2 = format!("{}", res2.unwrap().0);
-        let res3 = format!("{}", res3.unwrap().0);
+        let res1 = format!("{}", data.data(SymbolSpace::Value, res1.unwrap()).0.value);
+        let res2 = format!("{}", data.data(SymbolSpace::Value, res2.unwrap()).0.value);
+        let res3 = format!("{}", data.data(SymbolSpace::Value, res3.unwrap()).0.value);
         assert_eq!(&res1, "value/a::b::c");
         assert_eq!(&res2, "value/a::d");
         assert_eq!(&res3, "value/a::b::c");

@@ -4,10 +4,10 @@ use crate::ast::symbol::{AstSymbol, SymbolContext, SymbolData, SymbolSpace};
 use crate::parser::pattern::{Pattern, PatternPrimary};
 use std::iter;
 
-impl<'a> ExtractAstNode<'a> for PatternPrimary {
-    type Node = AstPatternExpression<'a>;
+impl ExtractAstNode for PatternPrimary {
+    type Node = AstPatternExpression;
 
-    fn construct_ast(self, data: &'a SymbolData, ctx: SymbolContext<'_>) -> Self::Node {
+    fn construct_ast(self, data: &SymbolData, ctx: SymbolContext<'_>) -> Self::Node {
         match self {
             Self::Identifier(id) => {
                 // patterns are scoped identifiers or begin with an uppercase letter
@@ -24,7 +24,7 @@ impl<'a> ExtractAstNode<'a> for PatternPrimary {
                     let symbol =
                         AstSymbol::from_scopes(SymbolSpace::Pattern, &id.value.to_scopes());
                     data.resolve(ctx.enclosing_scope, symbol)
-                        .map(|(s, _)| AstPatternExpression::Symbol(s))
+                        .map(AstPatternExpression::Symbol)
                         .unwrap_or_else(|| {
                             AstPatternExpression::Error(id.map(|_| "Cannot resolve pattern symbol"))
                         })
@@ -49,10 +49,10 @@ impl InfixNamespace for PatternPrimary {
     const NAMESPACE: SymbolSpace = SymbolSpace::Pattern;
 }
 
-impl<'a> ExtractAstNode<'a> for Pattern {
-    type Node = AstPatternExpression<'a>;
+impl ExtractAstNode for Pattern {
+    type Node = AstPatternExpression;
 
-    fn construct_ast(self, data: &'a SymbolData, ctx: SymbolContext<'_>) -> Self::Node {
+    fn construct_ast(self, data: &SymbolData, ctx: SymbolContext<'_>) -> Self::Node {
         let Self::Application(fixity) = self;
         fixity.construct_ast(data, ctx)
     }
@@ -60,7 +60,7 @@ impl<'a> ExtractAstNode<'a> for Pattern {
 
 #[cfg(test)]
 mod tests {
-    use crate::ast::symbol::{ExtractSymbol, GLOBAL_SCOPE};
+    use crate::ast::symbol::{ExtractSymbol, LookupKey, GLOBAL_SCOPE};
     use crate::parser::item::Fixity;
     use crate::parser::primary::Primary;
     use crate::parser::tagged::Tagged;
@@ -72,10 +72,15 @@ mod tests {
     #[test]
     fn constructs() {
         let input = "(Some x ~> list::Nil 3 ~> _)";
+        // symbol table
+        // p/0 = Some
+        // p/1 = ~>
+        // p/2 = list::Nil
+        // v/0 = x
         let some = AstSymbol::from_scopes(SymbolSpace::Pattern, &["Some"]);
         let arrow = AstSymbol::from_scopes(SymbolSpace::Pattern, &["~>"]);
         let list_nil = AstSymbol::from_scopes(SymbolSpace::Pattern, &["list", "Nil"]);
-        let x = AstSymbol::new(SymbolSpace::Value, "x");
+        // let x = AstSymbol::new(SymbolSpace::Value, "x");
         let mut data = SymbolData::from_parts(
             vec![
                 (some.clone(), Tagged::new(Fixity::None)),
@@ -85,24 +90,28 @@ mod tests {
             .into_iter()
             .collect(),
             vec![
-                (GLOBAL_SCOPE.clone(), some.clone()),
-                (GLOBAL_SCOPE.clone(), arrow.clone()),
-                (GLOBAL_SCOPE.clone(), list_nil.clone()),
+                (GLOBAL_SCOPE.clone(), some),
+                (GLOBAL_SCOPE.clone(), arrow),
+                (GLOBAL_SCOPE.clone(), list_nil),
             ],
         );
+        let some = LookupKey::new(0);
+        let arrow = LookupKey::new(1);
+        let list_nil = LookupKey::new(2);
+        let x = LookupKey::new(0);
         let expected = AstPatternExpression::Application(
             Box::new(AstPatternExpression::Application(
-                Box::new(AstPatternExpression::Symbol(&arrow)),
+                Box::new(AstPatternExpression::Symbol(arrow)),
                 Box::new(AstPatternExpression::Application(
-                    Box::new(AstPatternExpression::Symbol(&some)),
-                    Box::new(AstPatternExpression::Symbol(&x)),
+                    Box::new(AstPatternExpression::Symbol(some)),
+                    Box::new(AstPatternExpression::Symbol(x)),
                 )),
             )),
             Box::new(AstPatternExpression::Application(
                 Box::new(AstPatternExpression::Application(
-                    Box::new(AstPatternExpression::Symbol(&arrow)),
+                    Box::new(AstPatternExpression::Symbol(arrow)),
                     Box::new(AstPatternExpression::Application(
-                        Box::new(AstPatternExpression::Symbol(&list_nil)),
+                        Box::new(AstPatternExpression::Symbol(list_nil)),
                         Box::new(AstPatternExpression::Constant(Literal::Int(IntLiteral(3)))),
                     )),
                 )),
@@ -120,7 +129,7 @@ mod tests {
     #[test]
     fn unresolved() {
         let input = "(Some x)";
-        let x = AstSymbol::new(SymbolSpace::Value, "x");
+        let x = LookupKey::new(0);
         let mut data = SymbolData::from_parts(
             Vec::new(),
             vec![(
@@ -134,7 +143,7 @@ mod tests {
                 idx: 1,
                 len: 4,
             })),
-            Box::new(AstPatternExpression::Symbol(&x)),
+            Box::new(AstPatternExpression::Symbol(x)),
         );
         let input = Token::parse_sequence(input);
         let input = PatternPrimary::parse(TokenStream(&input)).unwrap().1;

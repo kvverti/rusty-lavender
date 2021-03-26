@@ -5,10 +5,10 @@ use crate::parser::typedecl::typelambda::TypeLambda;
 use crate::parser::typedecl::{TypeExpression, TypePrimary};
 use std::iter;
 
-impl<'a> ExtractAstNode<'a> for TypeLambda {
-    type Node = AstTypeExpression<'a>;
+impl ExtractAstNode for TypeLambda {
+    type Node = AstTypeExpression;
 
-    fn construct_ast(self, data: &'a SymbolData, ctx: SymbolContext<'_>) -> Self::Node {
+    fn construct_ast(self, data: &SymbolData, ctx: SymbolContext<'_>) -> Self::Node {
         match self {
             Self::Error { .. } => unreachable!(),
             Self::Value { params, body } => {
@@ -36,19 +36,18 @@ impl<'a> ExtractAstNode<'a> for TypeLambda {
     }
 }
 
-impl<'a> ExtractAstNode<'a> for TypePrimary {
-    type Node = AstTypeExpression<'a>;
+impl ExtractAstNode for TypePrimary {
+    type Node = AstTypeExpression;
 
-    fn construct_ast(self, data: &'a SymbolData, ctx: SymbolContext<'_>) -> Self::Node {
+    fn construct_ast(self, data: &SymbolData, ctx: SymbolContext<'_>) -> Self::Node {
         match self {
             Self::TypeHole(_) => AstTypeExpression::Hole,
             Self::TypeIdentifier(id) => {
                 let symbol = AstSymbol::from_scopes(SymbolSpace::Type, &id.value.to_scopes());
                 let opt = data.resolve(ctx.enclosing_scope, symbol);
-                opt.map(|(symbol, _)| AstTypeExpression::Symbol(symbol))
-                    .unwrap_or_else(|| {
-                        AstTypeExpression::Error(id.map(|_| "Cannot resolve type symbol"))
-                    })
+                opt.map(AstTypeExpression::Symbol).unwrap_or_else(|| {
+                    AstTypeExpression::Error(id.map(|_| "Cannot resolve type symbol"))
+                })
             }
             Self::TypeVariable(name) => {
                 let symbol = ctx
@@ -67,10 +66,10 @@ impl InfixNamespace for TypePrimary {
     const NAMESPACE: SymbolSpace = SymbolSpace::Type;
 }
 
-impl<'a> ExtractAstNode<'a> for TypeExpression {
-    type Node = AstTypeExpression<'a>;
+impl ExtractAstNode for TypeExpression {
+    type Node = AstTypeExpression;
 
-    fn construct_ast(self, data: &'a SymbolData, ctx: SymbolContext<'_>) -> Self::Node {
+    fn construct_ast(self, data: &SymbolData, ctx: SymbolContext<'_>) -> Self::Node {
         match self {
             Self::TypeLambda(lambda) => lambda.construct_ast(data, ctx),
             Self::TypeApplication(fixity) => fixity.construct_ast(data, ctx),
@@ -80,7 +79,7 @@ impl<'a> ExtractAstNode<'a> for TypeExpression {
 
 #[cfg(test)]
 mod tests {
-    use crate::ast::symbol::{ExtractSymbol, GLOBAL_SCOPE};
+    use crate::ast::symbol::{ExtractSymbol, LookupKey, GLOBAL_SCOPE};
     use crate::parser::item::Fixity;
     use crate::parser::tagged::Tagged;
     use crate::parser::token::{Token, TokenStream};
@@ -91,8 +90,6 @@ mod tests {
     fn constructs() {
         let input = "'a -> (for b. b -> 'a)";
         let arrow = AstSymbol::new(SymbolSpace::Type, "->");
-        let a = AstSymbol::new(SymbolSpace::Type, "a");
-        let b = AstSymbol::from_scopes(SymbolSpace::Type, &["1", "b"]);
         let mut data = SymbolData::from_parts(
             vec![(arrow.clone(), Tagged::new(Fixity::Right))]
                 .into_iter()
@@ -103,25 +100,25 @@ mod tests {
                     AstSymbol::from_scopes(SymbolSpace::Value, &["1"]),
                     AstSymbol::from_scopes(SymbolSpace::Type, &["b"]),
                 ),
-                (
-                    AstSymbol::from_scopes(SymbolSpace::Value, &["1"]),
-                    arrow.clone(),
-                ),
+                (AstSymbol::from_scopes(SymbolSpace::Value, &["1"]), arrow),
             ],
         );
+        let arrow = LookupKey::new(0);
+        let a = LookupKey::new(1);
+        let b = LookupKey::new(2);
         let expected = AstTypeExpression::Application(
             Box::new(AstTypeExpression::Application(
-                Box::new(AstTypeExpression::Symbol(&arrow)),
-                Box::new(AstTypeExpression::Symbol(&a)),
+                Box::new(AstTypeExpression::Symbol(arrow)),
+                Box::new(AstTypeExpression::Symbol(a)),
             )),
             Box::new(AstTypeExpression::Abstraction(
-                vec![&b],
+                vec![b],
                 Box::new(AstTypeExpression::Application(
                     Box::new(AstTypeExpression::Application(
-                        Box::new(AstTypeExpression::Symbol(&arrow)),
-                        Box::new(AstTypeExpression::Symbol(&b)),
+                        Box::new(AstTypeExpression::Symbol(arrow)),
+                        Box::new(AstTypeExpression::Symbol(b)),
                     )),
-                    Box::new(AstTypeExpression::Symbol(&a)),
+                    Box::new(AstTypeExpression::Symbol(a)),
                 )),
             )),
         );
@@ -136,8 +133,8 @@ mod tests {
     #[test]
     fn unresolved() {
         let input = "for a b. c";
-        let a = AstSymbol::from_scopes(SymbolSpace::Type, &["", "a"]);
-        let b = AstSymbol::from_scopes(SymbolSpace::Type, &["", "b"]);
+        let a = LookupKey::new(0);
+        let b = LookupKey::new(1);
         let mut data = SymbolData::from_parts(
             Vec::new(),
             vec![(
@@ -146,7 +143,7 @@ mod tests {
             )],
         );
         let expected = AstTypeExpression::Abstraction(
-            vec![&a, &b],
+            vec![a, b],
             Box::new(AstTypeExpression::Error(Tagged {
                 value: "Cannot resolve type symbol",
                 idx: 9,

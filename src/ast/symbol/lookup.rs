@@ -8,6 +8,11 @@ impl LookupKey {
     pub fn index(self) -> usize {
         self.0
     }
+
+    #[cfg(test)]
+    pub fn new(idx: usize) -> Self {
+        Self(idx)
+    }
 }
 
 /// A node in the lookup.

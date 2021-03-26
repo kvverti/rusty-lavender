@@ -1,5 +1,5 @@
 use crate::ast::node::ExtractAstNode;
-use crate::ast::symbol::{AstSymbol, SymbolContext, SymbolData, SymbolSpace};
+use crate::ast::symbol::{AstSymbol, LookupKey, SymbolContext, SymbolData, SymbolSpace};
 use crate::parser::fixity::{BasicFixity, InfixApply, InfixPrimary, PrefixApply};
 use crate::parser::item::Fixity;
 use crate::parser::tagged::Tagged;
@@ -10,9 +10,9 @@ pub trait InfixNamespace {
 }
 
 /// Generic interface for AST node construction.
-pub trait AstApply<'a> {
+pub trait AstApply {
     /// Constructs a symbol node.
-    fn symbol(symb: &'a AstSymbol) -> Self;
+    fn symbol(key: LookupKey) -> Self;
 
     /// Constructs an application node.
     fn apply(f: Self, a: Self) -> Self;
@@ -21,13 +21,13 @@ pub trait AstApply<'a> {
     fn error(msg: Tagged<&'static str>) -> Self;
 }
 
-impl<'a, P: ExtractAstNode<'a>> ExtractAstNode<'a> for PrefixApply<P>
+impl<P: ExtractAstNode> ExtractAstNode for PrefixApply<P>
 where
-    P::Node: AstApply<'a>,
+    P::Node: AstApply,
 {
     type Node = P::Node;
 
-    fn construct_ast(self, data: &'a SymbolData, ctx: SymbolContext<'_>) -> Self::Node {
+    fn construct_ast(self, data: &SymbolData, ctx: SymbolContext<'_>) -> Self::Node {
         let implicit = AstSymbol::in_scope(SymbolSpace::Value, ctx.implicit_scope, "0");
         let func_node = self
             .func
@@ -48,13 +48,13 @@ where
     }
 }
 
-impl<'a, P: ExtractAstNode<'a>> ExtractAstNode<'a> for InfixPrimary<P>
+impl<P: ExtractAstNode> ExtractAstNode for InfixPrimary<P>
 where
-    P::Node: AstApply<'a>,
+    P::Node: AstApply,
 {
     type Node = P::Node;
 
-    fn construct_ast(self, data: &'a SymbolData, ctx: SymbolContext<'_>) -> Self::Node {
+    fn construct_ast(self, data: &SymbolData, ctx: SymbolContext<'_>) -> Self::Node {
         match self {
             Self::Primary(p) => p.construct_ast(data, ctx),
             Self::Application(prefix) => prefix.construct_ast(data, ctx),
@@ -62,18 +62,18 @@ where
     }
 }
 
-impl<'a, P: ExtractAstNode<'a> + InfixNamespace> ExtractAstNode<'a> for InfixApply<P>
+impl<P: ExtractAstNode + InfixNamespace> ExtractAstNode for InfixApply<P>
 where
-    P::Node: AstApply<'a> + Clone,
+    P::Node: AstApply + Clone,
 {
     type Node = P::Node;
 
-    fn construct_ast(self, data: &'a SymbolData, ctx: SymbolContext<'_>) -> Self::Node {
+    fn construct_ast(self, data: &SymbolData, ctx: SymbolContext<'_>) -> Self::Node {
         let Self { func, args } = self;
         let func_symbol = AstSymbol::new(P::NAMESPACE, func.value.value());
         let (func_node, fixity) = data
             .resolve(ctx.enclosing_scope, func_symbol)
-            .map(|(s, f)| (Self::Node::symbol(s), f))
+            .map(|k| (Self::Node::symbol(k), data.data(P::NAMESPACE, k).1))
             .unwrap_or_else(|| {
                 (
                     Self::Node::error(func.as_ref().map(|_| "Cannot resolve symbol")),
@@ -119,13 +119,13 @@ where
     }
 }
 
-impl<'a, P: ExtractAstNode<'a> + InfixNamespace> ExtractAstNode<'a> for BasicFixity<P>
+impl<P: ExtractAstNode + InfixNamespace> ExtractAstNode for BasicFixity<P>
 where
-    P::Node: AstApply<'a> + Clone,
+    P::Node: AstApply + Clone,
 {
     type Node = P::Node;
 
-    fn construct_ast(self, data: &'a SymbolData, ctx: SymbolContext<'_>) -> Self::Node {
+    fn construct_ast(self, data: &SymbolData, ctx: SymbolContext<'_>) -> Self::Node {
         match self {
             Self::Primary(p) => p.construct_ast(data, ctx),
             Self::Prefix(prefix) => prefix.construct_ast(data, ctx),
@@ -138,7 +138,7 @@ where
 mod tests {
     use crate::ast::node::{AstPatternExpression, AstValueExpression, ExtractAstNode};
     use crate::ast::symbol::{
-        AstSymbol, ExtractSymbol, SymbolContext, SymbolData, SymbolSpace, GLOBAL_SCOPE,
+        AstSymbol, ExtractSymbol, LookupKey, SymbolContext, SymbolData, SymbolSpace, GLOBAL_SCOPE,
     };
     use crate::parser::item::Fixity;
     use crate::parser::tagged::Tagged;
@@ -151,11 +151,6 @@ mod tests {
           (a (for a. a)) (for a. a) `a` (for a. (for a. a) a (for a. a))";
         // *       0/0/1        0/1  *                 1,0 1        1,2
         let a = AstSymbol::from_scopes(SymbolSpace::Value, &["a"]);
-        let a001 = AstSymbol::from_scopes(SymbolSpace::Value, &["0/0/1", "a"]);
-        let a01 = AstSymbol::from_scopes(SymbolSpace::Value, &["0/1", "a"]);
-        let a1 = AstSymbol::from_scopes(SymbolSpace::Value, &["1", "a"]);
-        let a10 = AstSymbol::from_scopes(SymbolSpace::Value, &["1", "0", "a"]);
-        let a12 = AstSymbol::from_scopes(SymbolSpace::Value, &["1", "2", "a"]);
         let mut data = SymbolData::from_parts(
             vec![(a.clone(), Tagged::new(Fixity::None))]
                 .into_iter()
@@ -179,42 +174,45 @@ mod tests {
                     AstSymbol::from_scopes(SymbolSpace::Value, &["1", "0"]),
                     a.clone(),
                 ),
-                (
-                    AstSymbol::from_scopes(SymbolSpace::Value, &["1", "2"]),
-                    a.clone(),
-                ),
+                (AstSymbol::from_scopes(SymbolSpace::Value, &["1", "2"]), a),
             ],
         );
+        let a = LookupKey::new(0);
+        let a001 = LookupKey::new(1);
+        let a01 = LookupKey::new(2);
+        let a1 = LookupKey::new(3);
+        let a10 = LookupKey::new(4);
+        let a12 = LookupKey::new(5);
         let expected = AstValueExpression::Application(
             Box::new(AstValueExpression::Application(
-                Box::new(AstValueExpression::Symbol(&a)),
+                Box::new(AstValueExpression::Symbol(a)),
                 Box::new(AstValueExpression::Application(
                     Box::new(AstValueExpression::Application(
-                        Box::new(AstValueExpression::Symbol(&a)),
+                        Box::new(AstValueExpression::Symbol(a)),
                         Box::new(AstValueExpression::Abstraction(
-                            vec![AstPatternExpression::Symbol(&a001)],
-                            Box::new(AstValueExpression::Symbol(&a001)),
+                            vec![AstPatternExpression::Symbol(a001)],
+                            Box::new(AstValueExpression::Symbol(a001)),
                         )),
                     )),
                     Box::new(AstValueExpression::Abstraction(
-                        vec![AstPatternExpression::Symbol(&a01)],
-                        Box::new(AstValueExpression::Symbol(&a01)),
+                        vec![AstPatternExpression::Symbol(a01)],
+                        Box::new(AstValueExpression::Symbol(a01)),
                     )),
                 )),
             )),
             Box::new(AstValueExpression::Abstraction(
-                vec![AstPatternExpression::Symbol(&a1)],
+                vec![AstPatternExpression::Symbol(a1)],
                 Box::new(AstValueExpression::Application(
                     Box::new(AstValueExpression::Application(
                         Box::new(AstValueExpression::Abstraction(
-                            vec![AstPatternExpression::Symbol(&a10)],
-                            Box::new(AstValueExpression::Symbol(&a10)),
+                            vec![AstPatternExpression::Symbol(a10)],
+                            Box::new(AstValueExpression::Symbol(a10)),
                         )),
-                        Box::new(AstValueExpression::Symbol(&a1)),
+                        Box::new(AstValueExpression::Symbol(a1)),
                     )),
                     Box::new(AstValueExpression::Abstraction(
-                        vec![AstPatternExpression::Symbol(&a12)],
-                        Box::new(AstValueExpression::Symbol(&a12)),
+                        vec![AstPatternExpression::Symbol(a12)],
+                        Box::new(AstValueExpression::Symbol(a12)),
                     )),
                 )),
             )),
