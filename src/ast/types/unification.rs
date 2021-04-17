@@ -1,3 +1,4 @@
+use crate::ast::symbol::LookupKey;
 use crate::ast::types::{AstType, BoundVariable, TypeRef, TypeVisitor};
 
 /// Performs unification (intrusively) and returns the unified type, if any.
@@ -54,7 +55,12 @@ impl<'arena> TypeVisitor<'arena> for UnificationVisitor {
         }
     }
 
-    fn visit_atom(&mut self, sym: usize, _typ: TypeRef<'arena>, arg: Self::Input) -> Self::Output {
+    fn visit_atom(
+        &mut self,
+        sym: LookupKey,
+        _typ: TypeRef<'arena>,
+        arg: Self::Input,
+    ) -> Self::Output {
         let other = arg.0.borrow();
         match *other {
             AstType::FreeVariable(_) => Ok(()),

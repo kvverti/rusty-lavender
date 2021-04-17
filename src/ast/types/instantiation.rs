@@ -1,3 +1,4 @@
+use crate::ast::symbol::LookupKey;
 use crate::ast::types::{AstType, BoundVariable, TypeArena, TypeRef, TypeVisitor};
 
 /// Applies the given bound variable replacements to types.
@@ -30,7 +31,12 @@ impl<'arena> TypeVisitor<'arena> for InstantiationVisitor<'arena> {
         }
     }
 
-    fn visit_atom(&mut self, _sym: usize, typ: TypeRef<'arena>, _: Self::Input) -> Self::Output {
+    fn visit_atom(
+        &mut self,
+        _sym: LookupKey,
+        typ: TypeRef<'arena>,
+        _: Self::Input,
+    ) -> Self::Output {
         typ
     }
 

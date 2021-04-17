@@ -4,6 +4,7 @@
 use std::cell::RefCell;
 use std::fmt::{Display, Formatter};
 
+use crate::ast::symbol::LookupKey;
 use typed_arena::Arena;
 
 mod instantiation;
@@ -23,7 +24,12 @@ pub trait TypeVisitor<'arena> {
         typ: TypeRef<'arena>,
         arg: Self::Input,
     ) -> Self::Output;
-    fn visit_atom(&mut self, sym: usize, typ: TypeRef<'arena>, arg: Self::Input) -> Self::Output;
+    fn visit_atom(
+        &mut self,
+        sym: LookupKey,
+        typ: TypeRef<'arena>,
+        arg: Self::Input,
+    ) -> Self::Output;
     fn visit_apply(
         &mut self,
         ctor: TypeRef<'arena>,
@@ -45,7 +51,7 @@ pub trait TypeVisitor<'arena> {
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum BoundVariable {
     /// A variable declared in the source code.
-    Declared(usize),
+    Declared(LookupKey),
     /// A variable inferred by the type checker.
     Inferred(u64),
 }
@@ -54,7 +60,7 @@ impl Display for BoundVariable {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Declared(symb) => {
-                write!(f, "'a{}", symb)
+                write!(f, "'a{}", symb.index())
             }
             Self::Inferred(idx) => {
                 write!(f, "'{}", idx)
@@ -74,7 +80,7 @@ pub enum AstType<'arena> {
     /// A bound variable which may be captured.
     BoundVariable(BoundVariable),
     /// A plain concrete type such as `Int`.
-    Atom(usize),
+    Atom(LookupKey),
     /// Type application.
     Application {
         ctor: TypeRef<'arena>,
@@ -96,7 +102,7 @@ impl Display for AstType<'_> {
         match self {
             AstType::FreeVariable(idx) => write!(f, "#{}", idx),
             AstType::BoundVariable(v) => write!(f, "{}", v),
-            AstType::Atom(symb) => write!(f, "{}", symb),
+            AstType::Atom(symb) => write!(f, "{}", symb.index()),
             AstType::Application { ctor, arg } => write!(f, "{} ({})", ctor, arg),
             AstType::Schema { vars, inner } => {
                 f.write_str("(for")?;
@@ -160,8 +166,11 @@ mod tests {
         let arena = Arena::new();
         let free_0 = TypeRef::new_in(&arena, AstType::FreeVariable(0));
         let bound_0 = TypeRef::new_in(&arena, AstType::BoundVariable(BoundVariable::Inferred(0)));
-        let bound_d = TypeRef::new_in(&arena, AstType::BoundVariable(BoundVariable::Declared(0)));
-        let atom = TypeRef::new_in(&arena, AstType::Atom(1));
+        let bound_d = TypeRef::new_in(
+            &arena,
+            AstType::BoundVariable(BoundVariable::Declared(LookupKey::new(0))),
+        );
+        let atom = TypeRef::new_in(&arena, AstType::Atom(LookupKey::new(1)));
         let app = TypeRef::new_in(
             &arena,
             AstType::Application {
@@ -203,13 +212,13 @@ mod tests {
 
     #[test]
     fn instantiation() {
-        let a = BoundVariable::Declared(0);
-        let b = BoundVariable::Declared(1);
+        let a = BoundVariable::Declared(LookupKey::new(0));
+        let b = BoundVariable::Declared(LookupKey::new(1));
 
         let arena = Arena::new();
         let free = TypeRef::new_in(&arena, AstType::FreeVariable(0));
-        let atom_foo = TypeRef::new_in(&arena, AstType::Atom(2));
-        let arrow = TypeRef::new_in(&arena, AstType::Atom(3));
+        let atom_foo = TypeRef::new_in(&arena, AstType::Atom(LookupKey::new(2)));
+        let arrow = TypeRef::new_in(&arena, AstType::Atom(LookupKey::new(3)));
         let bound = TypeRef::new_in(&arena, AstType::BoundVariable(a));
         let bound_b = TypeRef::new_in(&arena, AstType::BoundVariable(b));
         let b_a = TypeRef::new_in(
